@@ -4,9 +4,11 @@ A personal running coach agent that lives in the terminal. Authenticates with Go
 
 I am learning about Generative AI, AI agents and this project i am focusing on setting up MCP, system prompts, memory concepts.
 
-## Status: Phase 1 (Google OAuth) — in progress
+## Status: Phase 2 (MCP server + agent) — in progress
 
-OAuth flow is proven working end-to-end (see `test_fetch.py`, throwaway/reference script). Currently building the real `auth.py` + `db.py` (SQLite instead of `token.json` for storing tokens).
+Phase 1 (Google OAuth) is done — `auth.py` + `db.py` working with SQLite token storage (`data/strides.db`), including refresh. `test_fetch.py` (the throwaway reference script) is gone from the repo now that the real flow lives in `auth.py`.
+
+Phase 2: `fit_server.py` (MCP server) and `agent.py` (Claude tool-use chat loop) both exist and are wired together, but `fit_server.py` only exposes one generic `get_runs()` tool — the planned `get_recent_runs(days)` / `get_run_stats(start_date, end_date)` / `get_weekly_summary()` tools (with server-side aggregation) aren't built yet. Right now the agent's system prompt asks the LLM to do the unit math (m→km, ms→min, pace) itself instead. See `docs/PLAN.md` Phase 2 for details.
 
 ## Key discovery: data source is not the Google Fit REST API
 
