@@ -3,30 +3,36 @@
 ## What You're Building
 
 A personal running coach agent that lives in your terminal. It authenticates with Google,
-fetches your real run data from Google Fit, and lets you chat about your training.
+fetches your real run data from the Google Health API, and lets you chat about your training.
+
+See `CLAUDE.md` for the full story on why Google Fit REST API was abandoned in favor of the
+Google Health API, and why tokens are stored in SQLite instead of `token.json`.
 
 ---
 
-## Phase 1 — Google OAuth
-**Goal: Authenticate with Google so you can call the Fit API.**
+## Phase 1 — Google OAuth ✅ Done
+**Goal: Authenticate with Google so you can call the Health API.**
 
 ### Build order
-1. Google Cloud Console — create project, enable Fit API, create OAuth credentials
-2. `auth.py` — OAuth flow, token save/refresh
+1. ~~Google Cloud Console — create project, enable Fit API, create OAuth credentials~~
+   Done — project `strides-01263`, Health API enabled instead of Fit API (see CLAUDE.md)
+2. ~~`auth.py` — OAuth flow, token save/refresh~~ Done (`src/auth.py`)
+3. ~~`db.py` — SQLite token storage~~ Done (`data/db.py`), replaces `token.json`
 
 ### Done when
 ```
 python auth.py
-→ Browser opens, you log in, token.json is saved
+→ Browser opens (first run only), you log in, token saved to SQLite (data/strides.db)
+→ Subsequent runs silently reuse or refresh the saved token
 ```
 
 ---
 
-## Phase 2 — Google Fit MCP Server + Agent
-**Goal: Wrap Google Fit as an MCP server and connect an agent to it.**
+## Phase 2 — Google Health MCP Server + Agent
+**Goal: Wrap the Google Health API as an MCP server and connect an agent to it.**
 
 ### Build order
-1. `fit_server.py` — MCP server that calls Google Fit REST API using saved token
+1. `fit_server.py` — MCP server that calls the Google Health API using saved token
 2. `agent.py` — connects to fit_server, discovers tools dynamically, runs chat loop
 
 ### Tools to build in fit_server.py

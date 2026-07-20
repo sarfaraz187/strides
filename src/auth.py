@@ -73,9 +73,11 @@ def exchange_code_for_tokens(code: str) -> dict:
 
 
 def get_valid_access_token(email):
-    token = get_token(email)
+    dbResponse = get_token(email)
 
-    if token == None:
+    # Token doesn't exist
+    if dbResponse is None:
+        print("We have no token with this user. creating a new OAuth flow")
         code = get_authorization_code()
         response = exchange_code_for_tokens(code)
 
@@ -90,4 +92,23 @@ def get_valid_access_token(email):
         )
 
         return response["access_token"]
-    # elif tok
+
+    access_token, refresh_token, expires_at = dbResponse
+
+    # Token still valid
+    if expires_at > time.time():
+        print("We have a valid Token !!!!")
+        return access_token
+
+    # Token has expired
+    else:
+        response = refresh_access_token(refresh_token)
+
+        expires_at = int(time.time()) + response["expires_in"]
+        save_token(
+            email,
+            response["access_token"],
+            response["refresh_token"],
+            expires_at,
+        )
+        return response["access_token"]

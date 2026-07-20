@@ -8,7 +8,10 @@ load_dotenv()
 def main():
     init_db()
 
-    print("Hello from strides!")
+    print("----------------------------------")
+    print("!!!!!!! Hello from strides. !!!!!!")
+    print("----------------------------------")
+
     token = get_valid_access_token("sarfarazflame@gmail.com")
     print(token)
 

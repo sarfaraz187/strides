@@ -4,7 +4,7 @@ from pathlib import Path
 DB_PATH = Path(__file__).parent / "strides.db"
 
 
-def init_db():
+def init_db(): 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("""
@@ -39,7 +39,7 @@ def save_token(user_email, access_token, refresh_token, expires_at):
     conn.close()
 
 
-def get_token(user_email: str) -> str:
+def get_token(user_email: str) -> tuple[str, str, int] | None:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
