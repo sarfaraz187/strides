@@ -22,5 +22,14 @@ def get_runs() -> dict:
     return response.json()
 
 
+@mcp.tool()
+def calculate(expression: str) -> str:
+    """Safely evaluate a basic math expression."""
+    try:
+        return f"Result: {eval(expression, {'__builtins__': {}})}"
+    except:
+        return "Invalid expression."
+
+
 if __name__ == "__main__":
     mcp.run()

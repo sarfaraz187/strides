@@ -108,7 +108,7 @@ def get_valid_access_token(email):
         save_token(
             email,
             response["access_token"],
-            response["refresh_token"],
+            refresh_token,  # Note: refresh_token is not returned in the refresh response, so we keep the old one
             expires_at,
         )
         return response["access_token"]
