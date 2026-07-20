@@ -1,8 +1,10 @@
 import os
-import urllib.parse
-
+import time
+import json
 import requests
+import urllib.parse
 from dotenv import load_dotenv
+from data.db import get_token, save_token
 
 load_dotenv()
 
@@ -10,6 +12,24 @@ CLIENT_ID = os.environ["GOOGLE_CLIENT_ID"]
 CLIENT_SECRET = os.environ["GOOGLE_CLIENT_SECRET"]
 REDIRECT_URI = "https://www.google.com"
 SCOPE = "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly"
+
+
+def refresh_access_token(refresh_token: str) -> dict:
+    response = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+        },
+    )
+
+    if not response.ok:
+        print(response.text)
+    response.raise_for_status()
+
+    return response.json()
 
 
 def get_authorization_code() -> str:
@@ -52,26 +72,22 @@ def exchange_code_for_tokens(code: str) -> dict:
     return response.json()
 
 
-def fetch_activity_data(access_token: str) -> dict:
-    response = requests.get(
-        "https://health.googleapis.com/v4/users/me/dataTypes/exercise/dataPoints",
-        headers={"Authorization": f"Bearer {access_token}"},
-    )
-    if not response.ok:
-        print(response.text)
-    response.raise_for_status()
-    return response.json()
+def get_valid_access_token(email):
+    token = get_token(email)
 
+    if token == None:
+        code = get_authorization_code()
+        response = exchange_code_for_tokens(code)
 
-def main() -> None:
-    code = get_authorization_code()
-    tokens = exchange_code_for_tokens(code)
-    access_token = tokens["access_token"]
+        print(json.dumps(response, indent=2))
+        expires_at = int(time.time()) + response["expires_in"]
 
-    print("\nAccess token acquired. Fetching activity data...\n")
-    data = fetch_activity_data(access_token)
-    print(data)
+        save_token(
+            email,
+            response["access_token"],
+            response["refresh_token"],
+            expires_at,
+        )
 
-
-if __name__ == "__main__":
-    main()
+        return response["access_token"]
+    # elif tok
