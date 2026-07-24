@@ -1,3 +1,5 @@
+import json
+import sys
 import requests
 from mcp.server.fastmcp import FastMCP
 from src.auth import get_valid_access_token
@@ -18,6 +20,8 @@ def get_runs() -> dict:
     if not response.ok:
         print(response.text)
     response.raise_for_status()
+
+    print(json.dumps(response, indent=2), file=sys.stderr)
 
     return response.json()
 

@@ -32,10 +32,10 @@ async def main():
 
             tools_response = await session.list_tools()
 
-            print("------------------------------")
-            print(tools_response)
-            # print(tools_response.tools[0])
-            print("------------------------------")
+            # print("------------------------------")
+            # print(tools_response)
+            # # print(tools_response.tools[0])
+            # print("------------------------------")
 
             tools = [
                 {
@@ -80,7 +80,7 @@ async def strides_agent(session, tools):
             for block in response.content:
                 if block.type == "tool_use":
                     result = await session.call_tool(block.name, block.input)
-                    print(f"Tool result: {result}")
+                    # print(f"Tool result: {result}")
                     tool_results.append(
                         {
                             "type": "tool_result",
