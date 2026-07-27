@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 
-from auth.auth import get_valid_access_token
+from src.auth.auth import get_valid_access_token
 from data.db import init_db
 
 load_dotenv()

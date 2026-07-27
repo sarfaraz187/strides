@@ -4,11 +4,27 @@ A personal running coach agent that lives in the terminal. Authenticates with Go
 
 I am learning about Generative AI, AI agents and this project i am focusing on setting up MCP, system prompts, memory concepts.
 
-## Status: Phase 2 (MCP server + agent) — in progress
+## Status: Phase 2 (MCP server + agent) — done
 
-Phase 1 (Google OAuth) is done — `auth.py` + `db.py` working with SQLite token storage (`data/strides.db`), including refresh. `test_fetch.py` (the throwaway reference script) is gone from the repo now that the real flow lives in `auth.py`.
+Phase 1 (Google OAuth) is done — `auth.py` + `db.py` working with SQLite token storage (`data/strides.db`), including refresh, plus a fallback to re-run the full OAuth flow when the refresh token itself has expired (Google returns `invalid_grant`).
 
-Phase 2: `fit_server.py` (MCP server) and `agent.py` (Claude tool-use chat loop) both exist and are wired together, but `fit_server.py` only exposes one generic `get_runs()` tool — the planned `get_recent_runs(days)` / `get_run_stats(start_date, end_date)` / `get_weekly_summary()` tools (with server-side aggregation) aren't built yet. Right now the agent's system prompt asks the LLM to do the unit math (m→km, ms→min, pace) itself instead. See `docs/PLAN.md` Phase 2 for details.
+Phase 2 is done — `fit_server.py` (MCP server) exposes four tools: `get_runs` (raw), `get_recent_runs(days)`, `get_run_stats(start_date, end_date)`, and `get_weekly_stats()`. Unit conversion (millimeters→km, seconds-string→minutes) and aggregation (totals, average pace) happen server-side in `src/helpers/formatter.py`'s `parse_run()`, not in the LLM's system prompt. `agent.py` connects via MCP stdio, discovers tools dynamically, and runs the Claude tool-use chat loop. Verified end-to-end with real data. See `docs/PLAN.md` Phase 2 for details; Phase 3 (local tools for goals/notes) not started.
+
+### Google Health API filter syntax (learned the hard way)
+
+The `dataPoints.list` `filter` query param follows Google's AIP-160 filter syntax, not what you'd guess from the JSON field names:
+- String literals need **double quotes**, not single quotes.
+- The filterable field for exercise start time is `exercise.interval.civil_start_time` (a "civil"/local timestamp, e.g. `"2026-07-20T00:00:00"`, no trailing `Z`) — not `exercise.interval.start_time` (which exists in the JSON response but isn't a valid filter member) and not the raw JSON field name `startTime`.
+- Range filters use `AND`, e.g. `exercise.interval.civil_start_time>="..." AND exercise.interval.civil_start_time<"..."`.
+- Build the filter value via `requests`' `params=` dict, not hand-built into the URL string — reserved characters (colons, quotes) need proper percent-encoding or the API returns `INVALID_DATA_POINT_FILTER_SYNTAX`.
+
+### MCP stdio logging gotcha
+
+stdio transport reserves stdout for the JSON-RPC protocol — any stray `print()` without `file=sys.stderr` (or plain `logging` output not routed to stderr) can corrupt the connection. All logging in this project goes through `src/logging_config.py`'s `setup_logging()`, called once per entry point (`fit_server.py`, `auth.py`), writing to stderr only.
+
+### FastMCP tool return-type gotcha
+
+`@mcp.tool()`-decorated functions need their return type annotation to actually match what they return, and a bare `dict` annotation (unparameterized) causes `FastMCP` to fail with "Tool has an output schema but did not return structured content" — use `dict[str, Any]` instead.
 
 ## Key discovery: data source is not the Google Fit REST API
 

@@ -28,35 +28,28 @@ python auth.py
 
 ---
 
-## Phase 2 — Google Health MCP Server + Agent 🚧 In progress
+## Phase 2 — Google Health MCP Server + Agent ✅ Done
 **Goal: Wrap the Google Health API as an MCP server and connect an agent to it.**
 
 ### Build order
 1. ~~`fit_server.py` — MCP server that calls the Google Health API using saved token~~
-   Started (`src/fit_server.py`) — has one generic `get_runs()` tool (no date params yet).
-   Also has a stray `calculate()` tool not in the original plan — decide whether to keep it.
+   Done (`src/fit_server.py`) — four tools: `get_runs` (raw), `get_recent_runs(days)`,
+   `get_run_stats(start_date, end_date)`, `get_weekly_stats()`. Aggregation (unit
+   conversion, totals, avg pace) happens server-side via `src/helpers/formatter.py`'s
+   `parse_run()`, not in the LLM's system prompt. Also has a `calculate()` tool.
 2. ~~`agent.py` — connects to fit_server, discovers tools dynamically, runs chat loop~~
    Done (`src/agent.py`) — dynamic tool discovery + full Claude tool-use loop working.
-   Currently the system prompt asks the LLM to do unit conversion (m→km, ms→min) and
-   pace math itself at chat time, since the server doesn't aggregate.
-
-### Still to build in fit_server.py
-- `get_recent_runs(days)` — runs from last N days
-- `get_run_stats(start_date, end_date)` — aggregated stats for a period
-- `get_weekly_summary()` — total distance, avg pace, number of runs this week
-
-(Replaces/extends the current single `get_runs()` tool — moves aggregation from the
-LLM's system-prompt instructions into real server-side logic.)
+   System prompt describes all four tools and when to use each.
 
 ### Done when
 ```
 You: how was my running this week?
-→ Agent fetches real data from Google Fit and responds
+→ Agent fetches real data from Google Health API and responds
 
 You: what was my pace yesterday?
 → Agent calls the right tool and gives a real answer
 ```
-Not yet verified end-to-end with real data.
+Verified end-to-end with real data via `uv run python -m src.agent`.
 
 ---
 

@@ -104,7 +104,6 @@ def get_valid_access_token(email):
 
     access_token, refresh_token, expires_at = dbResponse
 
-    logging.info(access_token)
     # Token still valid
     if expires_at > time.time():
         return access_token
