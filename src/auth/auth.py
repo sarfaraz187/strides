@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 import urllib.parse
@@ -7,8 +8,11 @@ import requests
 from dotenv import load_dotenv
 
 from data.db import get_token, save_token
+from src.logging_config import setup_logging
 
 load_dotenv()
+setup_logging()
+
 
 CLIENT_ID = os.environ["GOOGLE_CLIENT_ID"]
 CLIENT_SECRET = os.environ["GOOGLE_CLIENT_SECRET"]
@@ -28,7 +32,7 @@ def refresh_access_token(refresh_token: str) -> dict:
     )
 
     if not response.ok:
-        print(response.text)
+        logging.error(response.text)
     response.raise_for_status()
 
     return response.json()
@@ -47,10 +51,12 @@ def get_authorization_code() -> str:
         params
     )
 
-    print("1. Open this URL, log in, and approve access:\n")
-    print(auth_url)
-    print("\n2. You'll land on google.com with a broken-looking page — that's fine.")
-    print(
+    logging.info("1. Open this URL, log in, and approve access:\n")
+    logging.info(auth_url)
+    logging.info(
+        "\n2. You'll land on google.com with a broken-looking page — that's fine."
+    )
+    logging.info(
         "   Copy the 'code' value from the address bar (after code= and before &scope)."
     )
 
@@ -69,7 +75,7 @@ def exchange_code_for_tokens(code: str) -> dict:
         },
     )
     if not response.ok:
-        print(response.text)
+        logging.error(response.text)
     response.raise_for_status()
     return response.json()
 
@@ -77,13 +83,14 @@ def exchange_code_for_tokens(code: str) -> dict:
 def get_valid_access_token(email):
     dbResponse = get_token(email)
 
+    # logging.info(f"DB Response: {dbResponse}")
     # Token doesn't exist
     if dbResponse is None:
-        print("We have no token with this user. creating a new OAuth flow")
+        logging.info("We have no token with this user. creating a new OAuth flow")
         code = get_authorization_code()
         response = exchange_code_for_tokens(code)
 
-        print(json.dumps(response, indent=2))
+        logging.info(json.dumps(response, indent=2))
         expires_at = int(time.time()) + response["expires_in"]
 
         save_token(
@@ -99,7 +106,7 @@ def get_valid_access_token(email):
 
     # Token still valid
     if expires_at > time.time():
-        print("We have a valid Token !!!!")
+        logging.info("We have a valid Token !!!!")
         return access_token
 
     # Token has expired

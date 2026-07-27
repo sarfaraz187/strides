@@ -1,11 +1,13 @@
 import json
 import logging
-import sys
 from datetime import datetime, timedelta, timezone
 
 from mcp.server.fastmcp import FastMCP
 
 from src.helpers.health_api import get_health_data
+from src.logging_config import setup_logging
+
+setup_logging()
 
 # Both Tool Execution handler and the MCP server in this file
 mcp = FastMCP("strides")
@@ -19,10 +21,8 @@ def get_runs() -> dict:
     """Fetch the user's recent running activity data."""
 
     response = get_health_data(f"{BASE_URL}/v4/users/me/dataTypes/exercise/dataPoints")
-    if not response.ok:
-        logging.info(response)
 
-    print(json.dumps(response, indent=2), file=sys.stderr)
+    logging.info(f"Fetching runs since: {response}")
     return response
 
 
