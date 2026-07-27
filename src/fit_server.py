@@ -48,6 +48,36 @@ def get_recent_runs(days: int = 7) -> list[dict[str, Any]]:
 
 
 @mcp.tool()
+def get_run_stats(start_date: str, end_date: str) -> dict[str, Any]:
+    """Get the user's running statistics from start date and end date. The format for the dates should be YYYY-MM-DD. Example: 2023-01-01"""
+
+    start_timestamp = f"{start_date}T00:00:00"
+    end_timestamp = f"{end_date}T00:00:00"
+
+    response = get_health_data(
+        f"{BASE_URL}/v4/users/me/dataTypes/exercise/dataPoints",
+        params={
+            "filter": f'exercise.interval.civil_start_time>="{start_timestamp}" AND exercise.interval.civil_start_time<"{end_timestamp}"'
+        },
+    )
+
+    logging.info(f"Response: {response}")
+    runs = parse_run(response)
+
+    total_distance_km = sum(run["distance_km"] for run in runs)
+    total_duration_min = sum(run["duration_min"] for run in runs)
+
+    return {
+        "run_count": len(runs),
+        "total_distance_km": round(total_distance_km, 2),
+        "total_duration_min": round(total_duration_min, 1),
+        "avg_pace_min_per_km": round(total_duration_min / total_distance_km, 2)
+        if total_distance_km
+        else None,
+    }
+
+
+@mcp.tool()
 def calculate(expression: str) -> str:
     """Safely evaluate a basic math expression."""
     try:
