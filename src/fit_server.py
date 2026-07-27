@@ -1,6 +1,7 @@
 import json
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
@@ -17,7 +18,7 @@ BASE_URL = "https://health.googleapis.com"
 
 
 @mcp.tool()
-def get_runs() -> dict:
+def get_runs() -> dict[str, Any]:
     """Fetch the user's recent running activity data."""
 
     response = get_health_data(f"{BASE_URL}/v4/users/me/dataTypes/exercise/dataPoints")
@@ -27,21 +28,23 @@ def get_runs() -> dict:
 
 
 @mcp.tool()
-def get_recent_runs(days: int = 7) -> list[dict]:
+def get_recent_runs(days: int = 7) -> dict[str, Any]:
     """Get the user's runs from the last N days. Use days=7 for 'this week',
     days=30 for 'this month', etc. Default 7 if unspecified."""
     now = datetime.now(timezone.utc)
     past = now - timedelta(days=days)
 
-    timestamp = past.strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = past.strftime("%Y-%m-%dT%H:%M:%S")
 
     logging.info(f"Fetching runs since: {timestamp}")
 
     response = get_health_data(
-        f"{BASE_URL}/v4/users/me/dataTypes/exercise/dataPoints?filter=exercise.interval.start_time>='{timestamp}'"
+        f"{BASE_URL}/v4/users/me/dataTypes/exercise/dataPoints",
+        params={"filter": f'exercise.interval.civil_start_time>="{timestamp}"'},
     )
 
-    logging.info(f"Response status code: {response.status_code}")
+    logging.info(f"Response: {response}")
+    return response
 
 
 @mcp.tool()

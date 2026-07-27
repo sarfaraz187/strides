@@ -106,7 +106,6 @@ def get_valid_access_token(email):
 
     # Token still valid
     if expires_at > time.time():
-        logging.info("We have a valid Token !!!!")
         return access_token
 
     # Token has expired
