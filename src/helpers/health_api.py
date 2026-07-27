@@ -1,10 +1,14 @@
 import logging
+import os
 
 import requests
+from dotenv import load_dotenv
 
 from src.auth.auth import get_valid_access_token
 
-EMAIL = "sarfarazflame@gmail.com"
+load_dotenv()
+
+EMAIL = os.environ["USER_EMAIL"]
 
 
 def get_health_data(url: str, params: dict | None = None) -> dict | str:

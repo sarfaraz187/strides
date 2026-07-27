@@ -128,4 +128,4 @@ def get_valid_access_token(email):
 
 
 if __name__ == "__main__":
-    get_valid_access_token("sarfarazflame@gmail.com")
+    get_valid_access_token(os.environ["USER_EMAIL"])

@@ -13,7 +13,6 @@ setup_logging()
 # Both Tool Execution handler and the MCP server in this file
 mcp = FastMCP("strides")
 
-EMAIL = "sarfarazflame@gmail.com"
 BASE_URL = "https://health.googleapis.com"
 
 
