@@ -111,13 +111,22 @@ def get_valid_access_token(email):
 
     # Token has expired
     else:
-        response = refresh_access_token(refresh_token)
+        try:
+            response = refresh_access_token(refresh_token)
+        except requests.HTTPError:
+            logging.info("Refresh token expired/revoked — starting new OAuth flow")
+            code = get_authorization_code()
+            response = exchange_code_for_tokens(code)
+            expires_at = int(time.time()) + response["expires_in"]
+            save_token(
+                email, response["access_token"], response["refresh_token"], expires_at
+            )
+            return response["access_token"]
 
         expires_at = int(time.time()) + response["expires_in"]
-        save_token(
-            email,
-            response["access_token"],
-            refresh_token,  # Note: refresh_token is not returned in the refresh response, so we keep the old one
-            expires_at,
-        )
+        save_token(email, response["access_token"], refresh_token, expires_at)
         return response["access_token"]
+
+
+if __name__ == "__main__":
+    get_valid_access_token("sarfarazflame@gmail.com")
