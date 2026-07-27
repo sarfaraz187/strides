@@ -2,20 +2,23 @@ import json
 import logging
 import sys
 from datetime import datetime, timedelta, timezone
-from mcp.server.fastmcp import FastMCP
-from helpers.health_api import get_health_data
 
+from mcp.server.fastmcp import FastMCP
+
+from src.helpers.health_api import get_health_data
+
+# Both Tool Execution handler and the MCP server in this file
 mcp = FastMCP("strides")
+
 EMAIL = "sarfarazflame@gmail.com"
+BASE_URL = "https://health.googleapis.com"
 
 
 @mcp.tool()
 def get_runs() -> dict:
     """Fetch the user's recent running activity data."""
 
-    response = get_health_data(
-        "https://health.googleapis.com/v4/users/me/dataTypes/exercise/dataPoints"
-    )
+    response = get_health_data(f"{BASE_URL}/v4/users/me/dataTypes/exercise/dataPoints")
     if not response.ok:
         logging.info(response)
 
@@ -35,7 +38,7 @@ def get_recent_runs(days: int = 7) -> list[dict]:
     logging.info(f"Fetching runs since: {timestamp}")
 
     response = get_health_data(
-        f"https://health.googleapis.com/v4/users/me/dataTypes/exercise/dataPoints?filter=exercise.interval.start_time>='{timestamp}'"
+        f"{BASE_URL}/v4/users/me/dataTypes/exercise/dataPoints?filter=exercise.interval.start_time>='{timestamp}'"
     )
 
     logging.info(f"Response status code: {response.status_code}")
@@ -50,5 +53,6 @@ def calculate(expression: str) -> str:
         return "Invalid expression."
 
 
+# Running the MCP server
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(transport="stdio")
