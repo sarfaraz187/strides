@@ -1,9 +1,9 @@
 import asyncio
+
 from anthropic import Anthropic
 from dotenv import load_dotenv
-from mcp import ClientSession
+from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from mcp import StdioServerParameters
 
 load_dotenv()
 client = Anthropic()

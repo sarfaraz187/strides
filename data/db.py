@@ -4,7 +4,7 @@ from pathlib import Path
 DB_PATH = Path(__file__).parent / "strides.db"
 
 
-def init_db(): 
+def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("""

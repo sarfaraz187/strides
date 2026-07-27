@@ -1,9 +1,9 @@
 import json
+import logging
 import sys
-import requests
 from datetime import datetime, timedelta, timezone
 from mcp.server.fastmcp import FastMCP
-from src.auth import get_valid_access_token
+from helpers.health_api import get_health_data
 
 mcp = FastMCP("strides")
 EMAIL = "sarfarazflame@gmail.com"
@@ -12,39 +12,33 @@ EMAIL = "sarfarazflame@gmail.com"
 @mcp.tool()
 def get_runs() -> dict:
     """Fetch the user's recent running activity data."""
-    access_token = get_valid_access_token(EMAIL)
 
-    response = requests.get(
-        "https://health.googleapis.com/v4/users/me/dataTypes/exercise/dataPoints",
-        headers={"Authorization": f"Bearer {access_token}"},
+    response = get_health_data(
+        "https://health.googleapis.com/v4/users/me/dataTypes/exercise/dataPoints"
     )
     if not response.ok:
-        print(response.text)
-    response.raise_for_status()
+        logging.info(response)
 
-    data = response.json()
-    print(json.dumps(data, indent=2), file=sys.stderr)
-
-    return data
+    print(json.dumps(response, indent=2), file=sys.stderr)
+    return response
 
 
 @mcp.tool()
 def get_recent_runs(days: int = 7) -> list[dict]:
     """Get the user's runs from the last N days. Use days=7 for 'this week',
     days=30 for 'this month', etc. Default 7 if unspecified."""
-    access_token = get_valid_access_token(EMAIL)
-
     now = datetime.now(timezone.utc)
     past = now - timedelta(days=days)
 
     timestamp = past.strftime("%Y-%m-%dT%H:%M:%SZ")
-    print(timestamp)
-    response = requests.get(
-        f"https://health.googleapis.com/v4/users/me/dataTypes/exercise/dataPoints?filter=exercise.interval.start_time>='{timestamp}'",
-        headers={"Authorization": f"Bearer {access_token}"},
+
+    logging.info(f"Fetching runs since: {timestamp}")
+
+    response = get_health_data(
+        f"https://health.googleapis.com/v4/users/me/dataTypes/exercise/dataPoints?filter=exercise.interval.start_time>='{timestamp}'"
     )
 
-    print("Status :", response.status_code)
+    logging.info(f"Response status code: {response.status_code}")
 
 
 @mcp.tool()

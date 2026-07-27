@@ -1,9 +1,11 @@
+import json
 import os
 import time
-import json
-import requests
 import urllib.parse
+
+import requests
 from dotenv import load_dotenv
+
 from data.db import get_token, save_token
 
 load_dotenv()
