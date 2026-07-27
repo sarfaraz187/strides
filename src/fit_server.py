@@ -19,7 +19,7 @@ BASE_URL = "https://health.googleapis.com"
 
 @mcp.tool()
 def get_runs() -> dict[str, Any]:
-    """Fetch the user's recent running activity data."""
+    """Fetch the user's raw recent running activity data (unconverted units)."""
 
     response = get_health_data(f"{BASE_URL}/v4/users/me/dataTypes/exercise/dataPoints")
 
@@ -29,7 +29,8 @@ def get_runs() -> dict[str, Any]:
 
 @mcp.tool()
 def get_recent_runs(days: int = 7) -> list[dict[str, Any]]:
-    """Get the user's runs from the last N days. Use days=7 for 'this week',
+    """Get the user's runs from the last N days, with distance in km, duration in
+    minutes, and pace in min/km already calculated. Use days=7 for 'this week',
     days=30 for 'this month', etc. Default 7 if unspecified."""
     now = datetime.now(timezone.utc)
     past = now - timedelta(days=days)
@@ -49,7 +50,9 @@ def get_recent_runs(days: int = 7) -> list[dict[str, Any]]:
 
 @mcp.tool()
 def get_run_stats(start_date: str, end_date: str) -> dict[str, Any]:
-    """Get the user's running statistics from start date and end date. The format for the dates should be YYYY-MM-DD. Example: 2023-01-01"""
+    """Get aggregated running statistics (total distance, total duration, average
+    pace, run count) between start_date and end_date. Dates in YYYY-MM-DD format,
+    e.g. 2023-01-01. end_date is exclusive."""
 
     start_timestamp = f"{start_date}T00:00:00"
     end_timestamp = f"{end_date}T00:00:00"
@@ -75,6 +78,23 @@ def get_run_stats(start_date: str, end_date: str) -> dict[str, Any]:
         if total_distance_km
         else None,
     }
+
+
+@mcp.tool()
+def get_weekly_stats() -> dict[str, Any]:
+    """Get the user's aggregated running statistics for the current week (Monday
+    through today). Returns total distance, total duration, average pace, and
+    run count."""
+    today = datetime.now(timezone.utc)
+    monday = today - timedelta(days=today.weekday())
+    end = today + timedelta(
+        days=1
+    )  # +1 because end_date is exclusive, this makes today included
+
+    start_date = monday.strftime("%Y-%m-%d")
+    end_date = end.strftime("%Y-%m-%d")
+
+    return get_run_stats(start_date, end_date)
 
 
 @mcp.tool()
