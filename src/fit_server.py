@@ -1,10 +1,10 @@
-import json
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from src.helpers.formatter import parse_run
 from src.helpers.health_api import get_health_data
 from src.logging_config import setup_logging
 
@@ -28,7 +28,7 @@ def get_runs() -> dict[str, Any]:
 
 
 @mcp.tool()
-def get_recent_runs(days: int = 7) -> dict[str, Any]:
+def get_recent_runs(days: int = 7) -> list[dict[str, Any]]:
     """Get the user's runs from the last N days. Use days=7 for 'this week',
     days=30 for 'this month', etc. Default 7 if unspecified."""
     now = datetime.now(timezone.utc)
@@ -44,7 +44,7 @@ def get_recent_runs(days: int = 7) -> dict[str, Any]:
     )
 
     logging.info(f"Response: {response}")
-    return response
+    return parse_run(response)
 
 
 @mcp.tool()
