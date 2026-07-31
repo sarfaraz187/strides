@@ -8,7 +8,9 @@ I am learning about Generative AI, AI agents and this project i am focusing on s
 
 Phase 1 (Google OAuth) is done — `auth.py` + `db.py` working with SQLite token storage (`data/strides.db`), including refresh, plus a fallback to re-run the full OAuth flow when the refresh token itself has expired (Google returns `invalid_grant`).
 
-Phase 2 is done — `fit_server.py` (MCP server) exposes four tools: `get_runs` (raw), `get_recent_runs(days)`, `get_run_stats(start_date, end_date)`, and `get_weekly_stats()`. Unit conversion (millimeters→km, seconds-string→minutes) and aggregation (totals, average pace) happen server-side in `src/helpers/formatter.py`'s `parse_run()`, not in the LLM's system prompt. `agent.py` connects via MCP stdio, discovers tools dynamically, and runs the Claude tool-use chat loop. Verified end-to-end with real data. See `docs/PLAN.md` Phase 2 for details; Phase 3 (local tools for goals/notes) not started.
+Phase 2 is done — `mcp_servers/fit_server/server.py` (MCP server) exposes four tools: `get_runs` (raw), `get_recent_runs(days)`, `get_run_stats(start_date, end_date)`, and `get_weekly_stats()`. Unit conversion (millimeters→km, seconds-string→minutes) and aggregation (totals, average pace) happen server-side in `mcp_servers/fit_server/helpers/formatter.py`'s `parse_run()`, not in the LLM's system prompt. `backend/agent.py` connects via MCP Streamable HTTP (`http://127.0.0.1:8000/mcp`), discovers tools dynamically, and runs the Claude tool-use chat loop. Verified end-to-end with real data. See `docs/PLAN.md` Phase 2 for details; Phase 3 (local tools for goals/notes) not started.
+
+Repo layout was split per the plan's target architecture: `backend/agent.py` (Claude loop + MCP client), `mcp_servers/fit_server/` (pure tool provider), `auth/auth.py` (Google OAuth), `logging_config.py` (shared, top-level — imported by both `auth.py` and `fit_server.py`). Old `src/` package removed.
 
 ### Google Health API filter syntax (learned the hard way)
 
@@ -20,7 +22,7 @@ The `dataPoints.list` `filter` query param follows Google's AIP-160 filter synta
 
 ### MCP stdio logging gotcha
 
-stdio transport reserves stdout for the JSON-RPC protocol — any stray `print()` without `file=sys.stderr` (or plain `logging` output not routed to stderr) can corrupt the connection. All logging in this project goes through `src/logging_config.py`'s `setup_logging()`, called once per entry point (`fit_server.py`, `auth.py`), writing to stderr only.
+stdio transport reserves stdout for the JSON-RPC protocol — any stray `print()` without `file=sys.stderr` (or plain `logging` output not routed to stderr) can corrupt the connection. (No longer a live constraint now that `fit_server.py` runs over Streamable HTTP, but kept as the reason logging is routed the way it is.) All logging in this project goes through top-level `logging_config.py`'s `setup_logging()`, called once per entry point (`fit_server.py`, `auth.py`), writing to stderr only.
 
 ### FastMCP tool return-type gotcha
 

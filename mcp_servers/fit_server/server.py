@@ -4,9 +4,9 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from src.helpers.formatter import parse_run
-from src.helpers.health_api import get_health_data
-from src.logging_config import setup_logging
+from logging_config import setup_logging
+from mcp_servers.fit_server.helpers.formatter import parse_run
+from mcp_servers.fit_server.helpers.health_api import get_health_data
 
 setup_logging()
 

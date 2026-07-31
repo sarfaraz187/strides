@@ -4,7 +4,7 @@ import os
 import requests
 from dotenv import load_dotenv
 
-from src.auth.auth import get_valid_access_token
+from auth.auth import get_valid_access_token
 
 load_dotenv()
 

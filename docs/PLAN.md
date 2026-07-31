@@ -20,10 +20,18 @@ Decided so far:
 - Hosting: GCP Cloud Run (pay-per-request, fits available credits)
 
 Decided sequencing:
-1. Migrate `fit_server.py` from stdio → Streamable HTTP transport, with multi-user auth
-   built in from this step (not retrofitted later)
-2. Build a client that talks to it over HTTP (replacing/evolving `agent.py`)
-3. Get that working end-to-end, multi-user, before adding anything new
+1. ~~Migrate `fit_server.py` from stdio → Streamable HTTP transport~~ Done —
+   `mcp.run(transport="streamable-http")`, `FastMCP("strides", host="127.0.0.1", port=8000)`.
+   Runs standalone (`uv run python -m mcp_servers.fit_server.server`), verified with a raw `curl` MCP
+   `initialize` handshake. Multi-user auth (per-request identity) not yet added — see
+   open item below.
+2. ~~Build a client that talks to it over HTTP (replacing/evolving `agent.py`)~~ Done —
+   `agent.py` now uses `streamable_http_client(SERVER_URL)` instead of `stdio_client` +
+   `StdioServerParameters`; everything downstream (`ClientSession`, tool discovery, chat
+   loop) unchanged, since it's transport-agnostic.
+3. Get that working end-to-end, multi-user, before adding anything new — HTTP
+   transport verified end-to-end (server + agent as two separate processes, real
+   Google Health data, multi-turn chat). Still single-user (no per-request auth yet).
 4. Calendar (Phase 4) is explicitly a later add-on, decided only after the above works —
    not being designed now
 
@@ -43,10 +51,10 @@ strides/
 │   └── auth.py                  # per-user session/identity handling
 ├── mcp_servers/
 │   └── fit_server/
-│       ├── server.py             # was src/fit_server.py
-│       └── helpers/               # health_api.py, formatter.py
+│       ├── server.py             # done — moved from src/fit_server.py
+│       └── helpers/               # done — health_api.py, formatter.py
 ├── frontend/                  # new — web chat UI, PWA-capable
-├── auth/                        # existing Google OAuth (src/auth/auth.py)
+├── auth/                        # existing Google OAuth — done, moved from src/auth/auth.py
 ├── data/                        # db.py — migrates to Postgres later
 └── docs/PLAN.md
 ```
@@ -129,7 +137,11 @@ You: how was my running this week?
 You: what was my pace yesterday?
 → Agent calls the right tool and gives a real answer
 ```
-Verified end-to-end with real data via `uv run python -m src.agent`.
+Verified end-to-end with real data via `uv run backend/agent.py`.
+
+Repo layout has since been split to match the target architecture below:
+`backend/agent.py`, `mcp_servers/fit_server/server.py` + `helpers/`, `auth/auth.py`,
+top-level `logging_config.py`. Old `src/` package removed.
 
 ---
 

@@ -8,7 +8,7 @@ import requests
 from dotenv import load_dotenv
 
 from data.db import get_token, save_token
-from src.logging_config import setup_logging
+from logging_config import setup_logging
 
 load_dotenv()
 setup_logging()
