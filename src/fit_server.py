@@ -11,7 +11,7 @@ from src.logging_config import setup_logging
 setup_logging()
 
 # Both Tool Execution handler and the MCP server in this file
-mcp = FastMCP("strides")
+mcp = FastMCP("strides", host="127.0.0.1", port=8000)
 
 BASE_URL = "https://health.googleapis.com"
 
@@ -107,4 +107,4 @@ def calculate(expression: str) -> str:
 
 # Running the MCP server
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    mcp.run(transport="streamable-http")

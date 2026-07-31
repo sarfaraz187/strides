@@ -2,11 +2,91 @@
 
 ## What You're Building
 
-A personal running coach agent that lives in your terminal. It authenticates with Google,
-fetches your real run data from the Google Health API, and lets you chat about your training.
+A running coach agent, originally a personal terminal tool, now being evolved into a
+multi-user product with a web chat client. It authenticates with Google, fetches real
+run data from the Google Health API, and lets users chat about their training.
 
 See `CLAUDE.md` for the full story on why Google Fit REST API was abandoned in favor of the
 Google Health API, and why tokens are stored in SQLite instead of `token.json`.
+
+## Direction change: multi-user product (decided, architecture still being worked out)
+
+Decided so far:
+- Client: web chat app, PWA-capable (phone-friendly without native app store overhead)
+- Transport: MCP servers move from stdio to Streamable HTTP (stdio is single-user/single-machine only)
+- Auth: Google Sign-In doubles as login + grants Health/Calendar scopes
+- Database: SQLite → Cloud SQL (Postgres) — SQLite doesn't survive concurrent multi-user
+  writes or container restarts
+- Hosting: GCP Cloud Run (pay-per-request, fits available credits)
+
+Decided sequencing:
+1. Migrate `fit_server.py` from stdio → Streamable HTTP transport, with multi-user auth
+   built in from this step (not retrofitted later)
+2. Build a client that talks to it over HTTP (replacing/evolving `agent.py`)
+3. Get that working end-to-end, multi-user, before adding anything new
+4. Calendar (Phase 4) is explicitly a later add-on, decided only after the above works —
+   not being designed now
+
+### Confirmed target architecture
+
+Three-way split, justified by a real constraint (stdio can't serve multiple browser
+clients — this isn't preference, it's a hard wall), and deliberately not going further
+than that constraint requires (no planner/evaluator agents, no gateway/microservices —
+see Anthropic's "Building Effective Agents" and harness-design writeups: add complexity
+only when a real wall forces it):
+
+```
+strides/
+├── backend/                  # was agent.py — real web backend now
+│   ├── main.py                 # FastAPI app, HTTP endpoints for the frontend
+│   ├── agent.py                 # Claude loop + MCP client logic (agent.py minus input()/print())
+│   └── auth.py                  # per-user session/identity handling
+├── mcp_servers/
+│   └── fit_server/
+│       ├── server.py             # was src/fit_server.py
+│       └── helpers/               # health_api.py, formatter.py
+├── frontend/                  # new — web chat UI, PWA-capable
+├── auth/                        # existing Google OAuth (src/auth/auth.py)
+├── data/                        # db.py — migrates to Postgres later
+└── docs/PLAN.md
+```
+
+Key point: `backend/` (real MCP client, holds the Claude conversation loop) and
+`mcp_servers/` (pure tool providers) are separate deployable things, even if they start
+in one repo. The browser only ever talks to `backend/`, never to MCP servers directly.
+
+### Confirmed: session auth design
+
+No email/password — every user needs a Google account anyway (Health/Calendar access
+requires it), so a second auth system would be pure extra surface with no benefit.
+
+Flow:
+1. User clicks "Sign in with Google" → Google OAuth consent → backend receives identity
+   + Health/Calendar access token.
+2. Backend saves the Google token in the `tokens` table (as today).
+3. Backend generates a random opaque session token, stores it in a new `sessions` table
+   keyed to the user's email, sends it to the browser as a cookie.
+4. Every subsequent request: browser auto-sends the cookie → backend looks up the token
+   in `sessions` → finds the user → uses that identity to pull the right Google token
+   from `tokens` for any Health/Calendar API call.
+5. Logout = delete the row from `sessions`. Immediate effect.
+
+Opaque token + DB lookup chosen over JWT: a DB is already in the picture (Google tokens
+live there), real revocation matters (logout, compromised token) and is free with this
+approach, and request volume doesn't yet justify JWT's stateless-verification tradeoff
+(harder revocation, needs a blocklist to fix). JWT is a legitimate future upgrade once
+scale actually demands it — not a now problem.
+
+Still open — architecture details not yet worked through in detail:
+- OAuth callback design (replacing the current manual paste-code-in-terminal flow)
+- How `agent.py`'s chat loop maps onto a request/response (or streaming) backend API
+- Database migration timing (SQLite → Cloud SQL) — not yet decided if this happens
+  alongside the transport migration or after
+
+This is a significant architecture shift from everything below (Phases 1-2, built and
+verified as a single-user local CLI tool). Phases 3+ below are pre-pivot and will be
+revised once the multi-user architecture is settled — treat them as historical context,
+not the current plan.
 
 ---
 

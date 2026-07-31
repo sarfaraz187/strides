@@ -2,16 +2,14 @@ import asyncio
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
 
 load_dotenv()
 client = Anthropic()
 model = "claude-haiku-4-5-20251001"
 
-server_params = StdioServerParameters(
-    command="uv", args=["run", "-m", "src.fit_server"]
-)
+SERVER_URL = "http://127.0.0.1:8000/mcp"
 
 SYSTEM_PROMPT = """You are Strides, a personal running coach. Always call a tool
 before answering any question about the user's training — never guess.
@@ -31,7 +29,7 @@ Be concise and encouraging. Only answer running-related questions."""
 
 async def main():
     """Connect to the fit_server MCP server and start the chat loop."""
-    async with stdio_client(server_params) as (read, write):
+    async with streamable_http_client(SERVER_URL) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
 
