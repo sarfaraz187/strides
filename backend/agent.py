@@ -1,8 +1,8 @@
-import asyncio
-
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from mcp import ClientSession
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
 from mcp.client.streamable_http import streamable_http_client
 
 load_dotenv()
@@ -26,18 +26,24 @@ You have these tools:
 
 Be concise and encouraging. Only answer running-related questions."""
 
+app_state = {}
 
-async def main():
-    """Connect to the fit_server MCP server and start the chat loop."""
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Connect to the fit_server MCP server for the lifetime of the app."""
     async with streamable_http_client(SERVER_URL) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
 
-            tools = await get_tool_schemas(session)
+            app_state["session"] = session
+            app_state["tools"] = await get_tool_schemas(session)
+            app_state["messages"] = []
 
-            print("\nConnected to server with tools:", [t["name"] for t in tools])
+            yield
 
-            await chat_loop(session, tools)
+
+app = FastAPI(lifespan=lifespan)
 
 
 async def get_tool_schemas(session):
@@ -82,10 +88,10 @@ async def process_query(session, tools, messages):
         messages.append({"role": "assistant", "content": response.content})
 
         if response.stop_reason != "tool_use":
-            for block in response.content:
-                if block.type == "text":
-                    print(block.text)
-            return
+            reply = "\n".join(
+                block.text for block in response.content if block.type == "text"
+            )
+            return reply
 
         messages.append(
             {"role": "user", "content": await call_tools(session, response.content)}
@@ -114,5 +120,6 @@ async def call_tools(session, content_blocks):
     return tool_results
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+from backend.routes.chat import router  # noqa: E402
+
+app.include_router(router)
