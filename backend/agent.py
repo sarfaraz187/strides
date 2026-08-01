@@ -48,5 +48,7 @@ app = FastAPI(lifespan=lifespan)
 
 from backend.services.chat_service import get_tool_schemas  # noqa: E402
 from backend.routes.chat import router  # noqa: E402
+from backend.routes.auth import router as auth_router  # noqa: E402
 
 app.include_router(router)
+app.include_router(auth_router)

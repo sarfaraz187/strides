@@ -1,56 +1,139 @@
-import sqlite3
-from pathlib import Path
+import os
+import secrets
+from datetime import datetime
 
-DB_PATH = Path(__file__).parent / "strides.db"
+import psycopg
+
+from backend.encryption import decrypt, encrypt
 
 
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tokens (
-            user_email TEXT PRIMARY KEY,
-            access_token TEXT NOT NULL,
-            refresh_token TEXT NOT NULL,
-            expires_at INTEGER NOT NULL
+def get_connection() -> psycopg.Connection:
+    return psycopg.connect(os.environ["DATABASE_URL"])
+
+
+def init_db() -> None:
+    with get_connection() as conn:
+        conn.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                email TEXT UNIQUE NOT NULL,
+                google_sub TEXT UNIQUE NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT now()
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ DEFAULT now(),
+                expires_at TIMESTAMPTZ NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS oauth_tokens (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                provider TEXT NOT NULL,
+                access_token TEXT NOT NULL,
+                refresh_token TEXT NOT NULL,
+                expires_at BIGINT NOT NULL,
+                UNIQUE (user_id, provider)
+            )
+        """)
+        conn.commit()
+
+
+def find_or_create_user(email: str, google_sub: str) -> str:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM users WHERE google_sub = %s", (google_sub,)
+        ).fetchone()
+        if row is not None:
+            return str(row[0])
+
+        row = conn.execute(
+            """
+            INSERT INTO users (email, google_sub)
+            VALUES (%s, %s)
+            RETURNING id
+            """,
+            (email, google_sub),
+        ).fetchone()
+        conn.commit()
+        return str(row[0])
+
+
+def create_session(user_id: str, expires_at: datetime) -> str:
+    token = secrets.token_urlsafe(32)
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO sessions (token, user_id, expires_at)
+            VALUES (%s, %s, %s)
+            """,
+            (token, user_id, expires_at),
         )
-    """)
-    conn.commit()
-    conn.close()
+        conn.commit()
+    return token
 
 
-def save_token(user_email, access_token, refresh_token, expires_at):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        INSERT INTO tokens (user_email, access_token, refresh_token, expires_at)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(user_email) DO UPDATE SET
-            access_token = excluded.access_token,
-            refresh_token = excluded.refresh_token,
-            expires_at = excluded.expires_at
-    """,
-        (user_email, access_token, refresh_token, expires_at),
-    )
-
-    conn.commit()
-    conn.close()
+def get_session_user_id(token: str) -> str | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT user_id FROM sessions
+            WHERE token = %s AND expires_at > now()
+            """,
+            (token,),
+        ).fetchone()
+    return str(row[0]) if row is not None else None
 
 
-def get_token(user_email: str) -> tuple[str, str, int] | None:
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+def delete_session(token: str) -> None:
+    with get_connection() as conn:
+        conn.execute("DELETE FROM sessions WHERE token = %s", (token,))
+        conn.commit()
 
-    cursor.execute(
-        """
-        SELECT access_token, refresh_token, expires_at FROM tokens WHERE user_email = ?
-        """,
-        (user_email,),
-    )
-    result = cursor.fetchone()
 
-    conn.commit()
-    conn.close()
-    return result
+def save_oauth_token(
+    user_id: str, provider: str, access_token: str, refresh_token: str, expires_at: int
+) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO oauth_tokens
+                (user_id, provider, access_token, refresh_token, expires_at)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (user_id, provider) DO UPDATE SET
+                access_token = excluded.access_token,
+                refresh_token = excluded.refresh_token,
+                expires_at = excluded.expires_at
+            """,
+            (user_id, provider, encrypt(access_token), encrypt(refresh_token), expires_at),
+        )
+        conn.commit()
+
+
+def get_oauth_token(user_id: str, provider: str) -> tuple[str, str, int] | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT access_token, refresh_token, expires_at
+            FROM oauth_tokens WHERE user_id = %s AND provider = %s
+            """,
+            (user_id, provider),
+        ).fetchone()
+    if row is None:
+        return None
+    access_token, refresh_token, expires_at = row
+    return decrypt(access_token), decrypt(refresh_token), expires_at
+
+
+def delete_oauth_token(user_id: str, provider: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "DELETE FROM oauth_tokens WHERE user_id = %s AND provider = %s",
+            (user_id, provider),
+        )
+        conn.commit()

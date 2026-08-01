@@ -165,7 +165,7 @@ git commit -m "feat: add AES-256-GCM token encryption module"
 
 ---
 
-## Task 3: Postgres connection and schema
+## Task 3: Postgres connection and schema ✅ DONE (verified against real Supabase Postgres, session pooler)
 
 **Files:**
 - Modify: `data/db.py` (replace `sqlite3` implementation entirely)
@@ -307,7 +307,7 @@ git commit -m "feat: replace SQLite with Postgres schema (users, sessions, oauth
 
 ---
 
-## Task 4: User and session CRUD
+## Task 4: User and session CRUD ✅ DONE (verified passing against real Supabase Postgres)
 
 **Files:**
 - Modify: `data/db.py`
@@ -454,7 +454,7 @@ git commit -m "feat: add user and session CRUD to data/db.py"
 
 ---
 
-## Task 5: OAuth token storage (encrypted)
+## Task 5: OAuth token storage (encrypted) ✅ DONE (verified passing against real Supabase Postgres)
 
 **Files:**
 - Modify: `data/db.py`
@@ -598,7 +598,7 @@ git commit -m "feat: add encrypted oauth token storage to data/db.py"
 
 ---
 
-## Task 6: App login routes (identity-only OAuth)
+## Task 6: App login routes (identity-only OAuth) 🔶 CODE WRITTEN, TESTS NOT YET VERIFIED (FastAPI app lives in `backend/agent.py`, not `backend/main.py` as the plan template assumed — test file adjusted accordingly; router mounted in `backend/agent.py`; run `uv run pytest tests/backend/routes/test_auth.py -v` to verify)
 
 **Files:**
 - Create: `backend/routes/auth.py`
