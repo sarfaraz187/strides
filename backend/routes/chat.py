@@ -1,7 +1,8 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from backend.agent import app_state, process_query
+from backend.agent import app_state
+from backend.services.chat_service import process_query
 
 router = APIRouter()
 
