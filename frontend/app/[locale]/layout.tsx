@@ -3,6 +3,7 @@ import { getMessages } from "next-intl/server";
 import { IBM_Plex_Mono, Inter } from "next/font/google";
 
 import "../globals.css";
+import { QueryProvider } from "@/lib/query-provider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const ibmPlexMono = IBM_Plex_Mono({
@@ -24,7 +25,7 @@ export default async function LocaleLayout({
     <html lang={locale} className={`${inter.variable} ${ibmPlexMono.variable}`}>
       <body className="bg-background font-sans">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          {children}
+          <QueryProvider>{children}</QueryProvider>
         </NextIntlClientProvider>
       </body>
     </html>
