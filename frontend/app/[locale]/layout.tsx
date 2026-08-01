@@ -13,6 +13,15 @@ const ibmPlexMono = IBM_Plex_Mono({
   variable: "--font-ibm-plex-mono",
 });
 
+export const metadata = {
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Strides",
+  },
+};
+
 export default async function LocaleLayout({
   children,
   params,
