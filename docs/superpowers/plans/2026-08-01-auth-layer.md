@@ -18,7 +18,7 @@
 
 ---
 
-## Task 1: Dependencies and environment
+## Task 1: Dependencies and environment ✅ DONE
 
 **Files:**
 - Modify: `pyproject.toml`
@@ -27,18 +27,18 @@
 **Interfaces:**
 - Produces: `DATABASE_URL`, `TOKEN_ENCRYPTION_KEY` env vars, available to all later tasks via `os.environ`.
 
-- [ ] **Step 1: Add dependencies**
+- [x] **Step 1: Add dependencies**
 
 Run:
 ```bash
 uv add "psycopg[binary]" cryptography
 ```
 
-- [ ] **Step 2: Add a test-database dependency group entry**
+- [x] **Step 2: Add a test-database dependency group entry**
 
 Edit `pyproject.toml`, under `[dependency-groups] dev`, no change needed — `pytest` already present. Confirm `psycopg` and `cryptography` now appear under `[project] dependencies`.
 
-- [ ] **Step 3: Document new env vars**
+- [x] **Step 3: Document new env vars**
 
 Read the current `.env` usage:
 ```bash
@@ -63,7 +63,7 @@ git commit -m "chore: add psycopg and cryptography dependencies"
 
 ---
 
-## Task 2: Token encryption module
+## Task 2: Token encryption module 🔶 IN PROGRESS (1 of 3 tests written; nondeterminism + tamper-rejection tests still to do)
 
 **Files:**
 - Create: `backend/encryption.py`
@@ -73,7 +73,7 @@ git commit -m "chore: add psycopg and cryptography dependencies"
 - Produces: `encrypt(plaintext: str) -> str`, `decrypt(ciphertext: str) -> str`. Both read the key from `os.environ["TOKEN_ENCRYPTION_KEY"]` (base64-encoded 32-byte key) at call time.
 - Consumes: nothing from other tasks.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests** (partial — only `test_encrypt_then_decrypt_returns_original` written so far)
 
 ```python
 # tests/backend/test_encryption.py
