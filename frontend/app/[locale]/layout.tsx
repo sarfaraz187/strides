@@ -3,6 +3,7 @@ import { getMessages } from "next-intl/server";
 import { IBM_Plex_Mono, Inter } from "next/font/google";
 
 import "../globals.css";
+import { AuthProvider } from "@/lib/auth-context";
 import { QueryProvider } from "@/lib/query-provider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -25,7 +26,9 @@ export default async function LocaleLayout({
     <html lang={locale} className={`${inter.variable} ${ibmPlexMono.variable}`}>
       <body className="bg-background font-sans">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </QueryProvider>
         </NextIntlClientProvider>
       </body>
     </html>
