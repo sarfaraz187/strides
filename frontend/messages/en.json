@@ -1,0 +1,23 @@
+{
+  "signIn": {
+    "title": "Strides",
+    "tagline": "Your running coach, always on.",
+    "cta": "Sign in with Google",
+    "disclaimer": "Grants read access to run data.\nNo calendar access yet."
+  },
+  "dashboard": {
+    "thisWeek": "This week",
+    "goal": "Goal: {distance}km this week",
+    "recentRuns": "Recent runs",
+    "goals": "Goals"
+  },
+  "chat": {
+    "coachName": "Coach",
+    "syncedStatus": "Synced with Google Health",
+    "placeholder": "Ask about your training..."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "coach": "Coach"
+  }
+}
