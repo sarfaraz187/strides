@@ -63,7 +63,7 @@ git commit -m "chore: add psycopg and cryptography dependencies"
 
 ---
 
-## Task 2: Token encryption module 🔶 IN PROGRESS (1 of 3 tests written; nondeterminism + tamper-rejection tests still to do)
+## Task 2: Token encryption module ✅ DONE
 
 **Files:**
 - Create: `backend/encryption.py`
@@ -73,7 +73,7 @@ git commit -m "chore: add psycopg and cryptography dependencies"
 - Produces: `encrypt(plaintext: str) -> str`, `decrypt(ciphertext: str) -> str`. Both read the key from `os.environ["TOKEN_ENCRYPTION_KEY"]` (base64-encoded 32-byte key) at call time.
 - Consumes: nothing from other tasks.
 
-- [x] **Step 1: Write the failing tests** (partial — only `test_encrypt_then_decrypt_returns_original` written so far)
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/backend/test_encryption.py
@@ -112,12 +112,12 @@ def test_decrypt_rejects_tampered_ciphertext():
         decrypt(tampered)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/backend/test_encryption.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'backend.encryption'`
 
-- [ ] **Step 3: Implement the module**
+- [x] **Step 3: Implement the module**
 
 ```python
 # backend/encryption.py
@@ -151,12 +151,12 @@ def decrypt(ciphertext: str) -> str:
     return plaintext.decode("utf-8")
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/backend/test_encryption.py -v`
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/encryption.py tests/backend/test_encryption.py
