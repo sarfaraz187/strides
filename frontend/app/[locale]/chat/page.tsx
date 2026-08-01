@@ -1,5 +1,6 @@
 import { BottomNav } from "@/components/bottom-nav";
 import { ChatScreen } from "@/components/chat-screen";
+import { RequireAuth } from "@/components/require-auth";
 
 export default async function ChatPage({
   params,
@@ -8,9 +9,11 @@ export default async function ChatPage({
 }) {
   const { locale } = await params;
   return (
-    <div className="flex h-screen flex-col">
-      <ChatScreen locale={locale} />
-      <BottomNav active="coach" locale={locale} />
-    </div>
+    <RequireAuth locale={locale}>
+      <div className="flex h-screen flex-col">
+        <ChatScreen locale={locale} />
+        <BottomNav active="coach" locale={locale} />
+      </div>
+    </RequireAuth>
   );
 }
