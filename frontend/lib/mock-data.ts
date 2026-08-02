@@ -15,6 +15,8 @@ export const mockRecentRuns: RecentRun[] = [
   { day: "Sunday", time: "8:20 AM", distance: "5.5 km", pace: "5:29/km" },
 ];
 
+export const mockWeekGoalPct = 73;
+
 export const mockGoals: Goal[] = [
   { title: "Run 30km this week", pct: 73 },
   { title: "Sub-25min 5K by Sept", pct: 40 },

@@ -38,10 +38,20 @@ export function ChatScreen({ locale }: { locale: string }) {
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex items-center gap-2.5 border-b border-border px-[22px] py-4">
-        <div className="h-[34px] w-[34px] rounded-[10px] bg-primary" />
+        <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M4 17L9 10L13 14L20 5"
+              stroke="#D8DED0"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
         <div>
           <div className="text-sm font-semibold text-primary">{t("coachName")}</div>
-          <div className="text-[11px] text-accent">{t("syncedStatus")}</div>
+          <div className="text-[11px] text-chat-sync">{t("syncedStatus")}</div>
         </div>
       </div>
 
@@ -55,7 +65,7 @@ export function ChatScreen({ locale }: { locale: string }) {
               className={`mb-2.5 flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[78%] rounded-2xl px-[15px] py-[11px] text-sm ${
+                className={`max-w-[78%] rounded-[16px] px-[15px] py-[11px] text-sm leading-[1.45] ${
                   msg.from === "user"
                     ? "rounded-br-[4px] bg-primary text-primary-foreground"
                     : "rounded-bl-[4px] border border-border bg-card text-primary"
@@ -81,7 +91,15 @@ export function ChatScreen({ locale }: { locale: string }) {
           onClick={handleSend}
           className="h-11 w-11 rounded-full bg-primary p-0"
         >
-          →
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M4 12h15m0 0l-6-6m6 6l-6 6"
+              stroke="#F6F4EF"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </Button>
       </div>
     </div>

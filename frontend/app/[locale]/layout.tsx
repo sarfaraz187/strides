@@ -1,17 +1,8 @@
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
-import { IBM_Plex_Mono, Inter } from "next/font/google";
 
-import "../globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { QueryProvider } from "@/lib/query-provider";
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const ibmPlexMono = IBM_Plex_Mono({
-  weight: ["500", "600", "700"],
-  subsets: ["latin"],
-  variable: "--font-ibm-plex-mono",
-});
 
 export const metadata = {
   manifest: "/manifest.json",
@@ -32,14 +23,10 @@ export default async function LocaleLayout({
   const { locale } = await params;
   const messages = await getMessages();
   return (
-    <html lang={locale} className={`${inter.variable} ${ibmPlexMono.variable}`}>
-      <body className="bg-background font-sans">
-        <NextIntlClientProvider locale={locale} messages={messages}>
-          <QueryProvider>
-            <AuthProvider>{children}</AuthProvider>
-          </QueryProvider>
-        </NextIntlClientProvider>
-      </body>
-    </html>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <QueryProvider>
+        <AuthProvider>{children}</AuthProvider>
+      </QueryProvider>
+    </NextIntlClientProvider>
   );
 }
