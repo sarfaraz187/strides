@@ -8,7 +8,7 @@ import { mockGoals, mockRecentRuns, mockUser, mockWeekGoalPct, mockWeekStats } f
 
 export function DashboardScreen({ locale }: { locale: string }) {
   const t = useTranslations("dashboard");
-  const today = new Date().toLocaleDateString(undefined, {
+  const today = new Date().toLocaleDateString(locale, {
     weekday: "long",
     month: "short",
     day: "numeric",
