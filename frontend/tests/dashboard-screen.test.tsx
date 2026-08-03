@@ -9,13 +9,15 @@ describe("DashboardScreen", () => {
   it("renders week stats, recent runs, and goals from mock data", () => {
     render(
       <NextIntlClientProvider locale="en" messages={en}>
-        <DashboardScreen />
+        <DashboardScreen locale="en" />
       </NextIntlClientProvider>
     );
 
     expect(screen.getByText(en.dashboard.thisWeek)).toBeInTheDocument();
     expect(screen.getByText(en.dashboard.recentRuns)).toBeInTheDocument();
-    expect(screen.getByText(en.dashboard.goals)).toBeInTheDocument();
+    // "Goals" renders twice: mobile section header + desktop grid-card header
+    // (both present in the DOM regardless of viewport; CSS `hidden`/`lg:` toggles visibility).
+    expect(screen.getAllByText(en.dashboard.goals)).toHaveLength(2);
     expect(screen.getByText("21.9")).toBeInTheDocument(); // mock weekly km
   });
 });

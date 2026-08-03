@@ -15,6 +15,14 @@
   --color-icon-tile: #EEF2EA;
   --color-avatar-bg: #E4E0D5;
   --color-disclaimer: #A2AB9F;
+  --color-connector-blue-bg: #E8EFFB;
+  --color-connector-blue: #3D5C99;
+  --color-status-connected: #5C7A5E;
+  --color-status-pending: #B08A3A;
+  --color-status-disconnected: #9BA598;
+  --color-danger: #B23A3A;
+  --color-danger-bg: #FCEBEB;
+  --color-danger-border: #E3B3B3;
 }
 
 body {

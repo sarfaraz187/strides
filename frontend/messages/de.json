@@ -18,6 +18,27 @@
   },
   "nav": {
     "dashboard": "Übersicht",
-    "coach": "Coach"
+    "coach": "Coach",
+    "connectors": "Verbindungen"
+  },
+  "connectors": {
+    "title": "Verbindungen",
+    "subtitle": "Erlaube Coach, Daten aus deinen anderen Apps und Diensten zu lesen.",
+    "connected": "Verbunden",
+    "connecting": "Verbindet…",
+    "notConnected": "Nicht verbunden",
+    "connect": "Verbinden",
+    "disconnect": "Trennen"
+  },
+  "profile": {
+    "weeklyGoal": "Wochenziel",
+    "decreaseGoal": "Wochenziel verringern",
+    "increaseGoal": "Wochenziel erhöhen",
+    "units": "Einheiten",
+    "kilometers": "Kilometer",
+    "miles": "Meilen",
+    "notifications": "Benachrichtigungen",
+    "memberSince": "Mitglied seit",
+    "logOut": "Abmelden"
   }
 }
