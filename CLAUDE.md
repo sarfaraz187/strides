@@ -4,13 +4,28 @@ A personal running coach agent that lives in the terminal. Authenticates with Go
 
 I am learning about Generative AI, AI agents and this project i am focusing on setting up MCP, system prompts, memory concepts.
 
-## Status: Phase 2 (MCP server + agent) — done
+## Status: multi-user pivot in progress (frontend + auth layer)
 
-Phase 1 (Google OAuth) is done — `auth.py` + `db.py` working with SQLite token storage (`data/strides.db`), including refresh, plus a fallback to re-run the full OAuth flow when the refresh token itself has expired (Google returns `invalid_grant`).
+Phase 1 (Google OAuth, single-user) is done — `auth.py` + `db.py` working with SQLite token storage (`data/strides.db`), including refresh, plus a fallback to re-run the full OAuth flow when the refresh token itself has expired (Google returns `invalid_grant`).
 
-Phase 2 is done — `mcp_servers/fit_server/server.py` (MCP server) exposes four tools: `get_runs` (raw), `get_recent_runs(days)`, `get_run_stats(start_date, end_date)`, and `get_weekly_stats()`. Unit conversion (millimeters→km, seconds-string→minutes) and aggregation (totals, average pace) happen server-side in `mcp_servers/fit_server/helpers/formatter.py`'s `parse_run()`, not in the LLM's system prompt. `backend/agent.py` connects via MCP Streamable HTTP (`http://127.0.0.1:8000/mcp`), discovers tools dynamically, and runs the Claude tool-use chat loop. Verified end-to-end with real data. See `docs/PLAN.md` Phase 2 for details; Phase 3 (local tools for goals/notes) not started.
+Phase 2 is done — `mcp_servers/fit_server/server.py` (MCP server) exposes four tools: `get_runs` (raw), `get_recent_runs(days)`, `get_run_stats(start_date, end_date)`, and `get_weekly_stats()`. Unit conversion (millimeters→km, seconds-string→minutes) and aggregation (totals, average pace) happen server-side in `mcp_servers/fit_server/helpers/formatter.py`'s `parse_run()`, not in the LLM's system prompt. `backend/agent.py` connects via MCP Streamable HTTP (`http://127.0.0.1:8000/mcp`), discovers tools dynamically, and runs the Claude tool-use chat loop. Verified end-to-end with real data. See `docs/PLAN.md` Phase 2 for details.
 
-Repo layout was split per the plan's target architecture: `backend/agent.py` (Claude loop + MCP client), `mcp_servers/fit_server/` (pure tool provider), `auth/auth.py` (Google OAuth), `logging_config.py` (shared, top-level — imported by both `auth.py` and `fit_server.py`). Old `src/` package removed.
+Repo layout was split per the plan's target architecture: `backend/agent.py` (Claude loop + MCP client), `mcp_servers/fit_server/` (pure tool provider), `auth/auth.py` (Google OAuth, single-user), `logging_config.py` (shared, top-level — imported by both `auth.py` and `fit_server.py`). Old `src/` package removed.
+
+Since then the project pivoted to the multi-user architecture in `docs/superpowers/specs/2026-08-01-multi-user-architecture-design.md` (build plan: `docs/superpowers/plans/2026-08-01-auth-layer.md` for backend auth, `docs/superpowers/plans/2026-08-01-frontend.md` for frontend). Current state:
+
+**Backend auth (Postgres/Supabase, multi-user) — partially done:**
+- `backend/encryption.py` — AES-256-GCM token encryption, done.
+- `data/db.py` — Postgres schema (`users`, `sessions`, `oauth_tokens`) + CRUD (`find_or_create_user`, `create_session`/`get_session_user_id`/`delete_session`, `save_oauth_token`/`get_oauth_token`/`delete_oauth_token`). Runs against `DATABASE_URL` (Supabase), replacing the old single-user SQLite db.
+- `backend/routes/auth.py` — Google **identity** login flow (`/auth/login`, `/auth/callback`, `/auth/logout`) done: exchanges code, resolves/creates a user, sets an httpOnly `session` cookie backed by the `sessions` table.
+- **Not yet built**: the Health-connect OAuth flow (separate consent, `oauth_tokens` table) — `save_oauth_token`/`get_oauth_token` exist in `db.py` but nothing calls them yet. No `/auth/me` route either, even though the frontend's `AuthProvider` already expects one.
+- **Known gap**: `backend/routes/chat.py` / `agent.py` still use a single global `app_state` (one shared session/message list for the whole process), not scoped by the session cookie — `/chat` isn't actually multi-user yet even though login is.
+- `main.py` (the old CLI entrypoint) still imports `src.auth.auth`, which no longer exists — stale/broken, not updated for the Postgres/multi-user path.
+
+**Frontend (Next.js, Vercel target) — well underway:**
+Scaffold, Tailwind v4 theme, shadcn/ui primitives, next-intl (en/de) routing, API client + React Query provider, `AuthProvider` (via `/auth/me` — not yet implemented backend-side, see above), sign-in screen, dashboard screen (mock stats/runs/goals, not wired to real data), chat screen (Framer Motion bubbles, calls `/chat`), PWA manifest/icons, and auth-state-based redirect between sign-in/dashboard. Dashboard is still mock data, not connected to `get_weekly_stats()`/`get_recent_runs()` via the backend yet.
+
+**Not started:** `preferences`, `goals`, `conversations`/`messages` tables (Phase 3 memory work), Health-connect route, Dockerfiles/docker-compose, context-window management, multi-provider OAuth beyond Health.
 
 ### Google Health API filter syntax (learned the hard way)
 

@@ -1,0 +1,44 @@
+{
+  "signIn": {
+    "title": "Strides",
+    "tagline": "Dein Laufcoach, immer erreichbar.",
+    "cta": "Mit Google anmelden",
+    "disclaimer": "Gewährt Lesezugriff auf Laufdaten.\nNoch kein Kalenderzugriff."
+  },
+  "dashboard": {
+    "thisWeek": "Diese Woche",
+    "goal": "Ziel: {distance}km diese Woche",
+    "recentRuns": "Letzte Läufe",
+    "goals": "Ziele"
+  },
+  "chat": {
+    "coachName": "Coach",
+    "syncedStatus": "Mit Google Health synchronisiert",
+    "placeholder": "Frag etwas zu deinem Training..."
+  },
+  "nav": {
+    "dashboard": "Übersicht",
+    "coach": "Coach",
+    "connectors": "Verbindungen"
+  },
+  "connectors": {
+    "title": "Verbindungen",
+    "subtitle": "Erlaube Coach, Daten aus deinen anderen Apps und Diensten zu lesen.",
+    "connected": "Verbunden",
+    "connecting": "Verbindet…",
+    "notConnected": "Nicht verbunden",
+    "connect": "Verbinden",
+    "disconnect": "Trennen"
+  },
+  "profile": {
+    "weeklyGoal": "Wochenziel",
+    "decreaseGoal": "Wochenziel verringern",
+    "increaseGoal": "Wochenziel erhöhen",
+    "units": "Einheiten",
+    "kilometers": "Kilometer",
+    "miles": "Meilen",
+    "notifications": "Benachrichtigungen",
+    "memberSince": "Mitglied seit",
+    "logOut": "Abmelden"
+  }
+}
