@@ -298,7 +298,7 @@ def init_db() -> None:
 Run: `uv run pytest tests/data/test_db.py -v`
 Expected: PASS (4 tests) — confirmed passing against real Supabase Postgres.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add data/db.py tests/data/test_db.py
@@ -445,7 +445,7 @@ def delete_session(token: str) -> None:
 Run: `uv run pytest tests/data/test_db.py -v`
 Expected: PASS (10 tests total) — confirmed passing against real Supabase Postgres.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add data/db.py tests/data/test_db.py
@@ -589,7 +589,7 @@ Note: `ON CONFLICT ... excluded` requires Postgres to treat the VALUES row as `e
 Run: `uv run pytest tests/data/test_db.py -v`
 Expected: PASS (15 tests total) — confirmed passing against real Supabase Postgres.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add data/db.py tests/data/test_db.py
@@ -799,7 +799,7 @@ app.include_router(auth_router)
 Run: `uv run pytest tests/backend/routes/test_auth.py -v`
 Expected: PASS (3 tests) — confirmed passing.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/routes/auth.py tests/backend/routes/test_auth.py backend/main.py
@@ -975,7 +975,7 @@ def health_disconnect(session: str | None = Cookie(default=None)):
 Run: `uv run pytest tests/backend/routes/test_auth.py -v`
 Expected: PASS (7 tests total) — confirmed: 7/7 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/routes/auth.py tests/backend/routes/test_auth.py
