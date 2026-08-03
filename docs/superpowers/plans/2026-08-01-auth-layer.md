@@ -13,7 +13,7 @@
 - Session mechanism is opaque random token + `sessions` table lookup — not JWT (per spec's Authentication section).
 - Two separate OAuth flows: app login (identity scopes only) and Health connect (Health scope, requires existing session) — not combined.
 - `access_token` / `refresh_token` in `oauth_tokens` must never be written to Postgres unencrypted.
-- MCP server never receives encrypted tokens or touches Postgres — it only receives a plaintext token as a call parameter, decrypted by the backend just before the call.
+- MCP server verifies its own bearer token and independently resolves the user's Health token from Postgres.
 - All new tables scoped by `user_id`.
 
 ---
@@ -177,7 +177,7 @@ git commit -m "feat: add AES-256-GCM token encryption module"
 
 **Setup note for whoever implements this:** tests in this task and Task 4/5 run against a real Postgres. Point `DATABASE_URL` at a throwaway Supabase project or local Postgres via docker: `docker run -e POSTGRES_PASSWORD=test -p 5432:5432 postgres:16` then `DATABASE_URL=postgresql://postgres:test@localhost:5432/postgres`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/data/test_db.py
@@ -242,12 +242,12 @@ def test_init_db_is_idempotent():
     init_db()  # must not raise
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/data/test_db.py -v`
 Expected: FAIL — `ImportError: cannot import name 'get_connection' from 'data.db'`
 
-- [ ] **Step 3: Implement schema and connection**
+- [x] **Step 3: Implement schema and connection**
 
 ```python
 # data/db.py
@@ -293,10 +293,10 @@ def init_db() -> None:
         conn.commit()
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/data/test_db.py -v`
-Expected: PASS (4 tests)
+Expected: PASS (4 tests) — confirmed passing against real Supabase Postgres.
 
 - [ ] **Step 5: Commit**
 
@@ -317,7 +317,7 @@ git commit -m "feat: replace SQLite with Postgres schema (users, sessions, oauth
 - Consumes: `get_connection()` (Task 3)
 - Produces: `find_or_create_user(email: str, google_sub: str) -> str` (returns `user_id`), `create_session(user_id: str, expires_at: datetime) -> str` (returns opaque token), `get_session_user_id(token: str) -> str | None`, `delete_session(token: str) -> None`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # append to tests/data/test_db.py
@@ -375,12 +375,12 @@ def test_delete_session_invalidates_token():
     assert get_session_user_id(token) is None
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/data/test_db.py -v`
 Expected: FAIL — `ImportError: cannot import name 'find_or_create_user'`
 
-- [ ] **Step 3: Implement CRUD functions**
+- [x] **Step 3: Implement CRUD functions**
 
 ```python
 # append to data/db.py
@@ -440,10 +440,10 @@ def delete_session(token: str) -> None:
         conn.commit()
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/data/test_db.py -v`
-Expected: PASS (10 tests total)
+Expected: PASS (10 tests total) — confirmed passing against real Supabase Postgres.
 
 - [ ] **Step 5: Commit**
 
@@ -464,7 +464,7 @@ git commit -m "feat: add user and session CRUD to data/db.py"
 - Consumes: `get_connection()` (Task 3), `encrypt`/`decrypt` (Task 2)
 - Produces: `save_oauth_token(user_id: str, provider: str, access_token: str, refresh_token: str, expires_at: int) -> None`, `get_oauth_token(user_id: str, provider: str) -> tuple[str, str, int] | None` (returns decrypted `access_token, refresh_token, expires_at`), `delete_oauth_token(user_id: str, provider: str) -> None`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # append to tests/data/test_db.py
@@ -527,12 +527,12 @@ def test_delete_oauth_token_removes_row():
     assert get_oauth_token(user_id, "health") is None
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/data/test_db.py -v`
 Expected: FAIL — `ImportError: cannot import name 'save_oauth_token'`
 
-- [ ] **Step 3: Implement token storage functions**
+- [x] **Step 3: Implement token storage functions**
 
 ```python
 # append to data/db.py
@@ -584,10 +584,10 @@ def delete_oauth_token(user_id: str, provider: str) -> None:
 
 Note: `ON CONFLICT ... excluded` requires Postgres to treat the VALUES row as `excluded` — this is standard Postgres upsert syntax, unchanged from the SQLite version's intent.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/data/test_db.py -v`
-Expected: PASS (15 tests total)
+Expected: PASS (15 tests total) — confirmed passing against real Supabase Postgres.
 
 - [ ] **Step 5: Commit**
 
@@ -598,7 +598,7 @@ git commit -m "feat: add encrypted oauth token storage to data/db.py"
 
 ---
 
-## Task 6: App login routes (identity-only OAuth) 🔶 CODE WRITTEN, TESTS NOT YET VERIFIED (FastAPI app lives in `backend/agent.py`, not `backend/main.py` as the plan template assumed — test file adjusted accordingly; router mounted in `backend/agent.py`; run `uv run pytest tests/backend/routes/test_auth.py -v` to verify)
+## Task 6: App login routes (identity-only OAuth) ✅ DONE (verified: 3/3 tests pass. FastAPI app lives in `backend/agent.py`, not `backend/main.py` as the plan template assumed — test file adjusted accordingly; router mounted in `backend/agent.py`)
 
 **Files:**
 - Create: `backend/routes/auth.py`
@@ -610,13 +610,13 @@ git commit -m "feat: add encrypted oauth token storage to data/db.py"
 - Consumes: `find_or_create_user`, `create_session`, `delete_session` (Task 4)
 - Produces: `router` (FastAPI `APIRouter`) mounted at `/auth`, exposing `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`.
 
-- [ ] **Step 1: Locate the FastAPI app**
+- [x] **Step 1: Locate the FastAPI app**
 
 Run: `grep -rn "FastAPI(" backend/`
 
 Confirm the app instance location before writing the mount step below; use that file's actual import path.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 ```python
 # tests/backend/routes/test_auth.py
@@ -689,12 +689,12 @@ def test_logout_deletes_session_cookie(client):
     assert logout_response.status_code == 200
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `uv run pytest tests/backend/routes/test_auth.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'backend.routes.auth'`
 
-- [ ] **Step 4: Implement the router**
+- [x] **Step 4: Implement the router**
 
 ```python
 # backend/routes/auth.py
@@ -794,10 +794,10 @@ from backend.routes.auth import router as auth_router
 app.include_router(auth_router)
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `uv run pytest tests/backend/routes/test_auth.py -v`
-Expected: PASS (3 tests)
+Expected: PASS (3 tests) — confirmed passing.
 
 - [ ] **Step 6: Commit**
 
@@ -808,7 +808,7 @@ git commit -m "feat: add app login OAuth flow (identity-only, session cookie)"
 
 ---
 
-## Task 7: Health connect routes
+## Task 7: Health connect routes ✅ DONE (verified: 7/7 tests pass in `tests/backend/routes/test_auth.py` against real Supabase Postgres)
 
 **Files:**
 - Modify: `backend/routes/auth.py`
@@ -818,7 +818,7 @@ git commit -m "feat: add app login OAuth flow (identity-only, session cookie)"
 - Consumes: `save_oauth_token`, `delete_oauth_token` (Task 5), session dependency pattern from Task 6's `Cookie`-based lookup.
 - Produces: `GET /auth/health/connect`, `GET /auth/health/callback`, `POST /auth/health/disconnect`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # append to tests/backend/routes/test_auth.py
@@ -889,12 +889,12 @@ def test_health_disconnect_removes_token(client):
     assert response.status_code == 200
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/backend/routes/test_auth.py -v`
 Expected: FAIL — `AttributeError: module 'backend.routes.auth' has no attribute 'exchange_code_for_health_tokens'`
 
-- [ ] **Step 3: Implement Health connect routes**
+- [x] **Step 3: Implement Health connect routes**
 
 Append to `backend/routes/auth.py`:
 
@@ -970,10 +970,10 @@ def health_disconnect(session: str | None = Cookie(default=None)):
     return {"status": "disconnected"}
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/backend/routes/test_auth.py -v`
-Expected: PASS (7 tests total)
+Expected: PASS (7 tests total) — confirmed: 7/7 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -1158,7 +1158,9 @@ Remove the now-unused `get_authorization_code`, `exchange_code_for_tokens` CLI-p
 Run: `uv run pytest tests/auth/test_auth.py -v`
 Expected: PASS (2 tests)
 
-- [ ] **Step 9: Wire `/chat` to require a session and use the caller's token**
+- [ ] **Step 9: Wire `/chat` to require a session and forward a verifiable identity token to the MCP server**
+
+The MCP server authenticates itself now — it does its own bearer-token verification and its own Postgres lookup (see the new MCP-auth task below). `/chat` no longer resolves or passes a Health `access_token`; it only needs to (a) confirm the caller has a valid Strides session, and (b) forward an identity token the MCP server can independently verify.
 
 Modify `backend/routes/chat.py`:
 
@@ -1166,7 +1168,6 @@ Modify `backend/routes/chat.py`:
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from auth.auth import get_valid_access_token
 from backend.agent import app_state
 from backend.dependencies import require_user
 from backend.services.chat_service import process_query
@@ -1180,21 +1181,28 @@ class ChatRequest(BaseModel):
 
 @router.post("/chat")
 async def chat(request: ChatRequest, user_id: str = Depends(require_user)):
-    access_token = get_valid_access_token(user_id)
-
     app_state["messages"].append({"role": "user", "content": request.message})
 
     reply = await process_query(
         app_state["session"],
         app_state["tools"],
         app_state["messages"],
-        access_token,
+        id_token=app_state["id_tokens"][user_id],  # forwarded as a request header, not a tool argument
     )
 
     return {"reply": reply}
 ```
 
-Note: `process_query`/`call_tools` in `backend/services/chat_service.py` need an `access_token` parameter threaded through to `session.call_tool(block.name, {**block.input, "access_token": access_token})` so the MCP server receives the per-user token — this wiring is MCP-server-facing and out of scope for the auth-layer plan; track as a follow-up once the MCP tool signatures are updated to accept a token argument (see spec's "MCP server stays token-agnostic" note).
+Note: `process_query` in `backend/services/chat_service.py` needs to pass `id_token` as an `Authorization: Bearer <id_token>` header on the MCP `ClientSession`/HTTP call, not as a tool-call argument. This also surfaces an open question not yet answered by this plan: FastAPI's session/cookie flow (Tasks 4, 6) currently stores only `email`/`google_sub` via `find_or_create_user`, not the raw Google `id_token` itself — something needs to retain (or refresh) the `id_token` per session so `/chat` has one to forward. Resolve this before implementing Step 9.
+
+- [ ] **New task: MCP server auth middleware + own DB connection module**
+
+This work happens in `mcp_servers/fit_server/`, not `backend/`, and is a new task, not part of Task 8. Outline:
+
+- Add bearer-token verification middleware to `fit_server.py` (`verify_oauth2_token` against Google's public keys, per `docs/mcp_server_architecture.md` §3.3), extracting `user_id` (the Google `sub`) from the verified token.
+- Give the MCP server its own Postgres connection (same `DATABASE_URL`), reusing `get_oauth_token`/`save_oauth_token` from Task 5 — called directly from the MCP server process, not proxied through FastAPI.
+- Move (or duplicate) the refresh-if-expired logic from `auth/auth.py`'s `get_valid_access_token` into `fit_server.py`, so the MCP server can refresh an expired Health `access_token` itself before calling the Google Health API.
+- Open question to resolve before implementing: who owns encryption/decryption of `oauth_tokens` rows — does `backend/encryption.py` get imported by the MCP server too (shared module, both processes need `TOKEN_ENCRYPTION_KEY`), or does encryption move entirely into the MCP server since it's now the sole reader? FastAPI still needs to *write* the row at `/auth/health/callback` time either way (Task 7), so at minimum `encrypt()` stays shared.
 
 - [ ] **Step 10: Commit**
 
