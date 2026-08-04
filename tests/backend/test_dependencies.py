@@ -13,7 +13,7 @@ def db():
 def test_require_user_returns_user_id_for_valid_session():
     from datetime import datetime, timedelta, timezone
 
-    user_id = find_or_create_user("runner@example.com", "google-sub-123")
+    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
     token = create_session(user_id, datetime.now(timezone.utc) + timedelta(days=1))
 
     assert require_user(token) == user_id

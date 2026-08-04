@@ -12,6 +12,7 @@ from data.db import (
     delete_session,
     find_or_create_user,
     get_session_user_id,
+    get_user,
     save_oauth_token,
 )
 
@@ -29,7 +30,9 @@ def login():
 @router.get("/callback")
 def callback(code: str):
     identity = auth_service.exchange_code_for_identity_tokens(code)
-    user_id = find_or_create_user(identity["email"], identity["google_sub"])
+    user_id = find_or_create_user(
+        identity["email"], identity["google_sub"], identity["name"]
+    )
 
     expires_at = datetime.now(timezone.utc) + SESSION_DURATION
     session_token = create_session(user_id, expires_at)
@@ -86,4 +89,11 @@ def health_disconnect(session: str | None = Cookie(default=None)):
     user_id = _require_user_id(session)
     delete_oauth_token(user_id, "health")
     return {"status": "disconnected"}
+
+
+@router.get("/me")
+def me(session: str | None = Cookie(default=None)):
+    user_id = _require_user_id(session)
+    email, name, created_at = get_user(user_id)
+    return {"email": email, "name": name, "created_at": created_at}
 

@@ -19,7 +19,7 @@ def env(monkeypatch):
 def test_returns_stored_token_when_still_valid():
     import time
 
-    user_id = find_or_create_user("runner@example.com", "google-sub-123")
+    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
     save_oauth_token(
         user_id, "health", "valid-access", "refresh-1", int(time.time()) + 3600
     )
@@ -30,7 +30,7 @@ def test_returns_stored_token_when_still_valid():
 def test_refreshes_expired_token():
     import time
 
-    user_id = find_or_create_user("runner@example.com", "google-sub-123")
+    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
     save_oauth_token(
         user_id, "health", "expired-access", "refresh-1", int(time.time()) - 10
     )

@@ -46,6 +46,7 @@ def test_callback_creates_user_and_sets_session_cookie(client):
         mock_exchange.return_value = {
             "email": "runner@example.com",
             "google_sub": "google-sub-123",
+            "name": "Runner Example",
         }
         response = client.get(
             "/auth/callback?code=fake-code", follow_redirects=False
@@ -60,6 +61,7 @@ def test_logout_deletes_session_cookie(client):
         mock_exchange.return_value = {
             "email": "runner@example.com",
             "google_sub": "google-sub-123",
+            "name": "Runner Example",
         }
         login_response = client.get(
             "/auth/callback?code=fake-code", follow_redirects=False
@@ -78,6 +80,7 @@ def _login(client) -> str:
         mock_exchange.return_value = {
             "email": "runner@example.com",
             "google_sub": "google-sub-123",
+            "name": "Runner Example",
         }
         response = client.get("/auth/callback?code=fake-code", follow_redirects=False)
     return response.cookies["session"]
@@ -138,3 +141,20 @@ def test_health_disconnect_removes_token(client):
     )
 
     assert response.status_code == 200
+
+
+def test_me_requires_session(client):
+    response = client.get("/auth/me")
+    assert response.status_code == 401
+
+
+def test_me_returns_email_and_name_for_valid_session(client):
+    session_cookie = _login(client)
+
+    response = client.get("/auth/me", cookies={"session": session_cookie})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["email"] == "runner@example.com"
+    assert body["name"] == "Runner Example"
+    assert "created_at" in body

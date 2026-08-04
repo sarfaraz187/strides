@@ -1611,7 +1611,7 @@ Result: no matches. Separately found `main.py` and `tests/test_fit_server.py` st
 
 Run: `grep -n "strides.db" .gitignore` — no match, nothing to remove.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A main.py tests/test_fit_server.py

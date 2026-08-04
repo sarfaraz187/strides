@@ -51,7 +51,11 @@ def exchange_code_for_identity_tokens(code: str) -> dict:
     user_info_response.raise_for_status()
     payload = user_info_response.json()
 
-    return {"email": payload["email"], "google_sub": payload["sub"]}
+    return {
+        "email": payload["email"],
+        "google_sub": payload["sub"],
+        "name": payload.get("name"),
+    }
 
 
 def build_health_connect_url() -> str:
