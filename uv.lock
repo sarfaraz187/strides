@@ -1149,6 +1149,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "mcp", extra = ["cli"] },
     { name = "psycopg", extra = ["binary"] },
+    { name = "pyjwt", extra = ["crypto"] },
     { name = "python-dotenv" },
     { name = "requests" },
 ]
@@ -1166,6 +1167,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.141.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.28.1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.4" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.13.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "requests", specifier = ">=2.34.2" },
 ]

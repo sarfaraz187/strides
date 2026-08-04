@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Cookie, HTTPException
 from fastapi.responses import RedirectResponse
+from backend.jwt_issuer import get_jwks
 
 from backend.services import auth_service
 from data.db import (
@@ -86,3 +87,8 @@ def health_disconnect(session: str | None = Cookie(default=None)):
     user_id = _require_user_id(session)
     delete_oauth_token(user_id, "health")
     return {"status": "disconnected"}
+
+
+@router.get("/.well-known/jwks.json")
+def jwks():
+    return get_jwks()
