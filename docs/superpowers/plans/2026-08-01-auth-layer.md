@@ -1158,9 +1158,9 @@ Remove the now-unused `get_authorization_code`, `exchange_code_for_tokens` CLI-p
 Run: `uv run pytest tests/auth/test_auth.py -v`
 Expected: PASS (2 tests)
 
-- [ ] **Step 9: Wire `/chat` to require a session and forward a verifiable identity token to the MCP server**
+- [ ] **Step 9: Wire `/chat` to require a session and forward a minted JWT to the MCP server**
 
-The MCP server authenticates itself now — it does its own bearer-token verification and its own Postgres lookup (see the new MCP-auth task below). `/chat` no longer resolves or passes a Health `access_token`; it only needs to (a) confirm the caller has a valid Strides session, and (b) forward an identity token the MCP server can independently verify.
+The MCP server authenticates itself now — it does its own bearer-token verification (against a JWKS endpoint it fetches and caches) and its own Postgres lookup (see Task 8a/8b below). `/chat` no longer resolves or passes a Health `access_token`; it only needs to (a) confirm the caller has a valid Strides session, and (b) mint a short-lived signed token the MCP server can independently verify.
 
 Modify `backend/routes/chat.py`:
 
@@ -1170,6 +1170,7 @@ from pydantic import BaseModel
 
 from backend.agent import app_state
 from backend.dependencies import require_user
+from backend.jwt_issuer import mint_token
 from backend.services.chat_service import process_query
 
 router = APIRouter()
@@ -1181,35 +1182,417 @@ class ChatRequest(BaseModel):
 
 @router.post("/chat")
 async def chat(request: ChatRequest, user_id: str = Depends(require_user)):
+    mcp_token = mint_token(user_id)  # short-lived, RS256-signed (Task 8a)
+
     app_state["messages"].append({"role": "user", "content": request.message})
 
     reply = await process_query(
         app_state["session"],
         app_state["tools"],
         app_state["messages"],
-        id_token=app_state["id_tokens"][user_id],  # forwarded as a request header, not a tool argument
+        mcp_token,  # forwarded as Authorization header inside process_query, not as a tool arg
     )
 
     return {"reply": reply}
 ```
 
-Note: `process_query` in `backend/services/chat_service.py` needs to pass `id_token` as an `Authorization: Bearer <id_token>` header on the MCP `ClientSession`/HTTP call, not as a tool-call argument. This also surfaces an open question not yet answered by this plan: FastAPI's session/cookie flow (Tasks 4, 6) currently stores only `email`/`google_sub` via `find_or_create_user`, not the raw Google `id_token` itself — something needs to retain (or refresh) the `id_token` per session so `/chat` has one to forward. Resolve this before implementing Step 9.
-
-- [ ] **New task: MCP server auth middleware + own DB connection module**
-
-This work happens in `mcp_servers/fit_server/`, not `backend/`, and is a new task, not part of Task 8. Outline:
-
-- Add bearer-token verification middleware to `fit_server.py` (`verify_oauth2_token` against Google's public keys, per `docs/mcp_server_architecture.md` §3.3), extracting `user_id` (the Google `sub`) from the verified token.
-- Give the MCP server its own Postgres connection (same `DATABASE_URL`), reusing `get_oauth_token`/`save_oauth_token` from Task 5 — called directly from the MCP server process, not proxied through FastAPI.
-- Move (or duplicate) the refresh-if-expired logic from `auth/auth.py`'s `get_valid_access_token` into `fit_server.py`, so the MCP server can refresh an expired Health `access_token` itself before calling the Google Health API.
-- Open question to resolve before implementing: who owns encryption/decryption of `oauth_tokens` rows — does `backend/encryption.py` get imported by the MCP server too (shared module, both processes need `TOKEN_ENCRYPTION_KEY`), or does encryption move entirely into the MCP server since it's now the sole reader? FastAPI still needs to *write* the row at `/auth/health/callback` time either way (Task 7), so at minimum `encrypt()` stays shared.
+`process_query`/`call_tools` in `backend/services/chat_service.py` must set `Authorization: Bearer {mcp_token}` on the MCP client session/transport — not inject it into `block.input`. This avoids putting a live credential into the LLM tool-use loop's visible/loggable surface area; the minted token is single-audience (`strides-mcp`), 5-minute-lived, and grants no minting capability of its own.
 
 - [ ] **Step 10: Commit**
 
 ```bash
-git add backend/dependencies.py backend/routes/chat.py auth/auth.py tests/backend/test_dependencies.py tests/auth/test_auth.py
-git commit -m "feat: require session on /chat, refresh per-user Health tokens"
+git add backend/dependencies.py backend/routes/chat.py backend/jwt_issuer.py auth/auth.py tests/backend/test_dependencies.py tests/auth/test_auth.py
+git commit -m "feat: require session on /chat, forward minted JWT instead of raw Health token"
 ```
+
+---
+
+## Task 8a: JWT issuer (backend mints short-lived signed tokens)
+
+**Files:**
+- Create: `backend/jwt_issuer.py`
+- Create: `backend/keys/` (gitignored — holds `private.pem`, `public.pem`)
+- Modify: `backend/routes/auth.py` (new `/.well-known/jwks.json` route)
+- Test: `tests/backend/test_jwt_issuer.py`
+
+**Interfaces:**
+- Produces: `mint_token(user_id: str) -> str` (RS256-signed JWT, 5 min expiry, `sub` claim = user_id), `get_jwks() -> dict` (public key in JWKS format)
+- Consumes: nothing from other tasks (standalone crypto module)
+
+**Why asymmetric (RS256) over a shared HMAC secret:** verification capability shouldn't imply minting capability. With RS256, the MCP server (or any future second consumer) only ever holds the public key — it can verify tokens but never forge one. A shared HMAC secret would mean every verifier is also a minter, which doesn't degrade gracefully the moment a second consumer is added. This also matches the MCP Authorization spec's resource-server model, where the resource server independently verifies tokens rather than trusting the caller.
+
+- [ ] **Step 1: Add dependency**
+
+```bash
+uv add "pyjwt[crypto]"
+```
+
+- [ ] **Step 2: Write the failing tests**
+
+```python
+# tests/backend/test_jwt_issuer.py
+import time
+
+import jwt as pyjwt
+import pytest
+
+from backend.jwt_issuer import get_jwks, mint_token, PUBLIC_KEY
+
+
+def test_mint_token_contains_user_id_claim():
+    token = mint_token("user-123")
+    payload = pyjwt.decode(token, PUBLIC_KEY, algorithms=["RS256"], audience="strides-mcp")
+    assert payload["sub"] == "user-123"
+
+
+def test_mint_token_expires_in_five_minutes():
+    token = mint_token("user-123")
+    payload = pyjwt.decode(token, PUBLIC_KEY, algorithms=["RS256"], audience="strides-mcp")
+    assert 290 <= (payload["exp"] - payload["iat"]) <= 310
+
+
+def test_mint_token_rejected_after_expiry():
+    token = mint_token("user-123")
+    with pytest.raises(pyjwt.ExpiredSignatureError):
+        pyjwt.decode(
+            token, PUBLIC_KEY, algorithms=["RS256"], audience="strides-mcp",
+            options={"require": ["exp"]}, leeway=-310,
+        )
+
+
+def test_get_jwks_returns_public_key_in_jwks_format():
+    jwks = get_jwks()
+    assert "keys" in jwks
+    assert jwks["keys"][0]["kty"] == "RSA"
+    assert jwks["keys"][0]["kid"] == "strides-1"
+```
+
+- [ ] **Step 3: Run tests to verify they fail**
+
+Run: `uv run pytest tests/backend/test_jwt_issuer.py -v`
+Expected: FAIL — `ModuleNotFoundError: No module named 'backend.jwt_issuer'`
+
+- [ ] **Step 4: Generate the keypair (one-time, not part of the module)**
+
+```bash
+mkdir -p backend/keys
+openssl genrsa -out backend/keys/private.pem 2048
+openssl rsa -in backend/keys/private.pem -pubout -out backend/keys/public.pem
+echo "backend/keys/" >> .gitignore
+```
+
+- [ ] **Step 5: Implement the module**
+
+```python
+# backend/jwt_issuer.py
+import time
+from pathlib import Path
+
+import jwt
+from jwt.algorithms import RSAAlgorithm
+
+_KEYS_DIR = Path(__file__).parent / "keys"
+PRIVATE_KEY = (_KEYS_DIR / "private.pem").read_text()
+PUBLIC_KEY = (_KEYS_DIR / "public.pem").read_text()
+KID = "strides-1"
+AUDIENCE = "strides-mcp"
+TOKEN_TTL_SECONDS = 300  # 5 minutes
+
+
+def mint_token(user_id: str) -> str:
+    now = int(time.time())
+    payload = {
+        "sub": user_id,
+        "aud": AUDIENCE,
+        "iat": now,
+        "exp": now + TOKEN_TTL_SECONDS,
+    }
+    return jwt.encode(payload, PRIVATE_KEY, algorithm="RS256", headers={"kid": KID})
+
+
+def get_jwks() -> dict:
+    jwk = RSAAlgorithm.to_jwk(
+        RSAAlgorithm.from_jwk_pem(PUBLIC_KEY) if hasattr(RSAAlgorithm, "from_jwk_pem")
+        else jwt.algorithms.RSAAlgorithm(jwt.algorithms.hashes.SHA256()).prepare_key(PUBLIC_KEY),
+        as_dict=True,
+    )
+    jwk["kid"] = KID
+    jwk["use"] = "sig"
+    jwk["alg"] = "RS256"
+    return {"keys": [jwk]}
+```
+
+> Note for implementer: `pyjwt`'s public-key-to-JWK conversion API varies by version — pin `pyjwt[crypto]>=2.8` and verify `get_jwks()` output against `https://www.googleapis.com/oauth2/v3/certs` shape (fields: `kty`, `n`, `e`, `kid`, `use`, `alg`) before relying on it. If `to_jwk` proves unreliable, `python-jose` is an acceptable substitute for this one function.
+
+- [ ] **Step 6: Run tests to verify they pass**
+
+Run: `uv run pytest tests/backend/test_jwt_issuer.py -v`
+Expected: PASS (4 tests)
+
+- [ ] **Step 7: Add the JWKS route**
+
+```python
+# append to backend/routes/auth.py
+from backend.jwt_issuer import get_jwks
+
+@router.get("/.well-known/jwks.json")
+def jwks():
+    return get_jwks()
+```
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add backend/jwt_issuer.py backend/routes/auth.py backend/keys/public.pem .gitignore tests/backend/test_jwt_issuer.py pyproject.toml uv.lock
+git commit -m "feat: add RS256 JWT issuer and JWKS endpoint for MCP auth"
+```
+
+**Do not commit `backend/keys/private.pem`** — deploy it via secrets manager / env-injected file, not source control.
+
+---
+
+## Task 8b: MCP server verifies JWT via JWKS, resolves its own Health token
+
+**Files:**
+- Modify: `mcp_servers/fit_server/server.py`
+- Create: `mcp_servers/fit_server/mcp_auth.py`
+- Modify: `data/db.py` (add `save_oauth_token_if_unchanged` — CAS guard, see Step 6a)
+- Test: `tests/mcp/test_mcp_auth.py`
+
+**Interfaces:**
+- Consumes: `GET /.well-known/jwks.json` (Task 8a, fetched over HTTP), `get_oauth_token` (Task 5, direct Postgres access via `DATABASE_URL`)
+- Produces: `verify_bearer_token(token: str) -> str` (returns `user_id`, raises on invalid/expired), middleware wiring in `server.py`
+
+- [ ] **Step 1: Add dependency**
+
+```bash
+uv add "pyjwt[crypto]" cachetools
+```
+
+- [ ] **Step 2: Write the failing tests**
+
+```python
+# tests/mcp/test_mcp_auth.py
+from unittest.mock import patch
+
+import jwt as pyjwt
+import pytest
+
+from mcp_servers.fit_server.mcp_auth import verify_bearer_token
+
+PRIVATE_KEY = "<test-only RSA private key PEM, generate via openssl in fixture setup>"
+FAKE_JWKS = {"keys": [{"kty": "RSA", "kid": "strides-1", "n": "...", "e": "AQAB", "use": "sig", "alg": "RS256"}]}
+
+
+def _sign(user_id: str, **overrides) -> str:
+    import time
+    payload = {"sub": user_id, "aud": "strides-mcp", "iat": int(time.time()), "exp": int(time.time()) + 300}
+    payload.update(overrides)
+    return pyjwt.encode(payload, PRIVATE_KEY, algorithm="RS256", headers={"kid": "strides-1"})
+
+
+def test_verify_bearer_token_returns_user_id_for_valid_token():
+    with patch("mcp_servers.fit_server.mcp_auth._fetch_jwks", return_value=FAKE_JWKS):
+        token = _sign("user-123")
+        assert verify_bearer_token(token) == "user-123"
+
+
+def test_verify_bearer_token_rejects_expired_token():
+    with patch("mcp_servers.fit_server.mcp_auth._fetch_jwks", return_value=FAKE_JWKS):
+        token = _sign("user-123", exp=0)
+        with pytest.raises(Exception):
+            verify_bearer_token(token)
+
+
+def test_verify_bearer_token_rejects_wrong_audience():
+    with patch("mcp_servers.fit_server.mcp_auth._fetch_jwks", return_value=FAKE_JWKS):
+        token = _sign("user-123", aud="someone-else")
+        with pytest.raises(Exception):
+            verify_bearer_token(token)
+```
+
+> Note for implementer: the fixture needs a real generated RSA keypair (`openssl genrsa`) at test setup so `FAKE_JWKS` actually matches `PRIVATE_KEY` — write a `conftest.py` fixture that generates both together rather than hardcoding a static pair.
+
+- [ ] **Step 3: Run tests to verify they fail**
+
+Run: `uv run pytest tests/mcp/test_mcp_auth.py -v`
+Expected: FAIL — `ModuleNotFoundError: No module named 'mcp_servers.fit_server.mcp_auth'`
+
+- [ ] **Step 4: Implement JWKS verification with caching**
+
+```python
+# mcp_servers/fit_server/mcp_auth.py
+import os
+
+import jwt
+import requests
+from cachetools import TTLCache
+
+AUDIENCE = "strides-mcp"
+JWKS_URL = os.environ.get("STRIDES_JWKS_URL", "http://localhost:8000/.well-known/jwks.json")
+
+_jwks_cache: TTLCache = TTLCache(maxsize=1, ttl=300)  # 5 min cache
+
+
+def _fetch_jwks() -> dict:
+    response = requests.get(JWKS_URL, timeout=5)
+    response.raise_for_status()
+    return response.json()
+
+
+def _get_signing_key(token: str):
+    if "jwks" not in _jwks_cache:
+        _jwks_cache["jwks"] = _fetch_jwks()
+    jwks = _jwks_cache["jwks"]
+    header = jwt.get_unverified_header(token)
+    for key in jwks["keys"]:
+        if key["kid"] == header["kid"]:
+            return jwt.algorithms.RSAAlgorithm.from_jwk(key)
+    raise jwt.InvalidTokenError(f"No matching key for kid={header.get('kid')}")
+
+
+def verify_bearer_token(token: str) -> str:
+    """Returns the verified user_id (sub claim), raises jwt exceptions on failure."""
+    signing_key = _get_signing_key(token)
+    payload = jwt.decode(token, signing_key, algorithms=["RS256"], audience=AUDIENCE)
+    return payload["sub"]
+```
+
+- [ ] **Step 5: Run tests to verify they pass**
+
+Run: `uv run pytest tests/mcp/test_mcp_auth.py -v`
+Expected: PASS (3 tests)
+
+- [ ] **Step 6: Wire verification into `server.py`, switch transport to HTTP**
+
+```python
+# mcp_servers/fit_server/server.py — additions
+from fastmcp import FastMCP, Context
+from mcp_servers.fit_server.mcp_auth import verify_bearer_token
+from data.db import get_oauth_token
+from auth.auth import get_valid_access_token  # moved logic reused here, not in chat.py
+
+mcp = FastMCP("strides")
+
+@mcp.middleware
+async def auth_middleware(request, call_next):
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise PermissionError("Missing bearer token")
+    token = auth_header.removeprefix("Bearer ")
+    try:
+        user_id = verify_bearer_token(token)
+    except Exception:
+        raise PermissionError("Invalid or expired token")
+    request.state.user_id = user_id
+    return await call_next(request)
+
+
+@mcp.tool()
+def get_recent_runs(days: int, ctx: Context) -> dict:
+    """Get the user's recent runs from Google Health."""
+    user_id = ctx.request.state.user_id
+    try:
+        access_token = get_valid_access_token(user_id)  # Task 8's refresh logic, now called here
+    except ValueError:
+        return {"error": "Google Health not connected. Ask the user to connect it in their dashboard."}
+    # ... existing fetch_runs logic using access_token
+
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http", port=8001)
+```
+
+> Note for implementer: exact middleware/context API depends on the installed FastMCP version — verify `mcp.middleware` and `Context`/`ctx.request` are correct for your pinned version before implementing; check `fastmcp` changelog if names differ.
+
+- [ ] **Step 6a: Guard `get_valid_access_token` against concurrent-refresh races**
+
+Both FastAPI and the MCP server can now independently call `get_valid_access_token(user_id)` — e.g. FastAPI refreshing for `/auth/me` at the same moment the MCP server refreshes for a tool call. Google's refresh tokens are single-use/rotating: whichever request reaches Google's `/token` endpoint second gets `invalid_grant` because the refresh token it read has already been rotated out from under it, even though it looked valid when read.
+
+Add a compare-and-swap write to `data/db.py`, keyed on the refresh token value the caller read (acts as an optimistic-concurrency version marker):
+
+```python
+# append to data/db.py
+def save_oauth_token_if_unchanged(
+    user_id: str,
+    provider: str,
+    access_token: str,
+    refresh_token: str,
+    expires_at: int,
+    expected_refresh_token: str,
+) -> bool:
+    """Like save_oauth_token, but only writes if the stored refresh_token still
+    matches what the caller read (guards against a concurrent refresher winning first).
+    Returns True if the row was updated, False if someone else already refreshed it."""
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """
+            UPDATE oauth_tokens
+            SET access_token = %s, refresh_token = %s, expires_at = %s
+            WHERE user_id = %s AND provider = %s AND refresh_token = %s
+            """,
+            (
+                encrypt(access_token),
+                encrypt(refresh_token),
+                expires_at,
+                user_id,
+                provider,
+                encrypt(expected_refresh_token),
+            ),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+```
+
+Update `get_valid_access_token` (`auth/auth.py`, reused by `server.py`) to use it and re-read on a lost race:
+
+```python
+def get_valid_access_token(user_id: str) -> str:
+    token_row = get_oauth_token(user_id, "health")
+    if token_row is None:
+        raise ValueError("Health not connected")
+
+    access_token, refresh_token, expires_at = token_row
+    if not is_expired(expires_at):
+        return access_token
+
+    new_tokens = refresh_with_google(refresh_token)
+
+    updated = save_oauth_token_if_unchanged(
+        user_id, "health",
+        new_tokens["access_token"], new_tokens["refresh_token"], new_tokens["expires_at"],
+        expected_refresh_token=refresh_token,
+    )
+
+    if not updated:
+        # someone else won the race and already refreshed — use their result instead
+        access_token, _, _ = get_oauth_token(user_id, "health")
+        return access_token
+
+    return new_tokens["access_token"]
+```
+
+Note: encryption note from Task 5's open question is resolved here — `encrypt`/`decrypt` stay imported by both processes (`backend/encryption.py` shared), since the MCP server is now a second reader/writer of `oauth_tokens`.
+
+- [ ] **Step 7: Run tests to verify they pass**
+
+Run: `uv run pytest tests/mcp/test_mcp_auth.py tests/data/test_db.py -v`
+Expected: PASS (all)
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add mcp_servers/fit_server/server.py mcp_servers/fit_server/mcp_auth.py data/db.py auth/auth.py tests/mcp/test_mcp_auth.py
+git commit -m "feat: MCP server independently verifies JWT via JWKS, resolves own Health token, guards against refresh races"
+```
+
+**Trust model change:** the MCP server no longer trusts a backend-supplied token/user_id blindly — it independently verifies a short-lived RS256 JWT against a JWKS endpoint it fetches and caches itself, then does its own Postgres lookup for the user's Google Health refresh token. This matches the MCP Authorization spec's resource-server model.
+
+**Two Postgres connections now exist**: FastAPI (users/sessions/oauth_tokens writes) and the MCP server (oauth_tokens reads/refresh-writes) — both via the same `DATABASE_URL`, no bridging required, no new infra. This is why Step 6a's compare-and-swap guard matters: it's the mechanism that keeps the two connections from corrupting each other's refresh.
+
+**Private key handling**: `backend/keys/private.pem` must never enter source control or logs; production deployment should inject it via secrets manager, not the repo.
+
+**Open follow-up**: JWKS key rotation (multiple `kid`s, overlapping validity) is not covered here — acceptable for current scale, flag as future work if the signing key ever needs rotating without downtime.
 
 ---
 
