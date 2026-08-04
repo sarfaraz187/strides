@@ -1,16 +1,10 @@
-from contextlib import asynccontextmanager
-
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from mcp import ClientSession
-from mcp.client.streamable_http import streamable_http_client
 
 load_dotenv()
 client = Anthropic()
 model = "claude-haiku-4-5-20251001"
-
-SERVER_URL = "http://127.0.0.1:8000/mcp"
 
 SYSTEM_PROMPT = """You are Strides, a personal running coach. Always call a tool
 before answering any question about the user's training — never guess.
@@ -27,30 +21,14 @@ You have these tools:
 
 Be concise and encouraging. Only answer running-related questions."""
 
-app_state = {}
+conversations: dict[str, list] = {}  # per-user message history, keyed by user_id
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Connect to the fit_server MCP server for the lifetime of the app."""
-    async with streamable_http_client(SERVER_URL) as (read, write, _):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-
-            app_state["session"] = session
-            app_state["tools"] = await get_tool_schemas(session)
-            app_state["messages"] = []
-
-            yield
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 
 from backend.routes.auth import router as auth_router
 from backend.routes.chat import router
 from backend.routes.well_known import router as well_known_router
-from backend.services.chat_service import get_tool_schemas
 
 app.include_router(router)
 app.include_router(auth_router)

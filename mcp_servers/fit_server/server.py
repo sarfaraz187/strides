@@ -32,11 +32,11 @@ class StridesTokenVerifier(TokenVerifier):
 mcp = FastMCP(
     "strides",
     host="127.0.0.1",
-    port=8000,
+    port=8001,
     token_verifier=StridesTokenVerifier(),
     auth=AuthSettings(
         issuer_url="http://localhost:8000",
-        resource_server_url="http://localhost:8000",
+        resource_server_url="http://localhost:8001",
     ),
 )
 
