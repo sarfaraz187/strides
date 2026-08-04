@@ -5,7 +5,8 @@ import time
 import requests
 from dotenv import load_dotenv
 
-from data.db import get_oauth_token, save_oauth_token
+from backend.encryption import decrypt, encrypt
+from data.db import get_connection
 from logging_config import setup_logging
 
 load_dotenv()
@@ -35,22 +36,36 @@ def refresh_access_token(refresh_token: str) -> dict:
 
 
 def get_valid_access_token(user_id: str) -> str:
-    token_row = get_oauth_token(user_id, "health")
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT access_token, refresh_token, expires_at
+            FROM oauth_tokens WHERE user_id = %s AND provider = %s
+            FOR UPDATE
+            """,
+            (user_id, "health"),
+        ).fetchone()
 
-    if token_row is None:
-        raise ValueError(
-            f"No Health token for user {user_id}; user must complete "
-            "/auth/health/connect first"
+        if row is None:
+            raise ValueError(
+                f"No Health token for user {user_id}; user must complete "
+                "/auth/health/connect first"
+            )
+
+        access_token, refresh_token, expires_at = row
+
+        if expires_at > time.time():
+            return decrypt(access_token)
+
+        response = refresh_access_token(decrypt(refresh_token))
+        new_expires_at = int(time.time()) + response["expires_in"]
+
+        conn.execute(
+            """
+            UPDATE oauth_tokens SET access_token = %s, expires_at = %s
+            WHERE user_id = %s AND provider = %s
+            """,
+            (encrypt(response["access_token"]), new_expires_at, user_id, "health"),
         )
-
-    access_token, refresh_token, expires_at = token_row
-
-    if expires_at > time.time():
-        return access_token
-
-    response = refresh_access_token(refresh_token)
-    new_expires_at = int(time.time()) + response["expires_in"]
-    save_oauth_token(
-        user_id, "health", response["access_token"], refresh_token, new_expires_at
-    )
-    return response["access_token"]
+        conn.commit()
+        return response["access_token"]

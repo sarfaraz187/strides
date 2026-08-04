@@ -1356,7 +1356,7 @@ git commit -m "feat: add RS256 JWT issuer and JWKS endpoint for MCP auth"
 **Files:**
 - Modify: `mcp_servers/fit_server/server.py`
 - Create: `mcp_servers/fit_server/mcp_auth.py`
-- Modify: `data/db.py` (add `save_oauth_token_if_unchanged` — CAS guard, see Step 6a)
+- Modify: `auth/auth.py` (`get_valid_access_token` uses `SELECT ... FOR UPDATE` row locking — see Step 6a)
 - Test: `tests/mcp/test_mcp_auth.py`
 
 **Interfaces:**
@@ -1505,72 +1505,59 @@ if __name__ == "__main__":
 
 > Note for implementer: exact middleware/context API depends on the installed FastMCP version — verify `mcp.middleware` and `Context`/`ctx.request` are correct for your pinned version before implementing; check `fastmcp` changelog if names differ.
 
-- [ ] **Step 6a: Guard `get_valid_access_token` against concurrent-refresh races**
+- [x] **Step 6a: Guard `get_valid_access_token` against concurrent-refresh races**
 
 Both FastAPI and the MCP server can now independently call `get_valid_access_token(user_id)` — e.g. FastAPI refreshing for `/auth/me` at the same moment the MCP server refreshes for a tool call. Google's refresh tokens are single-use/rotating: whichever request reaches Google's `/token` endpoint second gets `invalid_grant` because the refresh token it read has already been rotated out from under it, even though it looked valid when read.
 
-Add a compare-and-swap write to `data/db.py`, keyed on the refresh token value the caller read (acts as an optimistic-concurrency version marker):
+**Implementation note — deviated from the original CAS design below.** The original plan was an optimistic compare-and-swap (`save_oauth_token_if_unchanged`, `WHERE refresh_token = %s`), keyed on comparing the *encrypted* `refresh_token` column against a freshly re-encrypted value. This doesn't work: `encrypt()` is AES-256-GCM with a random nonce per call (see `test_encrypt_is_nondeterministic` in `tests/backend/test_encryption.py`), so encrypting the same plaintext twice never produces equal ciphertext. The `WHERE` clause matched zero rows even absent any real race, `save_oauth_token_if_unchanged` always reported a lost race, and `get_valid_access_token` always fell back to a stale re-read — caught by `tests/auth/test_auth.py::test_refreshes_expired_token` failing (`'expired-access' == 'new-access'`).
+
+Replaced with **pessimistic locking** (`SELECT ... FOR UPDATE`) instead, in `auth/auth.py`:
 
 ```python
-# append to data/db.py
-def save_oauth_token_if_unchanged(
-    user_id: str,
-    provider: str,
-    access_token: str,
-    refresh_token: str,
-    expires_at: int,
-    expected_refresh_token: str,
-) -> bool:
-    """Like save_oauth_token, but only writes if the stored refresh_token still
-    matches what the caller read (guards against a concurrent refresher winning first).
-    Returns True if the row was updated, False if someone else already refreshed it."""
+# auth/auth.py
+from backend.encryption import decrypt, encrypt
+from data.db import get_connection
+
+
+def get_valid_access_token(user_id: str) -> str:
     with get_connection() as conn:
-        cursor = conn.execute(
+        row = conn.execute(
             """
-            UPDATE oauth_tokens
-            SET access_token = %s, refresh_token = %s, expires_at = %s
-            WHERE user_id = %s AND provider = %s AND refresh_token = %s
+            SELECT access_token, refresh_token, expires_at
+            FROM oauth_tokens WHERE user_id = %s AND provider = %s
+            FOR UPDATE
             """,
-            (
-                encrypt(access_token),
-                encrypt(refresh_token),
-                expires_at,
-                user_id,
-                provider,
-                encrypt(expected_refresh_token),
-            ),
+            (user_id, "health"),
+        ).fetchone()
+
+        if row is None:
+            raise ValueError(
+                f"No Health token for user {user_id}; user must complete "
+                "/auth/health/connect first"
+            )
+
+        access_token, refresh_token, expires_at = row
+
+        if expires_at > time.time():
+            return decrypt(access_token)
+
+        response = refresh_access_token(decrypt(refresh_token))
+        new_expires_at = int(time.time()) + response["expires_in"]
+
+        conn.execute(
+            """
+            UPDATE oauth_tokens SET access_token = %s, expires_at = %s
+            WHERE user_id = %s AND provider = %s
+            """,
+            (encrypt(response["access_token"]), new_expires_at, user_id, "health"),
         )
         conn.commit()
-        return cursor.rowcount > 0
+        return response["access_token"]
 ```
 
-Update `get_valid_access_token` (`auth/auth.py`, reused by `server.py`) to use it and re-read on a lost race:
-
-```python
-def get_valid_access_token(user_id: str) -> str:
-    token_row = get_oauth_token(user_id, "health")
-    if token_row is None:
-        raise ValueError("Health not connected")
-
-    access_token, refresh_token, expires_at = token_row
-    if not is_expired(expires_at):
-        return access_token
-
-    new_tokens = refresh_with_google(refresh_token)
-
-    updated = save_oauth_token_if_unchanged(
-        user_id, "health",
-        new_tokens["access_token"], new_tokens["refresh_token"], new_tokens["expires_at"],
-        expected_refresh_token=refresh_token,
-    )
-
-    if not updated:
-        # someone else won the race and already refreshed — use their result instead
-        access_token, _, _ = get_oauth_token(user_id, "health")
-        return access_token
-
-    return new_tokens["access_token"]
-```
+- `FOR UPDATE` locks the row for the transaction's duration. A concurrent caller's `SELECT ... FOR UPDATE` on the same row **blocks** until this transaction commits, rather than racing — no ciphertext comparison needed anywhere.
+- Once unblocked, the second caller re-reads the (now already-refreshed) row and re-checks `expires_at > time.time()`, which passes, so it returns the winner's token instead of calling Google a second time.
+- `save_oauth_token_if_unchanged` was removed from `data/db.py` entirely (dead code, and subtly broken) rather than left in place.
 
 Note: encryption note from Task 5's open question is resolved here — `encrypt`/`decrypt` stay imported by both processes (`backend/encryption.py` shared), since the MCP server is now a second reader/writer of `oauth_tokens`.
 
@@ -1588,7 +1575,7 @@ git commit -m "feat: MCP server independently verifies JWT via JWKS, resolves ow
 
 **Trust model change:** the MCP server no longer trusts a backend-supplied token/user_id blindly — it independently verifies a short-lived RS256 JWT against a JWKS endpoint it fetches and caches itself, then does its own Postgres lookup for the user's Google Health refresh token. This matches the MCP Authorization spec's resource-server model.
 
-**Two Postgres connections now exist**: FastAPI (users/sessions/oauth_tokens writes) and the MCP server (oauth_tokens reads/refresh-writes) — both via the same `DATABASE_URL`, no bridging required, no new infra. This is why Step 6a's compare-and-swap guard matters: it's the mechanism that keeps the two connections from corrupting each other's refresh.
+**Two Postgres connections now exist**: FastAPI (users/sessions/oauth_tokens writes) and the MCP server (oauth_tokens reads/refresh-writes) — both via the same `DATABASE_URL`, no bridging required, no new infra. This is why Step 6a's `SELECT ... FOR UPDATE` guard matters: it's the mechanism that keeps the two connections from corrupting each other's refresh.
 
 **Private key handling**: `backend/keys/private.pem` must never enter source control or logs; production deployment should inject it via secrets manager, not the repo.
 

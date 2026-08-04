@@ -110,7 +110,13 @@ def save_oauth_token(
                 refresh_token = excluded.refresh_token,
                 expires_at = excluded.expires_at
             """,
-            (user_id, provider, encrypt(access_token), encrypt(refresh_token), expires_at),
+            (
+                user_id,
+                provider,
+                encrypt(access_token),
+                encrypt(refresh_token),
+                expires_at,
+            ),
         )
         conn.commit()
 
