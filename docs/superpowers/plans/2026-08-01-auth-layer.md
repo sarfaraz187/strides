@@ -1221,13 +1221,13 @@ git commit -m "feat: require session on /chat, forward minted JWT instead of raw
 
 **Why asymmetric (RS256) over a shared HMAC secret:** verification capability shouldn't imply minting capability. With RS256, the MCP server (or any future second consumer) only ever holds the public key — it can verify tokens but never forge one. A shared HMAC secret would mean every verifier is also a minter, which doesn't degrade gracefully the moment a second consumer is added. This also matches the MCP Authorization spec's resource-server model, where the resource server independently verifies tokens rather than trusting the caller.
 
-- [ ] **Step 1: Add dependency**
+- [x] **Step 1: Add dependency**
 
 ```bash
 uv add "pyjwt[crypto]"
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```python
 # tests/backend/test_jwt_issuer.py
@@ -1267,12 +1267,12 @@ def test_get_jwks_returns_public_key_in_jwks_format():
     assert jwks["keys"][0]["kid"] == "strides-1"
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `uv run pytest tests/backend/test_jwt_issuer.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'backend.jwt_issuer'`
 
-- [ ] **Step 4: Generate the keypair (one-time, not part of the module)**
+- [x] **Step 4: Generate the keypair (one-time, not part of the module)**
 
 ```bash
 mkdir -p backend/keys
@@ -1281,7 +1281,7 @@ openssl rsa -in backend/keys/private.pem -pubout -out backend/keys/public.pem
 echo "backend/keys/" >> .gitignore
 ```
 
-- [ ] **Step 5: Implement the module**
+- [x] **Step 5: Implement the module**
 
 ```python
 # backend/jwt_issuer.py
@@ -1324,12 +1324,12 @@ def get_jwks() -> dict:
 
 > Note for implementer: `pyjwt`'s public-key-to-JWK conversion API varies by version — pin `pyjwt[crypto]>=2.8` and verify `get_jwks()` output against `https://www.googleapis.com/oauth2/v3/certs` shape (fields: `kty`, `n`, `e`, `kid`, `use`, `alg`) before relying on it. If `to_jwk` proves unreliable, `python-jose` is an acceptable substitute for this one function.
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `uv run pytest tests/backend/test_jwt_issuer.py -v`
 Expected: PASS (4 tests)
 
-- [ ] **Step 7: Add the JWKS route**
+- [x] **Step 7: Add the JWKS route**
 
 ```python
 # append to backend/routes/auth.py
@@ -1340,7 +1340,7 @@ def jwks():
     return get_jwks()
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/jwt_issuer.py backend/routes/auth.py backend/keys/public.pem .gitignore tests/backend/test_jwt_issuer.py pyproject.toml uv.lock

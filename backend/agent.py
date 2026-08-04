@@ -49,7 +49,9 @@ app = FastAPI(lifespan=lifespan)
 
 from backend.routes.auth import router as auth_router
 from backend.routes.chat import router
+from backend.routes.well_known import router as well_known_router
 from backend.services.chat_service import get_tool_schemas
 
 app.include_router(router)
 app.include_router(auth_router)
+app.include_router(well_known_router)

@@ -2,25 +2,54 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from mcp.server.auth.provider import AccessToken, TokenVerifier
+from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 
+from auth.auth import get_valid_access_token
 from logging_config import setup_logging
+from mcp_servers.fit_server.helpers.common import current_user_id
 from mcp_servers.fit_server.helpers.formatter import parse_run
 from mcp_servers.fit_server.helpers.health_api import get_health_data
+from mcp_servers.fit_server.mcp_auth import verify_bearer_token
 
 setup_logging()
 
-# Both Tool Execution handler and the MCP server in this file
-mcp = FastMCP("strides", host="127.0.0.1", port=8000)
-
 BASE_URL = "https://health.googleapis.com"
+
+
+class StridesTokenVerifier(TokenVerifier):
+    async def verify_token(self, token: str) -> AccessToken | None:
+        try:
+            user_id = verify_bearer_token(token)
+        except Exception:
+            return None
+        return AccessToken(
+            token=token, client_id="strides-backend", scopes=[], subject=user_id
+        )
+
+
+mcp = FastMCP(
+    "strides",
+    host="127.0.0.1",
+    port=8000,
+    token_verifier=StridesTokenVerifier(),
+    auth=AuthSettings(
+        issuer_url="http://localhost:8000",
+        resource_server_url="http://localhost:8000",
+    ),
+)
 
 
 @mcp.tool()
 def get_runs() -> dict[str, Any]:
     """Fetch the user's raw recent running activity data (unconverted units)."""
+    user_id = current_user_id()
+    health_access_token = get_valid_access_token(user_id)
 
-    response = get_health_data(f"{BASE_URL}/v4/users/me/dataTypes/exercise/dataPoints")
+    response = get_health_data(
+        health_access_token, f"{BASE_URL}/v4/users/me/dataTypes/exercise/dataPoints"
+    )
 
     logging.info(f"Fetching runs since: {response}")
     return response
@@ -31,6 +60,9 @@ def get_recent_runs(days: int = 7) -> list[dict[str, Any]]:
     """Get the user's runs from the last N days, with distance in km, duration in
     minutes, and pace in min/km already calculated. Use days=7 for 'this week',
     days=30 for 'this month', etc. Default 7 if unspecified."""
+    user_id = current_user_id()
+    health_access_token = get_valid_access_token(user_id)
+
     now = datetime.now(timezone.utc)
     past = now - timedelta(days=days)
 
@@ -39,6 +71,7 @@ def get_recent_runs(days: int = 7) -> list[dict[str, Any]]:
     logging.info(f"Fetching runs since: {timestamp}")
 
     response = get_health_data(
+        health_access_token,
         f"{BASE_URL}/v4/users/me/dataTypes/exercise/dataPoints",
         params={"filter": f'exercise.interval.civil_start_time>="{timestamp}"'},
     )
@@ -52,11 +85,14 @@ def get_run_stats(start_date: str, end_date: str) -> dict[str, Any]:
     """Get aggregated running statistics (total distance, total duration, average
     pace, run count) between start_date and end_date. Dates in YYYY-MM-DD format,
     e.g. 2023-01-01. end_date is exclusive."""
+    user_id = current_user_id()
+    health_access_token = get_valid_access_token(user_id)
 
     start_timestamp = f"{start_date}T00:00:00"
     end_timestamp = f"{end_date}T00:00:00"
 
     response = get_health_data(
+        health_access_token,
         f"{BASE_URL}/v4/users/me/dataTypes/exercise/dataPoints",
         params={
             "filter": f'exercise.interval.civil_start_time>="{start_timestamp}" AND exercise.interval.civil_start_time<"{end_timestamp}"'
