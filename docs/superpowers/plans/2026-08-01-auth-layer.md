@@ -54,7 +54,7 @@ DATABASE_URL=postgresql://user:password@host:5432/postgres
 TOKEN_ENCRYPTION_KEY=
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add pyproject.toml uv.lock .env.example
@@ -997,7 +997,7 @@ git commit -m "feat: add Health connect OAuth flow, separate from app login"
 - Consumes: `get_session_user_id` (Task 4), `get_oauth_token`, `save_oauth_token` (Task 5)
 - Produces: `require_user(session: str | None) -> str` (FastAPI dependency, raises 401), `get_valid_access_token(user_id: str) -> str` (replaces the email-keyed version in `auth/auth.py`)
 
-- [ ] **Step 1: Write the failing test for the dependency**
+- [x] **Step 1: Write the failing test for the dependency**
 
 ```python
 # tests/backend/test_dependencies.py
@@ -1034,12 +1034,12 @@ def test_require_user_raises_401_for_invalid_session():
     assert exc_info.value.status_code == 401
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/backend/test_dependencies.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'backend.dependencies'`
 
-- [ ] **Step 3: Implement the dependency**
+- [x] **Step 3: Implement the dependency**
 
 ```python
 # backend/dependencies.py
@@ -1057,12 +1057,12 @@ def require_user(session: str | None = Cookie(default=None)) -> str:
     return user_id
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `uv run pytest tests/backend/test_dependencies.py -v`
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Write the failing test for per-user token refresh**
+- [x] **Step 5: Write the failing test for per-user token refresh**
 
 ```python
 # tests/auth/test_auth.py
@@ -1113,12 +1113,12 @@ def test_refreshes_expired_token():
     assert result == "new-access"
 ```
 
-- [ ] **Step 6: Run test to verify it fails**
+- [x] **Step 6: Run test to verify it fails**
 
 Run: `uv run pytest tests/auth/test_auth.py -v`
 Expected: FAIL — `TypeError: get_valid_access_token() takes 1 positional argument` (current signature takes `email`, calls CLI `input()` on miss)
 
-- [ ] **Step 7: Rewrite `get_valid_access_token` for per-user, encrypted, non-interactive use**
+- [x] **Step 7: Rewrite `get_valid_access_token` for per-user, encrypted, non-interactive use**
 
 Replace the existing `get_valid_access_token` function and the `data.db` import in `auth/auth.py`:
 
@@ -1153,12 +1153,12 @@ def get_valid_access_token(user_id: str) -> str:
 
 Remove the now-unused `get_authorization_code`, `exchange_code_for_tokens` CLI-paste flow and the `if __name__ == "__main__"` block from `auth/auth.py` — `backend/routes/auth.py` (Tasks 6-7) now owns code exchange via the web callback routes.
 
-- [ ] **Step 8: Run tests to verify they pass**
+- [x] **Step 8: Run tests to verify they pass**
 
 Run: `uv run pytest tests/auth/test_auth.py -v`
 Expected: PASS (2 tests)
 
-- [ ] **Step 9: Wire `/chat` to require a session and forward a minted JWT to the MCP server**
+- [x] **Step 9: Wire `/chat` to require a session and forward a minted JWT to the MCP server**
 
 The MCP server authenticates itself now — it does its own bearer-token verification (against a JWKS endpoint it fetches and caches) and its own Postgres lookup (see Task 8a/8b below). `/chat` no longer resolves or passes a Health `access_token`; it only needs to (a) confirm the caller has a valid Strides session, and (b) mint a short-lived signed token the MCP server can independently verify.
 
@@ -1198,7 +1198,7 @@ async def chat(request: ChatRequest, user_id: str = Depends(require_user)):
 
 `process_query`/`call_tools` in `backend/services/chat_service.py` must set `Authorization: Bearer {mcp_token}` on the MCP client session/transport — not inject it into `block.input`. This avoids putting a live credential into the LLM tool-use loop's visible/loggable surface area; the minted token is single-audience (`strides-mcp`), 5-minute-lived, and grants no minting capability of its own.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add backend/dependencies.py backend/routes/chat.py backend/jwt_issuer.py auth/auth.py tests/backend/test_dependencies.py tests/auth/test_auth.py
@@ -1363,13 +1363,13 @@ git commit -m "feat: add RS256 JWT issuer and JWKS endpoint for MCP auth"
 - Consumes: `GET /.well-known/jwks.json` (Task 8a, fetched over HTTP), `get_oauth_token` (Task 5, direct Postgres access via `DATABASE_URL`)
 - Produces: `verify_bearer_token(token: str) -> str` (returns `user_id`, raises on invalid/expired), middleware wiring in `server.py`
 
-- [ ] **Step 1: Add dependency**
+- [x] **Step 1: Add dependency**
 
 ```bash
 uv add "pyjwt[crypto]" cachetools
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```python
 # tests/mcp/test_mcp_auth.py
@@ -1413,12 +1413,12 @@ def test_verify_bearer_token_rejects_wrong_audience():
 
 > Note for implementer: the fixture needs a real generated RSA keypair (`openssl genrsa`) at test setup so `FAKE_JWKS` actually matches `PRIVATE_KEY` — write a `conftest.py` fixture that generates both together rather than hardcoding a static pair.
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `uv run pytest tests/mcp/test_mcp_auth.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'mcp_servers.fit_server.mcp_auth'`
 
-- [ ] **Step 4: Implement JWKS verification with caching**
+- [x] **Step 4: Implement JWKS verification with caching**
 
 ```python
 # mcp_servers/fit_server/mcp_auth.py
@@ -1458,12 +1458,12 @@ def verify_bearer_token(token: str) -> str:
     return payload["sub"]
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `uv run pytest tests/mcp/test_mcp_auth.py -v`
 Expected: PASS (3 tests)
 
-- [ ] **Step 6: Wire verification into `server.py`, switch transport to HTTP**
+- [x] **Step 6: Wire verification into `server.py`, switch transport to HTTP**
 
 ```python
 # mcp_servers/fit_server/server.py — additions
@@ -1561,12 +1561,12 @@ def get_valid_access_token(user_id: str) -> str:
 
 Note: encryption note from Task 5's open question is resolved here — `encrypt`/`decrypt` stay imported by both processes (`backend/encryption.py` shared), since the MCP server is now a second reader/writer of `oauth_tokens`.
 
-- [ ] **Step 7: Run tests to verify they pass**
+- [x] **Step 7: Run tests to verify they pass**
 
 Run: `uv run pytest tests/mcp/test_mcp_auth.py tests/data/test_db.py -v`
 Expected: PASS (all)
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add mcp_servers/fit_server/server.py mcp_servers/fit_server/mcp_auth.py data/db.py auth/auth.py tests/mcp/test_mcp_auth.py
@@ -1586,37 +1586,36 @@ git commit -m "feat: MCP server independently verifies JWT via JWKS, resolves ow
 ## Task 9: Remove superseded docs and retired code paths
 
 **Files:**
-- Delete: `docs/ARCHITECTURE.md` (superseded by `docs/superpowers/specs/2026-08-01-multi-user-architecture-design.md`)
-- Delete: `docs/AUTH_IMPLEMENTATION.md` (superseded by this plan)
-- Modify: `data/db.py` — confirm no remaining `sqlite3` import or `data/strides.db` reference
-- Modify: `.gitignore` — remove `data/strides.db` entry if present, since SQLite is retired
+- Delete: `docs/ARCHITECTURE.md` (superseded by `docs/superpowers/specs/2026-08-01-multi-user-architecture-design.md`) — **already absent by the time this task ran, no action needed**
+- Delete: `docs/AUTH_IMPLEMENTATION.md` (superseded by this plan) — **already absent, no action needed**
+- Delete: `main.py` — the old single-user CLI entrypoint; imports `from src.auth.auth import get_valid_access_token`, but `src/` was removed in the multi-user pivot, so this file was already broken (`ModuleNotFoundError` on import) and fully superseded by `backend/agent.py`
+- Delete: `tests/test_fit_server.py` — tested the old `src.fit_server`/`src.helpers.health_api` modules, also broken on collection (`ModuleNotFoundError`), superseded by `tests/mcp/test_mcp_auth.py`
+- Modify: `data/db.py` — confirm no remaining `sqlite3` import or `data/strides.db` reference — **confirmed clean**
+- Modify: `.gitignore` — remove `data/strides.db` entry if present — **no such entry found, no action needed**
 
 **Interfaces:** none (cleanup only).
 
-- [ ] **Step 1: Verify no remaining references to the retired SQLite file or CLI flow**
+- [x] **Step 1: Verify no remaining references to the retired SQLite file or CLI flow**
 
 Run:
 ```bash
 grep -rn "strides.db\|sqlite3\|get_authorization_code" --include="*.py" .
 ```
-Expected: no matches outside test fixtures/history.
+Result: no matches. Separately found `main.py` and `tests/test_fit_server.py` still importing the retired `src.*` package (not `strides.db`/`sqlite3` specifically, but the same "retired CLI flow" this step is checking for) — both already broken, both deleted.
 
-- [ ] **Step 2: Remove the superseded planning docs**
+- [x] **Step 2: Remove the superseded planning docs**
 
-```bash
-rm docs/ARCHITECTURE.md docs/AUTH_IMPLEMENTATION.md
-```
+`docs/ARCHITECTURE.md` and `docs/AUTH_IMPLEMENTATION.md` were already gone by the time this task ran (removed in an earlier, undocumented cleanup) — nothing to do here.
 
-- [ ] **Step 3: Update `.gitignore` if it references `data/strides.db`**
+- [x] **Step 3: Update `.gitignore` if it references `data/strides.db`**
 
-Run: `grep -n "strides.db" .gitignore`
-If present, remove that line.
+Run: `grep -n "strides.db" .gitignore` — no match, nothing to remove.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add -A docs/ARCHITECTURE.md docs/AUTH_IMPLEMENTATION.md .gitignore
-git commit -m "chore: remove auth docs superseded by superpowers spec and plan"
+git add -A main.py tests/test_fit_server.py
+git commit -m "chore: remove retired src/-based CLI entrypoint and its test"
 ```
 
 ---
