@@ -4,12 +4,15 @@ import { describe, expect, it } from "vitest";
 
 import en from "../messages/en.json";
 import { Sidebar } from "../components/sidebar";
+import { SidebarProvider } from "../components/ui/sidebar";
 
 describe("Sidebar", () => {
   it("links to dashboard and chat for the given locale", () => {
     render(
       <NextIntlClientProvider locale="en" messages={en}>
-        <Sidebar active="dashboard" locale="en" />
+        <SidebarProvider>
+          <Sidebar active="dashboard" locale="en" />
+        </SidebarProvider>
       </NextIntlClientProvider>
     );
 
@@ -26,13 +29,13 @@ describe("Sidebar", () => {
   it("marks the active nav item", () => {
     render(
       <NextIntlClientProvider locale="en" messages={en}>
-        <Sidebar active="dashboard" locale="en" />
+        <SidebarProvider>
+          <Sidebar active="dashboard" locale="en" />
+        </SidebarProvider>
       </NextIntlClientProvider>
     );
 
-    expect(screen.getByRole("link", { name: en.nav.dashboard })).toHaveClass(
-      "text-primary-foreground"
-    );
-    expect(screen.getByRole("link", { name: en.nav.coach })).toHaveClass("text-[#B8C2B5]");
+    expect(screen.getByRole("link", { name: en.nav.dashboard })).toHaveAttribute("data-active");
+    expect(screen.getByRole("link", { name: en.nav.coach })).not.toHaveAttribute("data-active");
   });
 });

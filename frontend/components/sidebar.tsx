@@ -5,6 +5,23 @@ import Link from "next/link";
 
 import { mockUser } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import {
+  Sidebar as SidebarPrimitive,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@/components/ui/sidebar";
+
+function getMenuButtonClassName(collapsed: boolean) {
+  return cn(
+    "h-auto rounded-[10px] text-sm font-semibold",
+    collapsed ? "w-8 justify-center p-2" : "gap-3 px-3 py-[11px]"
+  );
+}
 
 export function Sidebar({
   active,
@@ -16,82 +33,112 @@ export function Sidebar({
   className?: string;
 }) {
   const t = useTranslations("nav");
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
 
   return (
-    <div className={cn("w-[240px] flex-col bg-primary px-5 py-7", className)}>
-      <div className="mb-9 flex items-center gap-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#3F5245]">
+    <SidebarPrimitive
+      collapsible="none"
+      className={cn(
+        "bg-sidebar py-7 transition-[width] duration-200 ease-linear",
+        collapsed ? "w-[76px] px-3" : "w-[240px] px-5",
+        className
+      )}
+    >
+      <SidebarHeader
+        className={cn(
+          "mb-9 flex-row items-center gap-2.5 p-0",
+          collapsed && "justify-center"
+        )}
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-sidebar-primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path
               d="M4 17L9 10L13 14L20 5"
-              stroke="#D8DED0"
+              stroke="var(--sidebar-primary-foreground)"
               strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           </svg>
         </div>
-        <span className="text-lg font-bold tracking-[-0.3px] text-primary-foreground">
-          Strides
-        </span>
-      </div>
-
-      <Link
-        href={`/${locale}/dashboard`}
-        className={cn(
-          "mb-1.5 flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-sm font-semibold",
-          active === "dashboard" ? "bg-[#3F5245] text-primary-foreground" : "text-[#B8C2B5]"
+        {!collapsed && (
+          <span className="text-lg font-bold tracking-[-0.3px] text-sidebar-accent-foreground">
+            Strides
+          </span>
         )}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
-          <rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
-          <rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
-          <rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
-        </svg>
-        {t("dashboard")}
-      </Link>
-      <Link
-        href={`/${locale}/chat`}
-        className={cn(
-          "flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-sm font-semibold",
-          active === "coach" ? "bg-[#3F5245] text-primary-foreground" : "text-[#B8C2B5]"
-        )}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path d="M4 5h16v11H8l-4 4V5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        </svg>
-        {t("coach")}
-      </Link>
-      <Link
-        href={`/${locale}/connectors`}
-        className={cn(
-          "mt-1.5 flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-sm font-semibold",
-          active === "connectors" ? "bg-[#3F5245] text-primary-foreground" : "text-[#B8C2B5]"
-        )}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M6 10h12v4a6 6 0 01-6 6 6 6 0 01-6-6v-4z"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinejoin="round"
-          />
-        </svg>
-        {t("connectors")}
-      </Link>
+      </SidebarHeader>
 
-      <div className="flex-1" />
+      <SidebarContent className="gap-1.5 overflow-visible">
+        <SidebarMenu className={cn("gap-1.5", collapsed && "items-center")}>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={<Link href={`/${locale}/dashboard`} />}
+              isActive={active === "dashboard"}
+              tooltip={collapsed ? t("dashboard") : undefined}
+              className={getMenuButtonClassName(collapsed)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
+                <rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
+                <rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
+                <rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
+              </svg>
+              {!collapsed && t("dashboard")}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
 
-      <Link
-        href={`/${locale}/profile`}
-        className="flex items-center gap-2.5 border-t border-primary-foreground/[0.12] pt-4"
-      >
-        <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#3F5245] text-xs font-semibold text-primary-foreground">
-          {mockUser.initials}
-        </div>
-        <div className="text-[13px] font-medium text-[#D8DED0]">{mockUser.name}</div>
-      </Link>
-    </div>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={<Link href={`/${locale}/chat`} />}
+              isActive={active === "coach"}
+              tooltip={collapsed ? t("coach") : undefined}
+              className={getMenuButtonClassName(collapsed)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M4 5h16v11H8l-4 4V5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+              </svg>
+              {!collapsed && t("coach")}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={<Link href={`/${locale}/connectors`} />}
+              isActive={active === "connectors"}
+              tooltip={collapsed ? t("connectors") : undefined}
+              className={getMenuButtonClassName(collapsed)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M6 10h12v4a6 6 0 01-6 6 6 6 0 01-6-6v-4z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {!collapsed && t("connectors")}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarContent>
+
+      <SidebarFooter className="p-0">
+        <Link
+          href={`/${locale}/profile`}
+          className={cn(
+            "flex items-center gap-2.5 border-t border-sidebar-border pt-4",
+            collapsed && "justify-center"
+          )}
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground">
+            {mockUser.initials}
+          </div>
+          {!collapsed && (
+            <div className="text-[13px] font-medium text-sidebar-foreground">{mockUser.name}</div>
+          )}
+        </Link>
+      </SidebarFooter>
+    </SidebarPrimitive>
   );
 }
