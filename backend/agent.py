@@ -1,9 +1,12 @@
 import os
+from contextlib import asynccontextmanager
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from data.db import init_db
 
 load_dotenv()
 client = Anthropic()
@@ -26,7 +29,13 @@ Be concise and encouraging. Only answer running-related questions."""
 
 conversations: dict[str, list] = {}  # per-user message history, keyed by user_id
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
