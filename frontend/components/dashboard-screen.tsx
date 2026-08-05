@@ -5,17 +5,55 @@ import Link from "next/link";
 
 import { Avatar } from "@/components/avatar";
 import { Card } from "@/components/ui/card";
+import { useDashboard } from "@/hooks/use-dashboard";
+import { usePreferences } from "@/hooks/use-preferences";
 import { useAuth } from "@/lib/auth-context";
-import { mockGoals, mockRecentRuns, mockWeekGoalPct, mockWeekStats } from "@/lib/mock-data";
+import type { RecentRun } from "@/lib/dashboard-api";
+import { mockGoals } from "@/lib/mock-data";
+
+function formatPace(paceMinPerKm: number | null): string {
+  if (paceMinPerKm === null) return "–";
+  const minutes = Math.floor(paceMinPerKm);
+  const seconds = Math.round((paceMinPerKm - minutes) * 60);
+  return `${minutes}:${seconds.toString().padStart(2, "0")}/km`;
+}
+
+function formatRun(run: RecentRun, locale: string) {
+  const date = new Date(run.date);
+  return {
+    day: date.toLocaleDateString(locale, { weekday: "long" }),
+    time: date.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
+    distance: `${run.distance_km} km`,
+    pace: formatPace(run.pace_min_per_km),
+  };
+}
 
 export function DashboardScreen({ locale }: { locale: string }) {
   const t = useTranslations("dashboard");
   const { user } = useAuth();
+  const { dashboard, isLoading } = useDashboard();
+  const { preferences } = usePreferences();
   const today = new Date().toLocaleDateString(locale, {
     weekday: "long",
     month: "short",
     day: "numeric",
   });
+
+  const weeklyGoalKm = preferences?.weekly_goal_km ?? 30;
+  const weekStats = [
+    { value: isLoading ? "–" : String(dashboard?.weekly_stats.total_distance_km ?? 0), label: "km" },
+    {
+      value: isLoading
+        ? "–"
+        : formatPace(dashboard?.weekly_stats.avg_pace_min_per_km ?? null).replace("/km", ""),
+      label: "avg /km",
+    },
+    { value: isLoading ? "–" : String(dashboard?.weekly_stats.run_count ?? 0), label: "runs" },
+  ];
+  const weekGoalPct = dashboard
+    ? Math.min(100, Math.round((dashboard.weekly_stats.total_distance_km / weeklyGoalKm) * 100))
+    : 0;
+  const recentRuns = dashboard?.recent_runs.map((run) => formatRun(run, locale)) ?? [];
 
   return (
     <div className="flex-1 overflow-y-auto px-[22px] py-5 lg:px-[44px] lg:py-9">
@@ -38,7 +76,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
       <div className="lg:mb-7 lg:grid lg:grid-cols-[1.3fr_1fr] lg:gap-5">
         <div className="mb-4 flex flex-col gap-4 rounded-[20px] bg-primary p-[22px] lg:mb-0 lg:gap-[18px] lg:p-7">
           <div className="flex justify-between">
-            {mockWeekStats.map((stat) => (
+            {weekStats.map((stat) => (
               <div key={stat.label} className="flex flex-col gap-1">
                 <div className="font-mono text-[26px] font-bold text-primary-foreground lg:text-[32px]">
                   {stat.value}
@@ -52,16 +90,16 @@ export function DashboardScreen({ locale }: { locale: string }) {
           <div className="h-px bg-primary-foreground/10" />
           <div className="flex items-center justify-between">
             <div className="text-[13px] text-goal-label lg:text-sm">
-              {t("goal", { distance: 30 })}
+              {t("goal", { distance: weeklyGoalKm })}
             </div>
             <div className="font-mono text-[13px] font-semibold text-primary-foreground lg:text-sm">
-              {mockWeekGoalPct}%
+              {weekGoalPct}%
             </div>
           </div>
           <div className="h-[6px] w-full overflow-hidden rounded-full bg-primary-foreground/[0.14]">
             <div
               className="h-full rounded-full bg-accent-light"
-              style={{ width: `${mockWeekGoalPct}%` }}
+              style={{ width: `${weekGoalPct}%` }}
             />
           </div>
         </div>
@@ -91,7 +129,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
         {t("recentRuns")}
       </div>
       <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-3">
-        {mockRecentRuns.map((run) => (
+        {recentRuns.map((run) => (
           <Card
             key={`${run.day}-${run.time}`}
             className="flex flex-row items-center justify-between rounded-[16px] p-4 lg:px-5 lg:py-[18px]"

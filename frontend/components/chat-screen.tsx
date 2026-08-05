@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,10 +69,10 @@ export function ChatScreen({ locale }: { locale: string }) {
                 className={`max-w-[78%] rounded-[16px] px-[15px] py-[11px] text-sm leading-[1.45] lg:max-w-[65%] lg:px-4 lg:py-3 lg:text-[15px] lg:leading-[1.5] ${
                   msg.from === "user"
                     ? "rounded-br-[4px] bg-primary text-primary-foreground"
-                    : "rounded-bl-[4px] border border-border bg-card text-primary"
+                    : "rounded-bl-[4px] border border-border bg-card text-primary [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5"
                 }`}
               >
-                {msg.text}
+                {msg.from === "coach" ? <ReactMarkdown>{msg.text}</ReactMarkdown> : msg.text}
               </div>
             </motion.div>
           ))}

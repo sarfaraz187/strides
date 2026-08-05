@@ -23,6 +23,7 @@ def test_upload_avatar_puts_object_and_returns_bucket_relative_path():
         "https://project-ref.supabase.co/storage/v1/object/avatars/user-123.jpg"
     )
     assert call_args.kwargs["headers"]["Authorization"] == "Bearer service-role-key"
+    assert call_args.kwargs["headers"]["apikey"] == "service-role-key"
     assert call_args.kwargs["headers"]["Content-Type"] == "image/jpeg"
     assert call_args.kwargs["data"] == b"fake-image-bytes"
     assert path == "user-123.jpg"
@@ -44,7 +45,7 @@ def test_create_signed_url_requests_signature_and_builds_full_url():
 
     mock_post.assert_called_once_with(
         "https://project-ref.supabase.co/storage/v1/object/sign/avatars/user-123.jpg",
-        headers={"Authorization": "Bearer service-role-key"},
+        headers={"Authorization": "Bearer service-role-key", "apikey": "service-role-key"},
         json={"expiresIn": 3600},
         timeout=10,
     )
@@ -61,7 +62,7 @@ def test_delete_avatar_removes_object_by_path():
 
     mock_delete.assert_called_once_with(
         "https://project-ref.supabase.co/storage/v1/object/avatars/user-123.jpg",
-        headers={"Authorization": "Bearer service-role-key"},
+        headers={"Authorization": "Bearer service-role-key", "apikey": "service-role-key"},
         timeout=10,
     )
 

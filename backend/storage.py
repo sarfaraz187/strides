@@ -16,7 +16,8 @@ def _bucket_sign_url(path: str) -> str:
 
 
 def _auth_headers() -> dict[str, str]:
-    return {"Authorization": f"Bearer {os.environ['SUPABASE_SERVICE_ROLE_KEY']}"}
+    key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    return {"Authorization": f"Bearer {key}", "apikey": key}
 
 
 def upload_avatar(user_id: str, content: bytes, content_type: str) -> str:
