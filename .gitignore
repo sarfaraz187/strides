@@ -19,3 +19,5 @@ wheels/
 .agents/
 .playwright-mcp/
 backend/keys/
+
+CLAUDE.md
