@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 import httpx
+from fastapi import HTTPException
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
@@ -17,10 +18,16 @@ async def open_mcp_session(user_id: str):
     long-lived session couldn't carry a fresh token per request anyway."""
     token = mint_token(user_id)
     async with httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"}) as http_client:
-        async with streamable_http_client(SERVER_URL, http_client=http_client) as (read, write, _):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                yield session
+        try:
+            async with streamable_http_client(SERVER_URL, http_client=http_client) as (read, write, _):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    yield session
+        except* httpx.ConnectError as eg:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Health data service unavailable — is the MCP fit_server running on {SERVER_URL}?",
+            ) from eg
 
 
 async def get_tool_schemas(session: ClientSession) -> list[dict]:
