@@ -28,7 +28,8 @@
     "connecting": "Verbindet…",
     "notConnected": "Nicht verbunden",
     "connect": "Verbinden",
-    "disconnect": "Trennen"
+    "disconnect": "Trennen",
+    "connectFailed": "Verbindung zu Google Health fehlgeschlagen. Bitte versuche es erneut."
   },
   "profile": {
     "weeklyGoal": "Wochenziel",

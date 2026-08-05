@@ -28,7 +28,8 @@
     "connecting": "Connecting…",
     "notConnected": "Not connected",
     "connect": "Connect",
-    "disconnect": "Disconnect"
+    "disconnect": "Disconnect",
+    "connectFailed": "Couldn't connect to Google Health. Please try again."
   },
   "profile": {
     "weeklyGoal": "Weekly goal",
