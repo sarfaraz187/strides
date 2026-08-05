@@ -1,6 +1,9 @@
+import os
+
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 client = Anthropic()
@@ -24,6 +27,14 @@ Be concise and encouraging. Only answer running-related questions."""
 conversations: dict[str, list] = {}  # per-user message history, keyed by user_id
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[os.environ.get("FRONTEND_URL", "http://localhost:3000")],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 from backend.routes.auth import router as auth_router
