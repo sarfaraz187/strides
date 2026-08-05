@@ -11,26 +11,44 @@ Postgres column on an existing table).
 
 ## Storage
 
-- Supabase Storage bucket `avatars`, public read access. A public bucket
-  lets us store a plain URL on the user record and skip signed-URL
-  refresh/expiry handling — acceptable for a personal project.
-- `users.avatar_url TEXT NULL` column, added via migration.
+- Supabase Storage bucket `avatars`, **private** — public read was the
+  original plan, but avatars are personal data tied to a real user
+  identity, so access should require the same session auth as everything
+  else, not just an unguessable path. Signed URLs (~1hr expiry), generated
+  server-side on demand, not stored.
+- `users.avatar_path TEXT NULL` column, added via migration — stores the
+  bucket-relative object path (`{user_id}.{ext}`), not a URL. A URL would
+  either be unsigned (defeats the point of a private bucket) or a signed
+  URL that expires and goes stale sitting in the database.
 
 ## Backend
 
-- `data/db.py`: `update_avatar_url(user_id: str, url: str | None) -> None`.
+- `data/db.py`: `update_avatar_path(user_id: str, path: str | None) -> None`.
+- `backend/storage.py`:
+  - `upload_avatar(user_id, content, content_type) -> str` — uploads,
+    returns the bucket-relative path.
+  - `create_signed_url(path: str, expires_in: int = 3600) -> str` — calls
+    Supabase's `POST /storage/v1/object/sign/{bucket}/{path}`, returns a
+    full signed URL.
+  - `delete_avatar(path: str | None) -> None` — deletes by path; no-op for
+    `None`.
 - New route `POST /profile/avatar` (in `backend/routes/profile.py`, new
   file, or added to `auth.py` if that reads cleaner once implementing):
   - Session-cookie auth, same **dependency** as `/auth/me`.
   - Multipart upload. Server-side validation (never trust client-side
     checks alone): content-type must be `image/jpeg` or `image/png`; size
     must be ≤5MB.
-  - If the user already has an `avatar_url`, delete the old file from the
+  - If the user already has an `avatar_path`, delete the old file from the
     bucket first.
   - Uploads new file to `avatars/{user_id}.{ext}`, updates
-    `users.avatar_url`, returns the new URL.
-- `/auth/me` response, and the frontend `User` type, gain
-  `avatar_url: string | null`.
+    `users.avatar_path`, returns a freshly signed URL as `avatar_url`.
+- `/auth/me`: if `avatar_path` is set, calls `create_signed_url` and
+  returns it as `avatar_url`; `null` otherwise. Every `/auth/me` call
+  mints a fresh signed URL — the frontend never sees or stores the raw
+  path, and the URL naturally rotates instead of going stale.
+- The frontend `User` type gains `avatar_url: string | null` — same shape
+  as originally planned; the signing happens entirely server-side, so this
+  is the only frontend-visible surface of the change.
 
 ## Frontend
 
@@ -62,7 +80,6 @@ Postgres column on an existing table).
 ## Out of scope
 
 - Cropping/resizing UI.
-- Private/signed URLs.
 - Multiple avatar sizes/thumbnails.
 - Any change to `preferences`/language work (tracked separately in
   [[2026-08-05-profile-preferences-design]]).

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Cookie, HTTPException
 from fastapi.responses import RedirectResponse
 
 from backend.services import auth_service
+from backend.storage import create_signed_url
 from data.db import (
     create_session,
     delete_oauth_token,
@@ -110,10 +111,11 @@ def health_disconnect(session: str | None = Cookie(default=None)):
 @router.get("/me")
 def me(session: str | None = Cookie(default=None)):
     user_id = _require_user_id(session)
-    email, name, created_at, avatar_url = get_user(user_id)
+    email, name, created_at, avatar_path = get_user(user_id)
     health_token = get_oauth_token(user_id, "health")
 
     is_connected = health_token is not None
+    avatar_url = create_signed_url(avatar_path) if avatar_path is not None else None
     return {
         "email": email,
         "name": name,

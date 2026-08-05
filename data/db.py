@@ -63,7 +63,8 @@ def init_db() -> None:
             )
         """)
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT")
-        conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT")
+        conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_path TEXT")
+        conn.execute("ALTER TABLE users DROP COLUMN IF EXISTS avatar_url")
         conn.execute(
             "ALTER TABLE preferences ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'en'"
         )
@@ -93,19 +94,19 @@ def find_or_create_user(email: str, google_sub: str, name: str) -> str:
 def get_user(user_id: str) -> tuple[str, str, datetime, str | None] | None:
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT email, name, created_at, avatar_url FROM users WHERE id = %s",
+            "SELECT email, name, created_at, avatar_path FROM users WHERE id = %s",
             (user_id,),
         ).fetchone()
     if row is None:
         return None
-    email, name, created_at, avatar_url = row
-    return email, name, created_at, avatar_url
+    email, name, created_at, avatar_path = row
+    return email, name, created_at, avatar_path
 
 
-def update_avatar_url(user_id: str, url: str | None) -> None:
+def update_avatar_path(user_id: str, path: str | None) -> None:
     with get_connection() as conn:
         conn.execute(
-            "UPDATE users SET avatar_url = %s WHERE id = %s", (url, user_id)
+            "UPDATE users SET avatar_path = %s WHERE id = %s", (path, user_id)
         )
         conn.commit()
 
