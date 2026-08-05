@@ -39,8 +39,10 @@ app.add_middleware(
 
 from backend.routes.auth import router as auth_router
 from backend.routes.chat import router
+from backend.routes.preferences import router as preferences_router
 from backend.routes.well_known import router as well_known_router
 
 app.include_router(router)
 app.include_router(auth_router)
+app.include_router(preferences_router)
 app.include_router(well_known_router)

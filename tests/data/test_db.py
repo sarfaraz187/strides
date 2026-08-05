@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from data.db import (
+    Preferences,
     create_goal,
     create_session,
     delete_oauth_token,
@@ -65,7 +66,28 @@ def test_init_db_creates_preferences_table():
         "weekly_goal_km",
         "units",
         "notifications_enabled",
+        "language",
     }
+
+
+def test_get_preferences_returns_defaults_when_no_row_exists():
+    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+
+    prefs = get_preferences(user_id)
+
+    assert prefs == Preferences(
+        weekly_goal_km=30, units="km", notifications_enabled=True, language="en"
+    )
+
+
+def test_upsert_preferences_creates_row_with_defaults_for_omitted_fields():
+    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+
+    prefs = upsert_preferences(user_id, units="mi")
+
+    assert prefs == Preferences(
+        weekly_goal_km=30, units="mi", notifications_enabled=True, language="en"
+    )
 
 
 def test_init_db_creates_goals_table():
@@ -224,28 +246,29 @@ def test_get_user_returns_none_for_unknown_id():
 def test_upsert_preferences_then_get_preferences_round_trips():
     user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
 
-    upsert_preferences(user_id, weekly_goal_km=30, units="km", notifications_enabled=True)
-    weekly_goal_km, units, notifications_enabled = get_preferences(user_id)
+    upsert_preferences(
+        user_id, weekly_goal_km=30, units="km", notifications_enabled=True, language="en"
+    )
+    prefs = get_preferences(user_id)
 
-    assert weekly_goal_km == 30
-    assert units == "km"
-    assert notifications_enabled is True
+    assert prefs == Preferences(
+        weekly_goal_km=30, units="km", notifications_enabled=True, language="en"
+    )
 
 
-def test_upsert_preferences_updates_existing_row():
+def test_upsert_preferences_partial_update_only_touches_provided_fields():
     user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
 
-    upsert_preferences(user_id, weekly_goal_km=30, units="km", notifications_enabled=True)
-    upsert_preferences(user_id, weekly_goal_km=50, units="mi", notifications_enabled=False)
+    upsert_preferences(
+        user_id, weekly_goal_km=30, units="km", notifications_enabled=True, language="en"
+    )
+    upsert_preferences(user_id, language="de")
 
-    weekly_goal_km, units, notifications_enabled = get_preferences(user_id)
+    prefs = get_preferences(user_id)
 
-    assert (weekly_goal_km, units, notifications_enabled) == (50, "mi", False)
-
-
-def test_get_preferences_returns_none_when_absent():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
-    assert get_preferences(user_id) is None
+    assert prefs == Preferences(
+        weekly_goal_km=30, units="km", notifications_enabled=True, language="de"
+    )
 
 
 def test_create_goal_then_list_goals_returns_it():

@@ -48,7 +48,8 @@ def init_db() -> None:
                 user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
                 weekly_goal_km NUMERIC NOT NULL,
                 units TEXT NOT NULL,
-                notifications_enabled BOOLEAN NOT NULL
+                notifications_enabled BOOLEAN NOT NULL,
+                language TEXT NOT NULL DEFAULT 'en'
             )
         """)
         conn.execute("""
@@ -62,6 +63,9 @@ def init_db() -> None:
             )
         """)
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT")
+        conn.execute(
+            "ALTER TABLE preferences ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'en'"
+        )
         conn.commit()
 
 
@@ -177,37 +181,74 @@ def delete_oauth_token(user_id: str, provider: str) -> None:
         conn.commit()
 
 
+@dataclass
+class Preferences:
+    weekly_goal_km: float
+    units: str
+    notifications_enabled: bool
+    language: str
+
+
+_DEFAULT_PREFERENCES = Preferences(
+    weekly_goal_km=30, units="km", notifications_enabled=True, language="en"
+)
+
+
 def upsert_preferences(
-    user_id: str, weekly_goal_km: float, units: str, notifications_enabled: bool
-) -> None:
+    user_id: str,
+    weekly_goal_km: float | None = None,
+    units: str | None = None,
+    notifications_enabled: bool | None = None,
+    language: str | None = None,
+) -> Preferences:
+    current = get_preferences(user_id)
+    weekly_goal_km = current.weekly_goal_km if weekly_goal_km is None else weekly_goal_km
+    units = current.units if units is None else units
+    notifications_enabled = (
+        current.notifications_enabled if notifications_enabled is None else notifications_enabled
+    )
+    language = current.language if language is None else language
+
     with get_connection() as conn:
         conn.execute(
             """
-            INSERT INTO preferences (user_id, weekly_goal_km, units, notifications_enabled)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO preferences (user_id, weekly_goal_km, units, notifications_enabled, language)
+            VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (user_id) DO UPDATE SET
                 weekly_goal_km = excluded.weekly_goal_km,
                 units = excluded.units,
-                notifications_enabled = excluded.notifications_enabled
+                notifications_enabled = excluded.notifications_enabled,
+                language = excluded.language
             """,
-            (user_id, weekly_goal_km, units, notifications_enabled),
+            (user_id, weekly_goal_km, units, notifications_enabled, language),
         )
         conn.commit()
+    return Preferences(
+        weekly_goal_km=float(weekly_goal_km),
+        units=units,
+        notifications_enabled=notifications_enabled,
+        language=language,
+    )
 
 
-def get_preferences(user_id: str) -> tuple[float, str, bool] | None:
+def get_preferences(user_id: str) -> Preferences:
     with get_connection() as conn:
         row = conn.execute(
             """
-            SELECT weekly_goal_km, units, notifications_enabled
+            SELECT weekly_goal_km, units, notifications_enabled, language
             FROM preferences WHERE user_id = %s
             """,
             (user_id,),
         ).fetchone()
     if row is None:
-        return None
-    weekly_goal_km, units, notifications_enabled = row
-    return float(weekly_goal_km), units, notifications_enabled
+        return _DEFAULT_PREFERENCES
+    weekly_goal_km, units, notifications_enabled, language = row
+    return Preferences(
+        weekly_goal_km=float(weekly_goal_km),
+        units=units,
+        notifications_enabled=notifications_enabled,
+        language=language,
+    )
 
 
 @dataclass

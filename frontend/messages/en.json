@@ -38,8 +38,12 @@
     "units": "Units",
     "kilometers": "Kilometers",
     "miles": "Miles",
+    "language": "Language",
+    "english": "English",
+    "german": "German",
     "notifications": "Notifications",
     "memberSince": "Member since",
-    "logOut": "Log out"
+    "logOut": "Log out",
+    "saveFailed": "Couldn't save your change. Try again."
   }
 }

@@ -38,8 +38,12 @@
     "units": "Einheiten",
     "kilometers": "Kilometer",
     "miles": "Meilen",
+    "language": "Sprache",
+    "english": "Englisch",
+    "german": "Deutsch",
     "notifications": "Benachrichtigungen",
     "memberSince": "Mitglied seit",
-    "logOut": "Abmelden"
+    "logOut": "Abmelden",
+    "saveFailed": "Änderung konnte nicht gespeichert werden. Bitte erneut versuchen."
   }
 }
