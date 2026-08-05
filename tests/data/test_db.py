@@ -21,6 +21,7 @@ from data.db import (
     init_db,
     list_goals,
     save_oauth_token,
+    update_avatar_url,
     upsert_preferences,
 )
 
@@ -51,7 +52,7 @@ def test_init_db_creates_users_table():
             "WHERE table_name = 'users' AND table_schema = 'public'"
         ).fetchall()
     columns = {row[0] for row in result}
-    assert columns == {"id", "email", "google_sub", "name", "created_at"}
+    assert columns == {"id", "email", "google_sub", "name", "created_at", "avatar_url"}
 
 
 def test_init_db_creates_preferences_table():
@@ -232,15 +233,28 @@ def test_delete_oauth_token_removes_row():
 def test_find_or_create_user_stores_name():
     user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
 
-    email, name, created_at = get_user(user_id)
+    email, name, created_at, avatar_url = get_user(user_id)
 
     assert email == "runner@example.com"
     assert name == "Runner Example"
     assert created_at is not None
+    assert avatar_url is None
 
 
 def test_get_user_returns_none_for_unknown_id():
     assert get_user(str(uuid.uuid4())) is None
+
+
+def test_update_avatar_url_sets_and_clears_url():
+    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+
+    update_avatar_url(user_id, "https://example.supabase.co/storage/v1/object/public/avatars/x.jpg")
+    _, _, _, avatar_url = get_user(user_id)
+    assert avatar_url == "https://example.supabase.co/storage/v1/object/public/avatars/x.jpg"
+
+    update_avatar_url(user_id, None)
+    _, _, _, avatar_url_after_clear = get_user(user_id)
+    assert avatar_url_after_clear is None
 
 
 def test_upsert_preferences_then_get_preferences_round_trips():

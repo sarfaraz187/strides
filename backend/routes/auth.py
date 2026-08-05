@@ -110,7 +110,7 @@ def health_disconnect(session: str | None = Cookie(default=None)):
 @router.get("/me")
 def me(session: str | None = Cookie(default=None)):
     user_id = _require_user_id(session)
-    email, name, created_at = get_user(user_id)
+    email, name, created_at, avatar_url = get_user(user_id)
     health_token = get_oauth_token(user_id, "health")
 
     is_connected = health_token is not None
@@ -118,5 +118,6 @@ def me(session: str | None = Cookie(default=None)):
         "email": email,
         "name": name,
         "created_at": created_at,
+        "avatar_url": avatar_url,
         "health_connected": is_connected,
     }
