@@ -8,7 +8,7 @@ import { apiFetch } from "./api";
 type User = { email: string; health_connected: boolean; created_at: string; name: string | null };
 type AuthState = { user: User | null; isLoading: boolean };
 
-const AuthContext = createContext<AuthState>({ user: null, isLoading: true });
+export const AuthContext = createContext<AuthState>({ user: null, isLoading: true });
 
 // NEXT_PUBLIC_MOCK_AUTH=true skips the real auth check, for local UI work without a backend running.
 const MOCK_AUTH = process.env.NEXT_PUBLIC_MOCK_AUTH === "true";

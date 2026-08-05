@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 
-import { mockUser } from "@/lib/mock-data";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import {
   Sidebar as SidebarPrimitive,
@@ -35,6 +35,16 @@ export function Sidebar({
   const t = useTranslations("nav");
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { user } = useAuth();
+  const displayName = user?.name ?? user?.email ?? "";
+  const initials = displayName
+    ? displayName
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((word) => word[0]?.toUpperCase())
+        .join("")
+    : "?";
 
   return (
     <SidebarPrimitive
@@ -132,10 +142,10 @@ export function Sidebar({
           )}
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground">
-            {mockUser.initials}
+            {initials}
           </div>
           {!collapsed && (
-            <div className="text-[13px] font-medium text-sidebar-foreground">{mockUser.name}</div>
+            <div className="text-[13px] font-medium text-sidebar-foreground">{displayName}</div>
           )}
         </Link>
       </SidebarFooter>

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { usePreferences } from "@/hooks/use-preferences";
 import { apiFetch } from "@/lib/api";
-import { mockUser } from "@/lib/mock-data";
+import { useAuth } from "@/lib/auth-context";
 import type { Preferences } from "@/lib/preferences-api";
 
 const GOAL_STEP_KM = 5;
@@ -28,6 +28,19 @@ export function ProfileScreen({ locale }: { locale: string }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const { preferences, isLoading, updateNow, updateDebounced, error } = usePreferences();
+  const { user } = useAuth();
+  const displayName = user?.name ?? user?.email ?? "";
+  const initials = displayName
+    ? displayName
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((word) => word[0]?.toUpperCase())
+        .join("")
+    : "?";
+  const memberSince = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString("en", { month: "short", year: "numeric" })
+    : "";
 
   // Pending, not-yet-confirmed goal value shown while the debounced save is
   // in flight. `null` means "show the server-confirmed value". Reset to
@@ -77,11 +90,11 @@ export function ProfileScreen({ locale }: { locale: string }) {
     <div className="flex-1 overflow-y-auto px-[22px] py-5 lg:mx-auto lg:w-full lg:max-w-[560px] lg:px-0 lg:py-9">
       <div className="mb-6 flex items-center gap-3.5 lg:mb-7 lg:gap-4">
         <div className="flex h-14 w-14 flex-none items-center justify-center rounded-full bg-avatar-bg text-lg font-semibold text-primary lg:h-16 lg:w-16 lg:text-xl">
-          {mockUser.initials}
+          {initials}
         </div>
         <div>
-          <div className="text-lg font-bold text-primary lg:text-[22px]">{mockUser.name}</div>
-          <div className="text-[13px] text-muted lg:text-sm">{mockUser.email}</div>
+          <div className="text-lg font-bold text-primary lg:text-[22px]">{displayName}</div>
+          <div className="text-[13px] text-muted lg:text-sm">{user?.email ?? ""}</div>
         </div>
       </div>
 
@@ -166,7 +179,7 @@ export function ProfileScreen({ locale }: { locale: string }) {
 
         <Card className="flex-row items-center justify-between rounded-2xl px-4 py-3.5 lg:px-[22px] lg:py-[18px]">
           <div className="text-sm font-semibold text-primary lg:text-[15px]">{t("memberSince")}</div>
-          <div className="text-[13px] text-muted-light">{mockUser.memberSince}</div>
+          <div className="text-[13px] text-muted-light">{memberSince}</div>
         </Card>
       </div>
 

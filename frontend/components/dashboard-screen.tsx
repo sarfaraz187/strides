@@ -4,10 +4,21 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 
 import { Card } from "@/components/ui/card";
-import { mockGoals, mockRecentRuns, mockUser, mockWeekGoalPct, mockWeekStats } from "@/lib/mock-data";
+import { useAuth } from "@/lib/auth-context";
+import { mockGoals, mockRecentRuns, mockWeekGoalPct, mockWeekStats } from "@/lib/mock-data";
 
 export function DashboardScreen({ locale }: { locale: string }) {
   const t = useTranslations("dashboard");
+  const { user } = useAuth();
+  const displayName = user?.name ?? user?.email ?? "";
+  const initials = displayName
+    ? displayName
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((word) => word[0]?.toUpperCase())
+        .join("")
+    : "?";
   const today = new Date().toLocaleDateString(locale, {
     weekday: "long",
     month: "short",
@@ -27,7 +38,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
           href={`/${locale}/profile`}
           className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-avatar-bg text-[13px] font-semibold text-primary lg:hidden"
         >
-          {mockUser.initials}
+          {initials}
         </Link>
       </div>
 

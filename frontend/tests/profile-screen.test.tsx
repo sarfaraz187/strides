@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 
 import { ProfileScreen } from "@/components/profile-screen";
+import { AuthContext } from "@/lib/auth-context";
 import en from "../messages/en.json";
 
 const pushMock = vi.fn();
@@ -44,5 +45,44 @@ describe("ProfileScreen", () => {
     renderWithProviders(<ProfileScreen locale="en" />);
 
     await waitFor(() => expect(screen.getByText("English")).toBeInTheDocument());
+  });
+
+  it("shows the signed-in user's name, email, and join date instead of the mock user", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          weekly_goal_km: 30,
+          units: "km",
+          notifications_enabled: true,
+          language: "en",
+        }),
+        { status: 200 }
+      )
+    );
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <AuthContext.Provider
+        value={{
+          user: {
+            email: "runner@example.com",
+            name: "Runner Example",
+            created_at: "2026-01-15T00:00:00Z",
+            health_connected: false,
+          },
+          isLoading: false,
+        }}
+      >
+        <QueryClientProvider client={queryClient}>
+          <NextIntlClientProvider locale="en" messages={en}>
+            <ProfileScreen locale="en" />
+          </NextIntlClientProvider>
+        </QueryClientProvider>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => expect(screen.getByText("Runner Example")).toBeInTheDocument());
+    expect(screen.getByText("runner@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Jan 2026")).toBeInTheDocument();
   });
 });

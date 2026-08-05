@@ -5,6 +5,22 @@ import { describe, expect, it } from "vitest";
 import en from "../messages/en.json";
 import { Sidebar } from "../components/sidebar";
 import { SidebarProvider } from "../components/ui/sidebar";
+import { AuthContext } from "../lib/auth-context";
+
+function renderWithUser(name: string | null, ui: React.ReactElement) {
+  return render(
+    <AuthContext.Provider
+      value={{
+        user: { email: "runner@example.com", name, created_at: "", health_connected: false },
+        isLoading: false,
+      }}
+    >
+      <NextIntlClientProvider locale="en" messages={en}>
+        <SidebarProvider>{ui}</SidebarProvider>
+      </NextIntlClientProvider>
+    </AuthContext.Provider>
+  );
+}
 
 describe("Sidebar", () => {
   it("links to dashboard and chat for the given locale", () => {
@@ -37,5 +53,15 @@ describe("Sidebar", () => {
 
     expect(screen.getByRole("link", { name: en.nav.dashboard })).toHaveAttribute("data-active");
     expect(screen.getByRole("link", { name: en.nav.coach })).not.toHaveAttribute("data-active");
+  });
+});
+
+describe("Sidebar user display", () => {
+  it("shows the signed-in user's name and initials, not the mock user", () => {
+    renderWithUser("Runner Example", <Sidebar active="dashboard" locale="en" />);
+
+    expect(screen.getByText("Runner Example")).toBeInTheDocument();
+    expect(screen.getByText("RE")).toBeInTheDocument();
+    expect(screen.queryByText("Sam B.")).not.toBeInTheDocument();
   });
 });
