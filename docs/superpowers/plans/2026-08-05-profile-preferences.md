@@ -30,7 +30,7 @@
 - Produces: `get_preferences(user_id: str) -> Preferences` — always returns a `Preferences` (defaults when no row exists), never `None`.
 - Produces: `upsert_preferences(user_id: str, weekly_goal_km: float | None = None, units: str | None = None, notifications_enabled: bool | None = None, language: str | None = None) -> Preferences` — partial update; omitted (`None`) args keep the existing row's value, or the default if no row exists yet.
 
-- [ ] **Step 1: Update the failing/changing tests in `tests/data/test_db.py`**
+- [x] **Step 1: Update the failing/changing tests in `tests/data/test_db.py`**
 
 Replace the existing preferences tests (the `test_init_db_creates_preferences_table`, `test_upsert_preferences_then_get_preferences_round_trips`, `test_upsert_preferences_updates_existing_row`, and `test_get_preferences_returns_none_when_absent` tests) with:
 
@@ -101,12 +101,12 @@ def test_upsert_preferences_partial_update_only_touches_provided_fields():
 
 Add `Preferences` to the imports from `data.db` at the top of the test file, and remove `get_preferences`/`upsert_preferences` if the import list needs adjusting (they stay, just add `Preferences`).
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pytest tests/data/test_db.py -k preferences -v`
 Expected: FAIL — `Preferences` doesn't exist / column mismatch / `get_preferences` returns `None` instead of defaults.
 
-- [ ] **Step 3: Add the `language` column to the `init_db()` DDL**
+- [x] **Step 3: Add the `language` column to the `init_db()` DDL**
 
 In `data/db.py`, find the `CREATE TABLE IF NOT EXISTS preferences` block inside `init_db()` and add the column:
 
@@ -130,7 +130,7 @@ Since the table may already exist from prior runs without the column, also add d
         )
 ```
 
-- [ ] **Step 4: Replace `upsert_preferences`/`get_preferences` with the dataclass-based, partial-update versions**
+- [x] **Step 4: Replace `upsert_preferences`/`get_preferences` with the dataclass-based, partial-update versions**
 
 Add near the top of `data/db.py`, alongside the other `@dataclass` (`Goal`):
 
@@ -208,12 +208,12 @@ def get_preferences(user_id: str) -> Preferences:
     )
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `pytest tests/data/test_db.py -k preferences -v`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add data/db.py tests/data/test_db.py
@@ -233,7 +233,7 @@ git commit -m "feat: add language column and partial-update preferences upsert"
 - Consumes: `data.db.get_preferences(user_id: str) -> Preferences`, `data.db.upsert_preferences(user_id, weekly_goal_km=None, units=None, notifications_enabled=None, language=None) -> Preferences` (Task 1), `backend.dependencies.require_user` (existing — `Cookie`-based, returns `user_id: str`, raises 401 via `HTTPException`).
 - Produces: `router = APIRouter(prefix="/preferences")` with `GET /preferences` and `PUT /preferences`, both returning JSON `{weekly_goal_km, units, notifications_enabled, language}`.
 
-- [ ] **Step 1: Write the failing route tests**
+- [x] **Step 1: Write the failing route tests**
 
 Create `tests/backend/routes/test_preferences.py`:
 
@@ -316,12 +316,12 @@ def test_put_preferences_partial_update_round_trips_through_get(client):
     assert get_response.json()["language"] == "de"
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pytest tests/backend/routes/test_preferences.py -v`
 Expected: FAIL with 404 (route doesn't exist)
 
-- [ ] **Step 3: Write the route**
+- [x] **Step 3: Write the route**
 
 Create `backend/routes/preferences.py`:
 
@@ -370,12 +370,12 @@ from backend.routes.preferences import router as preferences_router
 app.include_router(preferences_router)
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `pytest tests/backend/routes/test_preferences.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/routes/preferences.py backend/agent.py tests/backend/routes/test_preferences.py
@@ -397,7 +397,7 @@ git commit -m "feat: add GET/PUT /preferences routes"
 - Produces: `DEFAULT_PREFERENCES: Preferences` (exported — Task 5 does not need it directly, but it documents the fallback contract).
 - Produces: `usePreferences()` returning `{ preferences: Preferences | undefined, isLoading: boolean, updateNow: (partial: Partial<Preferences>) => void, updateDebounced: (partial: Partial<Preferences>) => void, error: Error | null }`. `preferences` is `undefined` only while `isLoading` is `true`; once loading finishes, it is always a `Preferences` value — either the server response or `DEFAULT_PREFERENCES` if the `GET` failed (spec: Error handling — "GET /preferences failure: fall back to the same client-side defaults the backend uses").
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `frontend/tests/use-preferences.test.tsx`:
 
@@ -528,12 +528,12 @@ describe("usePreferences", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `cd frontend && npx vitest run tests/use-preferences.test.tsx`
 Expected: FAIL — module `@/hooks/use-preferences` not found.
 
-- [ ] **Step 3: Add typed preferences API calls**
+- [x] **Step 3: Add typed preferences API calls**
 
 Create `frontend/lib/preferences-api.ts`:
 
@@ -559,7 +559,7 @@ export function updatePreferences(partial: Partial<Preferences>): Promise<Prefer
 }
 ```
 
-- [ ] **Step 4: Write `usePreferences`**
+- [x] **Step 4: Write `usePreferences`**
 
 Create `frontend/hooks/use-preferences.ts`:
 
@@ -621,12 +621,12 @@ export function usePreferences() {
 }
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `cd frontend && npx vitest run tests/use-preferences.test.tsx`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/lib/preferences-api.ts frontend/hooks/use-preferences.ts frontend/tests/use-preferences.test.tsx
@@ -646,13 +646,13 @@ git commit -m "feat: add usePreferences hook with instant and debounced updates"
 - Produces: `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem` exports from `@/components/ui/select` (shadcn's standard API — used as-is in Task 5).
 - Produces: i18n keys `profile.language`, `profile.english`, `profile.german`.
 
-- [ ] **Step 1: Install the shadcn `select` component**
+- [x] **Step 1: Install the shadcn `select` component**
 
 Run: `cd frontend && npx shadcn@latest add select`
 
 This adds `@radix-ui/react-select` to `package.json`/`package-lock.json` and generates `frontend/components/ui/select.tsx`. Confirm the generated file exports `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem` (shadcn's default select component API).
 
-- [ ] **Step 2: Add the language keys to `frontend/messages/en.json`**
+- [x] **Step 2: Add the language keys to `frontend/messages/en.json`**
 
 In the `profile` object, add after `"units"`/`"kilometers"`/`"miles"`:
 
@@ -662,7 +662,7 @@ In the `profile` object, add after `"units"`/`"kilometers"`/`"miles"`:
     "german": "German",
 ```
 
-- [ ] **Step 3: Add the language keys to `frontend/messages/de.json`**
+- [x] **Step 3: Add the language keys to `frontend/messages/de.json`**
 
 In the `profile` object, add:
 
@@ -672,12 +672,12 @@ In the `profile` object, add:
     "german": "Deutsch",
 ```
 
-- [ ] **Step 4: Run the existing i18n test to confirm both locale files stay structurally in sync**
+- [x] **Step 4: Run the existing i18n test to confirm both locale files stay structurally in sync**
 
 Run: `cd frontend && npx vitest run tests/i18n.test.tsx`
 Expected: PASS (this test already asserts `en.json`/`de.json` have matching key sets — no new test needed here, it's a regression guard for this change)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/components/ui/select.tsx frontend/package.json frontend/package-lock.json frontend/messages/en.json frontend/messages/de.json
@@ -698,7 +698,7 @@ git commit -m "feat: install shadcn select and add language i18n keys"
 
 **Design note — goal stepper feedback (see spec's "Error handling" section, stepper exception):** every other control (units, notifications, language) is strictly non-optimistic — it displays `preferences.<field>` from `usePreferences()` directly and only changes once the server confirms. The goal stepper is a scoped exception: because its save is debounced ~500ms, waiting for server confirmation before showing any change both feels unresponsive and breaks click accumulation (each click needs to add to the *pending* total, not the last-confirmed one). It keeps its own `useState<number | null>` for the pending value, seeded to `null` (meaning "show `preferences.weekly_goal_km`"), and reset to `null` whenever `preferences.weekly_goal_km` changes (i.e., once the debounced save is confirmed) so it doesn't drift from server state after other tabs/devices change it.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `frontend/tests/profile-screen.test.tsx`:
 
@@ -753,12 +753,12 @@ describe("ProfileScreen", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `cd frontend && npx vitest run tests/profile-screen.test.tsx`
 Expected: FAIL — `ProfileScreen` still uses hardcoded local state, no preferences fetch happens, so `English` text/select isn't rendered from fetched data (or the render throws because `usePreferences`/`Select` don't exist yet if this task runs before Tasks 3–4 land).
 
-- [ ] **Step 3: Rewrite `profile-screen.tsx`**
+- [x] **Step 3: Rewrite `profile-screen.tsx`**
 
 Replace the full contents of `frontend/components/profile-screen.tsx`:
 
@@ -947,12 +947,12 @@ Note: the goal stepper's `pendingGoalKm` local state is what makes clicking +/- 
 
 Add one more i18n key to both message files, in the `profile` object: `"saveFailed": "Couldn't save your change. Try again."` (`en.json`) / `"saveFailed": "Änderung konnte nicht gespeichert werden. Bitte erneut versuchen."` (`de.json`).
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `cd frontend && npx vitest run tests/profile-screen.test.tsx tests/i18n.test.tsx`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/components/profile-screen.tsx frontend/tests/profile-screen.test.tsx frontend/messages/en.json frontend/messages/de.json
@@ -965,12 +965,12 @@ git commit -m "feat: wire profile screen to persisted preferences and add langua
 
 **Files:** none (manual QA pass)
 
-- [ ] **Step 1: Run the full backend test suite**
+- [x] **Step 1: Run the full backend test suite**
 
 Run: `pytest -v`
 Expected: all tests PASS, including the new `tests/backend/routes/test_preferences.py` and updated `tests/data/test_db.py`.
 
-- [ ] **Step 2: Run the full frontend test suite**
+- [x] **Step 2: Run the full frontend test suite**
 
 Run: `cd frontend && npx vitest run`
 Expected: all tests PASS.
