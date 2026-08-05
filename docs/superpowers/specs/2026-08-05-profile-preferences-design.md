@@ -65,9 +65,21 @@ time (lazy creation via upsert), not created eagerly at signup.
     value. On mutation failure, show a small inline error state; the
     control does not visually change until the request succeeds. This
     keeps error handling simple for a personal project.
-  - Language control: a two-option segmented control matching the existing
-    units toggle's visual style (not a `<select>`) — there are only two
-    locales (`en`/`de`).
+  - **Exception, scoped to the goal stepper only:** because saves are
+    debounced ~500ms, strictly withholding visual feedback until the
+    request resolves both feels unresponsive and breaks click
+    accumulation (each click would compute its delta off the stale
+    server-confirmed value instead of the running total). The stepper
+    tracks its pending value in local component state (not the shared
+    query cache), displays it immediately on click, and lets it get
+    overwritten by the server-confirmed value once the debounced save
+    succeeds. Units/notifications/language are unaffected by this
+    exception — they remain strictly non-optimistic.
+  - Language control: a shadcn `Select` dropdown (not a two-button toggle),
+    even though only `en`/`de` exist today — chosen so adding a third
+    language later is just another `<SelectItem>`, no UI rework. Requires
+    installing the shadcn `select` primitive (`npx shadcn add select`),
+    not yet present in `components/ui/`.
   - On language change: `router.replace` the current pathname with the new
     locale segment substituted in, alongside firing the mutation.
 - New i18n keys (`en.json`/`de.json`, `profile` namespace):
