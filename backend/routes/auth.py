@@ -2,6 +2,7 @@ import os
 import time
 from datetime import datetime, timedelta, timezone
 
+import requests
 from fastapi import APIRouter, Cookie, HTTPException
 from fastapi.responses import RedirectResponse
 
@@ -11,6 +12,7 @@ from data.db import (
     delete_oauth_token,
     delete_session,
     find_or_create_user,
+    get_oauth_token,
     get_session_user_id,
     get_user,
     save_oauth_token,
@@ -73,13 +75,27 @@ def health_connect(session: str | None = Cookie(default=None)):
 
 
 @router.get("/health/callback")
-def health_callback(code: str, session: str | None = Cookie(default=None)):
+def health_callback(
+    code: str | None = None,
+    error: str | None = None,
+    session: str | None = Cookie(default=None),
+):
     user_id = _require_user_id(session)
-    tokens = auth_service.exchange_code_for_health_tokens(code)
+    if error is not None:
+        return RedirectResponse(f"{FRONTEND_URL}?health_connect_error=1")
+    try:
+        tokens = auth_service.exchange_code_for_health_tokens(code)
+    except requests.HTTPError:
+        return RedirectResponse(f"{FRONTEND_URL}?health_connect_error=1")
+
     expires_at = int(time.time()) + tokens["expires_in"]
 
     save_oauth_token(
-        user_id, "health", tokens["access_token"], tokens["refresh_token"], expires_at
+        user_id,
+        "health",
+        tokens["access_token"],
+        tokens["refresh_token"],
+        expires_at,
     )
     return RedirectResponse(FRONTEND_URL)
 
@@ -95,5 +111,12 @@ def health_disconnect(session: str | None = Cookie(default=None)):
 def me(session: str | None = Cookie(default=None)):
     user_id = _require_user_id(session)
     email, name, created_at = get_user(user_id)
-    return {"email": email, "name": name, "created_at": created_at}
+    health_token = get_oauth_token(user_id, "health")
 
+    is_connected = health_token is not None
+    return {
+        "email": email,
+        "name": name,
+        "created_at": created_at,
+        "health_connected": is_connected,
+    }

@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from unittest.mock import patch
 
 import pytest
+import requests
 from fastapi.testclient import TestClient
 
 from data.db import init_db
@@ -158,3 +159,81 @@ def test_me_returns_email_and_name_for_valid_session(client):
     assert body["email"] == "runner@example.com"
     assert body["name"] == "Runner Example"
     assert "created_at" in body
+
+
+def test_me_reports_health_connected_false_when_not_connected(client):
+    session_cookie = _login(client)
+
+    response = client.get("/auth/me", cookies={"session": session_cookie})
+
+    assert response.status_code == 200
+    assert response.json()["health_connected"] is False
+
+
+def test_health_callback_redirects_with_error_param_on_exchange_failure(client):
+    session_cookie = _login(client)
+
+    with patch("backend.services.auth_service.exchange_code_for_health_tokens") as mock_exchange:
+        mock_exchange.side_effect = requests.HTTPError("token exchange failed")
+        response = client.get(
+            "/auth/health/callback?code=bad-code",
+            cookies={"session": session_cookie},
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 307
+    assert "health_connect_error=1" in response.headers["location"]
+
+
+def test_health_callback_redirects_with_error_param_on_consent_denied(client):
+    session_cookie = _login(client)
+
+    response = client.get(
+        "/auth/health/callback?error=access_denied",
+        cookies={"session": session_cookie},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 307
+    assert "health_connect_error=1" in response.headers["location"]
+
+
+def test_me_reports_health_connected_true_after_health_callback(client):
+    session_cookie = _login(client)
+    with patch("backend.services.auth_service.exchange_code_for_health_tokens") as mock_exchange:
+        mock_exchange.return_value = {
+            "access_token": "health-access",
+            "refresh_token": "health-refresh",
+            "expires_in": 3600,
+        }
+        client.get(
+            "/auth/health/callback?code=fake-code",
+            cookies={"session": session_cookie},
+            follow_redirects=False,
+        )
+
+    response = client.get("/auth/me", cookies={"session": session_cookie})
+
+    assert response.status_code == 200
+    assert response.json()["health_connected"] is True
+
+
+def test_me_reports_health_connected_false_after_disconnect(client):
+    session_cookie = _login(client)
+    with patch("backend.services.auth_service.exchange_code_for_health_tokens") as mock_exchange:
+        mock_exchange.return_value = {
+            "access_token": "health-access",
+            "refresh_token": "health-refresh",
+            "expires_in": 3600,
+        }
+        client.get(
+            "/auth/health/callback?code=fake-code",
+            cookies={"session": session_cookie},
+            follow_redirects=False,
+        )
+    client.post("/auth/health/disconnect", cookies={"session": session_cookie})
+
+    response = client.get("/auth/me", cookies={"session": session_cookie})
+
+    assert response.status_code == 200
+    assert response.json()["health_connected"] is False
