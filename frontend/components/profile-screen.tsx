@@ -3,8 +3,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { Avatar } from "@/components/avatar";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -30,14 +31,6 @@ export function ProfileScreen({ locale }: { locale: string }) {
   const { preferences, isLoading, updateNow, updateDebounced, error } = usePreferences();
   const { user } = useAuth();
   const displayName = user?.name ?? user?.email ?? "";
-  const initials = displayName
-    ? displayName
-        .trim()
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((word) => word[0]?.toUpperCase())
-        .join("")
-    : "?";
   const memberSince = user?.created_at
     ? new Date(user.created_at).toLocaleDateString("en", { month: "short", year: "numeric" })
     : "";
@@ -58,6 +51,47 @@ export function ProfileScreen({ locale }: { locale: string }) {
       router.push(`/${locale}`);
     },
   });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const uploadAvatar = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+      const response = await fetch(`${baseUrl}/profile/avatar`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!response.ok) throw new Error("Upload failed");
+      return (await response.json()) as { avatar_url: string };
+    },
+    onSuccess: ({ avatar_url }) => {
+      setUploadError(null);
+      queryClient.setQueryData(["auth", "me"], (previous: typeof user) =>
+        previous ? { ...previous, avatar_url } : previous
+      );
+    },
+    onError: () => setUploadError(t("avatarUploadFailed")),
+  });
+
+  function onAvatarFileChosen(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png"].includes(file.type)) {
+      setUploadError(t("avatarInvalidType"));
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError(t("avatarTooLarge"));
+      return;
+    }
+    setUploadError(null);
+    uploadAvatar.mutate(file);
+  }
 
   if (isLoading || !preferences) {
     return (
@@ -89,14 +123,38 @@ export function ProfileScreen({ locale }: { locale: string }) {
   return (
     <div className="flex-1 overflow-y-auto px-[22px] py-5 lg:mx-auto lg:w-full lg:max-w-[560px] lg:px-0 lg:py-9">
       <div className="mb-6 flex items-center gap-3.5 lg:mb-7 lg:gap-4">
-        <div className="flex h-14 w-14 flex-none items-center justify-center rounded-full bg-avatar-bg text-lg font-semibold text-primary lg:h-16 lg:w-16 lg:text-xl">
-          {initials}
-        </div>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadAvatar.isPending}
+          className="relative flex-none rounded-full disabled:cursor-not-allowed"
+        >
+          <Avatar user={{ name: user?.name ?? null, avatar_url: user?.avatar_url ?? null }} size="lg" />
+          {uploadAvatar.isPending && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            </div>
+          )}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png"
+          aria-label={t("changeAvatar")}
+          className="hidden"
+          onChange={onAvatarFileChosen}
+        />
         <div>
           <div className="text-lg font-bold text-primary lg:text-[22px]">{displayName}</div>
           <div className="text-[13px] text-muted lg:text-sm">{user?.email ?? ""}</div>
         </div>
       </div>
+
+      {uploadError && (
+        <div className="mb-4 rounded-xl bg-danger/10 p-3 text-[13px] text-danger">
+          {uploadError}
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded-xl bg-danger/10 p-3 text-[13px] text-danger">

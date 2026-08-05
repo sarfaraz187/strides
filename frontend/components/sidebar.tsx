@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 
+import { Avatar } from "@/components/avatar";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import {
@@ -37,14 +38,6 @@ export function Sidebar({
   const collapsed = state === "collapsed";
   const { user } = useAuth();
   const displayName = user?.name ?? user?.email ?? "";
-  const initials = displayName
-    ? displayName
-        .trim()
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((word) => word[0]?.toUpperCase())
-        .join("")
-    : "?";
 
   return (
     <SidebarPrimitive
@@ -141,9 +134,11 @@ export function Sidebar({
             collapsed && "justify-center"
           )}
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground">
-            {initials}
-          </div>
+          <Avatar
+            user={{ name: user?.name ?? null, avatar_url: user?.avatar_url ?? null }}
+            size="sm"
+            className="rounded-[9px] bg-sidebar-primary text-sidebar-primary-foreground"
+          />
           {!collapsed && (
             <div className="text-[13px] font-medium text-sidebar-foreground">{displayName}</div>
           )}

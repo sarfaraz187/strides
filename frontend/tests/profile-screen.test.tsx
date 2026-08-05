@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 
@@ -69,6 +70,7 @@ describe("ProfileScreen", () => {
             name: "Runner Example",
             created_at: "2026-01-15T00:00:00Z",
             health_connected: false,
+            avatar_url: null,
           },
           isLoading: false,
         }}
@@ -84,5 +86,33 @@ describe("ProfileScreen", () => {
     await waitFor(() => expect(screen.getByText("Runner Example")).toBeInTheDocument());
     expect(screen.getByText("runner@example.com")).toBeInTheDocument();
     expect(screen.getByText("Jan 2026")).toBeInTheDocument();
+  });
+
+  it("rejects an oversized file before making any network call", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          weekly_goal_km: 30,
+          units: "km",
+          notifications_enabled: true,
+          language: "en",
+        }),
+        { status: 200 }
+      )
+    );
+
+    renderWithProviders(<ProfileScreen locale="en" />);
+    await waitFor(() => expect(screen.getByText("English")).toBeInTheDocument());
+
+    const fetchCallsBefore = (global.fetch as ReturnType<typeof vi.spyOn>).mock.calls.length;
+    const input = screen.getByLabelText(en.profile.changeAvatar) as HTMLInputElement;
+    const oversizedFile = new File([new Uint8Array(5 * 1024 * 1024 + 1)], "big.jpg", {
+      type: "image/jpeg",
+    });
+
+    await userEvent.upload(input, oversizedFile);
+
+    expect(screen.getByText(en.profile.avatarTooLarge)).toBeInTheDocument();
+    expect((global.fetch as ReturnType<typeof vi.spyOn>).mock.calls.length).toBe(fetchCallsBefore);
   });
 });

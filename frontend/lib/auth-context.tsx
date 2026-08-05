@@ -5,14 +5,26 @@ import { createContext, useContext } from "react";
 
 import { apiFetch } from "./api";
 
-type User = { email: string; health_connected: boolean; created_at: string; name: string | null };
+type User = {
+  email: string;
+  health_connected: boolean;
+  created_at: string;
+  name: string | null;
+  avatar_url: string | null;
+};
 type AuthState = { user: User | null; isLoading: boolean };
 
 export const AuthContext = createContext<AuthState>({ user: null, isLoading: true });
 
 // NEXT_PUBLIC_MOCK_AUTH=true skips the real auth check, for local UI work without a backend running.
 const MOCK_AUTH = process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
-const MOCK_USER: User = { email: "dev@example.com", name: "Dev User", created_at: "", health_connected: false };
+const MOCK_USER: User = {
+  email: "dev@example.com",
+  name: "Dev User",
+  created_at: "",
+  health_connected: false,
+  avatar_url: null,
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data, isLoading } = useQuery<User | null>({

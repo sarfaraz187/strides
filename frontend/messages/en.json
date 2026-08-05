@@ -44,6 +44,10 @@
     "notifications": "Notifications",
     "memberSince": "Member since",
     "logOut": "Log out",
-    "saveFailed": "Couldn't save your change. Try again."
+    "saveFailed": "Couldn't save your change. Try again.",
+    "changeAvatar": "Change profile picture",
+    "avatarUploadFailed": "Couldn't upload your picture. Try again.",
+    "avatarInvalidType": "Must be a JPEG or PNG image.",
+    "avatarTooLarge": "Image must be 5MB or smaller."
   }
 }

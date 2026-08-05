@@ -15,7 +15,7 @@ function renderWithIntl(ui: React.ReactElement) {
 
 vi.mock("@/lib/auth-context", () => ({
   useAuth: () => ({
-    user: { email: "runner@example.com", name: "Runner", created_at: "", health_connected: true },
+    user: { email: "runner@example.com", name: "Runner", created_at: "", health_connected: true, avatar_url: null },
     isLoading: false,
   }),
 }));

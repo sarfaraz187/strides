@@ -28,7 +28,7 @@ describe("DashboardScreen user display", () => {
     render(
       <AuthContext.Provider
         value={{
-          user: { email: "runner@example.com", name: "Runner Example", created_at: "", health_connected: false },
+          user: { email: "runner@example.com", name: "Runner Example", created_at: "", health_connected: false, avatar_url: null },
           isLoading: false,
         }}
       >

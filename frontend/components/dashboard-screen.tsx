@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 
+import { Avatar } from "@/components/avatar";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth-context";
 import { mockGoals, mockRecentRuns, mockWeekGoalPct, mockWeekStats } from "@/lib/mock-data";
@@ -10,15 +11,6 @@ import { mockGoals, mockRecentRuns, mockWeekGoalPct, mockWeekStats } from "@/lib
 export function DashboardScreen({ locale }: { locale: string }) {
   const t = useTranslations("dashboard");
   const { user } = useAuth();
-  const displayName = user?.name ?? user?.email ?? "";
-  const initials = displayName
-    ? displayName
-        .trim()
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((word) => word[0]?.toUpperCase())
-        .join("")
-    : "?";
   const today = new Date().toLocaleDateString(locale, {
     weekday: "long",
     month: "short",
@@ -34,11 +26,12 @@ export function DashboardScreen({ locale }: { locale: string }) {
             {t("thisWeek")}
           </div>
         </div>
-        <Link
-          href={`/${locale}/profile`}
-          className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-avatar-bg text-[13px] font-semibold text-primary lg:hidden"
-        >
-          {initials}
+        <Link href={`/${locale}/profile`} className="lg:hidden">
+          <Avatar
+            user={{ name: user?.name ?? null, avatar_url: user?.avatar_url ?? null }}
+            size="md"
+            className="h-[38px] w-[38px] rounded-xl"
+          />
         </Link>
       </div>
 
