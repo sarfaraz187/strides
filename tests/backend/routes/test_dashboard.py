@@ -81,9 +81,24 @@ def test_dashboard_returns_weekly_stats_and_recent_runs(client):
         {"date": "2026-08-03T06:42:00", "distance_km": 6.1, "duration_min": 33.4, "pace_min_per_km": 5.47},
     ]
 
+    goals = [
+        {
+            "id": "goal-1",
+            "description": "Run 30km this week",
+            "target_value": 30,
+            "metric": "distance_km",
+            "period": "week",
+            "deadline": None,
+            "progress_pct": 73,
+        }
+    ]
+
     with patch(
         "backend.routes.dashboard.open_mcp_session",
         _mock_session(weekly_stats, recent_runs),
+    ), patch(
+        "backend.routes.dashboard.get_goals_with_progress",
+        new=AsyncMock(return_value=goals),
     ):
         response = client.get("/dashboard", cookies=cookies)
 
@@ -91,3 +106,4 @@ def test_dashboard_returns_weekly_stats_and_recent_runs(client):
     body = response.json()
     assert body["weekly_stats"] == weekly_stats
     assert body["recent_runs"] == recent_runs
+    assert body["goals"] == goals

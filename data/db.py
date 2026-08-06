@@ -62,6 +62,8 @@ def init_db() -> None:
                 created_at TIMESTAMPTZ DEFAULT now()
             )
         """)
+        conn.execute("ALTER TABLE goals ADD COLUMN IF NOT EXISTS metric TEXT")
+        conn.execute("ALTER TABLE goals ADD COLUMN IF NOT EXISTS period TEXT")
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT")
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_path TEXT")
         conn.execute("ALTER TABLE users DROP COLUMN IF EXISTS avatar_url")
@@ -267,21 +269,28 @@ class Goal:
     id: str
     description: str
     target_value: float | None
+    metric: str | None
+    period: str | None
     deadline: date | None
     created_at: datetime
 
 
 def create_goal(
-    user_id: str, description: str, target_value: float | None, deadline: date | None
+    user_id: str,
+    description: str,
+    target_value: float | None,
+    metric: str | None,
+    period: str | None,
+    deadline: date | None,
 ) -> str:
     with get_connection() as conn:
         row = conn.execute(
             """
-            INSERT INTO goals (user_id, description, target_value, deadline)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO goals (user_id, description, target_value, metric, period, deadline)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (user_id, description, target_value, deadline),
+            (user_id, description, target_value, metric, period, deadline),
         ).fetchone()
         conn.commit()
         return str(row[0])
@@ -291,7 +300,7 @@ def list_goals(user_id: str) -> list[Goal]:
     with get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT id, description, target_value, deadline, created_at
+            SELECT id, description, target_value, metric, period, deadline, created_at
             FROM goals WHERE user_id = %s ORDER BY created_at
             """,
             (user_id,),
@@ -301,8 +310,10 @@ def list_goals(user_id: str) -> list[Goal]:
             id=str(goal_id),
             description=description,
             target_value=float(target_value) if target_value is not None else None,
+            metric=metric,
+            period=period,
             deadline=deadline,
             created_at=created_at,
         )
-        for goal_id, description, target_value, deadline, created_at in rows
+        for goal_id, description, target_value, metric, period, deadline, created_at in rows
     ]

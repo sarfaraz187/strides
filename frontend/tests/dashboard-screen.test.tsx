@@ -28,6 +28,17 @@ function mockFetchResponses() {
                 calories: 320,
               },
             ],
+            goals: [
+              {
+                id: "goal-1",
+                description: "Run 30km this week",
+                target_value: 30,
+                metric: "distance_km",
+                period: "week",
+                deadline: null,
+                progress_pct: 73,
+              },
+            ],
           })
         )
       );
@@ -73,6 +84,7 @@ describe("DashboardScreen", () => {
     await waitFor(() => expect(screen.getByText("21.9")).toBeInTheDocument());
     expect(screen.getByText("Monday")).toBeInTheDocument();
     expect(screen.getByText("6.1 km")).toBeInTheDocument();
+    expect(screen.getAllByText("Run 30km this week")).toHaveLength(2);
   });
 });
 

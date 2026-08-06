@@ -8,8 +8,7 @@ import { Card } from "@/components/ui/card";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { usePreferences } from "@/hooks/use-preferences";
 import { useAuth } from "@/lib/auth-context";
-import type { RecentRun } from "@/lib/dashboard-api";
-import { mockGoals } from "@/lib/mock-data";
+import type { GoalProgress, RecentRun } from "@/lib/dashboard-api";
 
 function formatPace(paceMinPerKm: number | null): string {
   if (paceMinPerKm === null) return "–";
@@ -54,6 +53,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
     ? Math.min(100, Math.round((dashboard.weekly_stats.total_distance_km / weeklyGoalKm) * 100))
     : 0;
   const recentRuns = dashboard?.recent_runs.map((run) => formatRun(run, locale)) ?? [];
+  const goals: GoalProgress[] = dashboard?.goals ?? [];
 
   return (
     <div className="flex-1 overflow-y-auto px-[22px] py-5 lg:px-[44px] lg:py-9">
@@ -108,16 +108,18 @@ export function DashboardScreen({ locale }: { locale: string }) {
           <div className="text-[13px] font-semibold uppercase tracking-[0.5px] text-muted">
             {t("goals")}
           </div>
-          {mockGoals.map((goal) => (
-            <div key={goal.title} className="flex flex-col gap-2">
+          {goals.map((goal) => (
+            <div key={goal.id} className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <div className="text-[13px] font-semibold text-primary">{goal.title}</div>
-                <div className="font-mono text-xs font-semibold text-accent">{goal.pct}%</div>
+                <div className="text-[13px] font-semibold text-primary">{goal.description}</div>
+                <div className="font-mono text-xs font-semibold text-accent">
+                  {goal.progress_pct}%
+                </div>
               </div>
               <div className="h-[5px] w-full overflow-hidden rounded-full bg-border">
                 <div
                   className="h-full rounded-full bg-accent"
-                  style={{ width: `${goal.pct}%` }}
+                  style={{ width: `${goal.progress_pct}%` }}
                 />
               </div>
             </div>
@@ -157,16 +159,18 @@ export function DashboardScreen({ locale }: { locale: string }) {
         {t("goals")}
       </div>
       <div className="flex flex-col gap-2.5 lg:hidden">
-        {mockGoals.map((goal) => (
-          <Card key={goal.title} className="flex flex-col gap-2 rounded-[16px] p-3.5">
+        {goals.map((goal) => (
+          <Card key={goal.id} className="flex flex-col gap-2 rounded-[16px] p-3.5">
             <div className="flex items-center justify-between">
-              <div className="text-[13px] font-semibold text-primary">{goal.title}</div>
-              <div className="font-mono text-xs font-semibold text-accent">{goal.pct}%</div>
+              <div className="text-[13px] font-semibold text-primary">{goal.description}</div>
+              <div className="font-mono text-xs font-semibold text-accent">
+                {goal.progress_pct}%
+              </div>
             </div>
             <div className="h-[5px] w-full overflow-hidden rounded-full bg-border">
               <div
                 className="h-full rounded-full bg-accent"
-                style={{ width: `${goal.pct}%` }}
+                style={{ width: `${goal.progress_pct}%` }}
               />
             </div>
           </Card>

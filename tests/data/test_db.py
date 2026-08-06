@@ -103,6 +103,8 @@ def test_init_db_creates_goals_table():
         "user_id",
         "description",
         "target_value",
+        "metric",
+        "period",
         "deadline",
         "created_at",
     }
@@ -288,12 +290,21 @@ def test_upsert_preferences_partial_update_only_touches_provided_fields():
 def test_create_goal_then_list_goals_returns_it():
     user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
 
-    create_goal(user_id, description="Run 30km this week", target_value=30, deadline=None)
+    create_goal(
+        user_id,
+        description="Run 30km this week",
+        target_value=30,
+        metric="distance_km",
+        period="week",
+        deadline=None,
+    )
     goals = list_goals(user_id)
 
     assert len(goals) == 1
     assert goals[0].description == "Run 30km this week"
     assert goals[0].target_value == 30
+    assert goals[0].metric == "distance_km"
+    assert goals[0].period == "week"
 
 
 def test_list_goals_returns_empty_for_user_with_no_goals():
@@ -305,8 +316,22 @@ def test_list_goals_only_returns_own_users_goals():
     user_a = find_or_create_user("runner-a@example.com", "google-sub-a", "Runner A")
     user_b = find_or_create_user("runner-b@example.com", "google-sub-b", "Runner B")
 
-    create_goal(user_a, description="Run 30km this week", target_value=30, deadline=None)
-    create_goal(user_b, description="Sub-25min 5K by Sept", target_value=None, deadline=None)
+    create_goal(
+        user_a,
+        description="Run 30km this week",
+        target_value=30,
+        metric="distance_km",
+        period="week",
+        deadline=None,
+    )
+    create_goal(
+        user_b,
+        description="Sub-25min 5K by Sept",
+        target_value=5.0,
+        metric="pace_min_per_km",
+        period="deadline",
+        deadline=None,
+    )
 
     goals_a = list_goals(user_a)
 

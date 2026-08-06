@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from backend.dependencies import require_user
+from backend.services.goals_service import get_goals_with_progress
 from backend.services.mcp_client import open_mcp_session
 
 router = APIRouter()
@@ -12,7 +13,10 @@ async def dashboard(user_id: str = Depends(require_user)):
         weekly_result = await session.call_tool("get_weekly_stats", {})
         recent_result = await session.call_tool("get_recent_runs", {"days": 7})
 
+    goals = await get_goals_with_progress(user_id)
+
     return {
         "weekly_stats": weekly_result.structuredContent,
         "recent_runs": recent_result.structuredContent["result"],
+        "goals": goals,
     }
