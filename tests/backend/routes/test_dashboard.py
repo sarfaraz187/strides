@@ -64,6 +64,26 @@ def _mock_session(weekly_stats: dict, recent_runs: list[dict]):
     return open_mcp_session
 
 
+def _mock_session_with_error(error_dict: dict):
+    session = AsyncMock()
+
+    async def call_tool(name, args):
+        result = AsyncMock()
+        if name == "get_weekly_stats":
+            result.structuredContent = error_dict
+        elif name == "get_recent_runs":
+            result.structuredContent = error_dict
+        return result
+
+    session.call_tool.side_effect = call_tool
+
+    @asynccontextmanager
+    async def open_mcp_session(user_id):
+        yield session
+
+    return open_mcp_session
+
+
 def test_dashboard_requires_auth(client):
     response = client.get("/dashboard")
     assert response.status_code == 401
@@ -84,6 +104,33 @@ def test_dashboard_health_not_connected_skips_mcp_and_returns_flag(client):
     assert response.status_code == 200
     body = response.json()
     assert body["health_connected"] is False
+    assert body["weekly_stats"] is None
+    assert body["recent_runs"] == []
+
+
+def test_dashboard_connected_but_account_not_linked_returns_health_error(client):
+    cookies = _session_cookie(client)
+    user_id = find_or_create_user(
+        "dashboard-route@example.com", "dashboard-route-sub", "Dashboard Route"
+    )
+    save_oauth_token(user_id, "health", "access-token", "refresh-token", 9999999999)
+
+    health_error = {
+        "error": "ACCOUNT_NOT_LINKED",
+        "message": "The account is not linked to Google Health.",
+        "redirect_uri": "https://fitbit.google.com/auth/signup",
+    }
+
+    with patch(
+        "backend.routes.dashboard.open_mcp_session",
+        _mock_session_with_error(health_error),
+    ):
+        response = client.get("/dashboard", cookies=cookies)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["health_connected"] is True
+    assert body["health_error"] == health_error
     assert body["weekly_stats"] is None
     assert body["recent_runs"] == []
 

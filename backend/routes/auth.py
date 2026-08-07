@@ -21,7 +21,7 @@ from data.db import (
 
 router = APIRouter(prefix="/auth")
 
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000/en/connectors")
 SESSION_DURATION = timedelta(days=7)
 
 

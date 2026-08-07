@@ -26,8 +26,14 @@ vi.mock("@/hooks/use-health-connector", () => ({
   useHealthConnectErrorFromUrl: () => false,
 }));
 
+const useDashboardMock = vi.fn();
+vi.mock("@/hooks/use-dashboard", () => ({
+  useDashboard: () => useDashboardMock(),
+}));
+
 describe("ConnectorsScreen", () => {
   it("shows Google Health as connected and offers disconnect", () => {
+    useDashboardMock.mockReturnValue({ dashboard: undefined, isLoading: false, isError: false });
     renderWithIntl(<ConnectorsScreen />);
 
     expect(screen.getByText("Google Health")).toBeInTheDocument();
@@ -35,8 +41,43 @@ describe("ConnectorsScreen", () => {
   });
 
   it("does not render a Google Calendar card", () => {
+    useDashboardMock.mockReturnValue({ dashboard: undefined, isLoading: false, isError: false });
     renderWithIntl(<ConnectorsScreen />);
 
     expect(screen.queryByText("Google Calendar")).not.toBeInTheDocument();
+  });
+
+  it("shows the account-not-linked notice with a link when health_error is present", () => {
+    useDashboardMock.mockReturnValue({
+      dashboard: {
+        weekly_stats: null,
+        recent_runs: [],
+        health_error: {
+          error: "ACCOUNT_NOT_LINKED",
+          message: "The account is not linked to Google Health.",
+          redirect_uri: "https://fitbit.google.com/auth/signup",
+        },
+      },
+      isLoading: false,
+      isError: false,
+    });
+    renderWithIntl(<ConnectorsScreen />);
+
+    expect(screen.getByText("The account is not linked to Google Health.")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: en.connectors.healthErrorAction });
+    expect(link).toHaveAttribute("href", "https://fitbit.google.com/auth/signup");
+  });
+
+  it("does not show the notice when there is no health_error", () => {
+    useDashboardMock.mockReturnValue({
+      dashboard: { weekly_stats: null, recent_runs: [], health_error: null },
+      isLoading: false,
+      isError: false,
+    });
+    renderWithIntl(<ConnectorsScreen />);
+
+    expect(
+      screen.queryByText("The account is not linked to Google Health.")
+    ).not.toBeInTheDocument();
   });
 });

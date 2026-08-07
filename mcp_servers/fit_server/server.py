@@ -2,6 +2,10 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
@@ -77,6 +81,8 @@ def get_recent_runs(days: int = 7) -> list[dict[str, Any]]:
     )
 
     logging.info(f"Response: {response}")
+    if "error" in response:
+        return response
     return parse_run(response)
 
 
@@ -100,6 +106,8 @@ def get_run_stats(start_date: str, end_date: str) -> dict[str, Any]:
     )
 
     logging.info(f"Response: {response}")
+    if "error" in response:
+        return response
     runs = parse_run(response)
 
     total_distance_km = sum(run["distance_km"] for run in runs)

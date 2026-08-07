@@ -15,9 +15,16 @@ export type RecentRun = {
   calories: number | null;
 };
 
+export type HealthError = {
+  error: string;
+  message: string;
+  redirect_uri?: string;
+};
+
 export type Dashboard = {
   weekly_stats: WeeklyStats | null;
   recent_runs: RecentRun[];
+  health_error?: HealthError | null;
 };
 
 export function getDashboard(): Promise<Dashboard> {

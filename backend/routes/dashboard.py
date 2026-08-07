@@ -10,15 +10,24 @@ router = APIRouter()
 @router.get("/dashboard")
 async def dashboard(user_id: str = Depends(require_user)):
     health_connected = get_oauth_token(user_id, "health") is not None
-    weekly_stats, recent_runs = None, []
+    weekly_stats, recent_runs, health_error = None, [], None
 
     if health_connected:
         try:
             async with open_mcp_session(user_id) as session:
                 weekly_result = await session.call_tool("get_weekly_stats", {})
                 recent_result = await session.call_tool("get_recent_runs", {"days": 7})
-            weekly_stats = weekly_result.structuredContent
-            recent_runs = recent_result.structuredContent["result"]
+
+            weekly_content = weekly_result.structuredContent
+            recent_content = recent_result.structuredContent
+
+            if isinstance(weekly_content, dict) and "error" in weekly_content:
+                health_error = weekly_content
+            elif isinstance(recent_content, dict) and "error" in recent_content:
+                health_error = recent_content
+            else:
+                weekly_stats = weekly_content
+                recent_runs = recent_content["result"]
         except Exception:
             health_connected = False
 
@@ -26,4 +35,5 @@ async def dashboard(user_id: str = Depends(require_user)):
         "weekly_stats": weekly_stats,
         "recent_runs": recent_runs,
         "health_connected": health_connected,
+        "health_error": health_error,
     }
