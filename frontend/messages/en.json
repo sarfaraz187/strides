@@ -8,8 +8,7 @@
   "dashboard": {
     "thisWeek": "This week",
     "goal": "Goal: {distance}km this week",
-    "recentRuns": "Recent runs",
-    "goals": "Goals"
+    "recentRuns": "Recent runs"
   },
   "chat": {
     "coachName": "Coach",

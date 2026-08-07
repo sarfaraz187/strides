@@ -1,15 +1,18 @@
 import os
 import secrets
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 
 import psycopg
+from psycopg_pool import ConnectionPool
 
 from backend.encryption import decrypt, encrypt
 
+pool = ConnectionPool(os.environ["DATABASE_URL"], min_size=1, max_size=5, open=True)
+
 
 def get_connection() -> psycopg.Connection:
-    return psycopg.connect(os.environ["DATABASE_URL"])
+    return pool.connection()
 
 
 def init_db() -> None:
@@ -52,18 +55,6 @@ def init_db() -> None:
                 language TEXT NOT NULL DEFAULT 'en'
             )
         """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS goals (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-                description TEXT NOT NULL,
-                target_value NUMERIC,
-                deadline DATE,
-                created_at TIMESTAMPTZ DEFAULT now()
-            )
-        """)
-        conn.execute("ALTER TABLE goals ADD COLUMN IF NOT EXISTS metric TEXT")
-        conn.execute("ALTER TABLE goals ADD COLUMN IF NOT EXISTS period TEXT")
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT")
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_path TEXT")
         conn.execute("ALTER TABLE users DROP COLUMN IF EXISTS avatar_url")
@@ -262,58 +253,3 @@ def get_preferences(user_id: str) -> Preferences:
         notifications_enabled=notifications_enabled,
         language=language,
     )
-
-
-@dataclass
-class Goal:
-    id: str
-    description: str
-    target_value: float | None
-    metric: str | None
-    period: str | None
-    deadline: date | None
-    created_at: datetime
-
-
-def create_goal(
-    user_id: str,
-    description: str,
-    target_value: float | None,
-    metric: str | None,
-    period: str | None,
-    deadline: date | None,
-) -> str:
-    with get_connection() as conn:
-        row = conn.execute(
-            """
-            INSERT INTO goals (user_id, description, target_value, metric, period, deadline)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id
-            """,
-            (user_id, description, target_value, metric, period, deadline),
-        ).fetchone()
-        conn.commit()
-        return str(row[0])
-
-
-def list_goals(user_id: str) -> list[Goal]:
-    with get_connection() as conn:
-        rows = conn.execute(
-            """
-            SELECT id, description, target_value, metric, period, deadline, created_at
-            FROM goals WHERE user_id = %s ORDER BY created_at
-            """,
-            (user_id,),
-        ).fetchall()
-    return [
-        Goal(
-            id=str(goal_id),
-            description=description,
-            target_value=float(target_value) if target_value is not None else None,
-            metric=metric,
-            period=period,
-            deadline=deadline,
-            created_at=created_at,
-        )
-        for goal_id, description, target_value, metric, period, deadline, created_at in rows
-    ]

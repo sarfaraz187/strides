@@ -8,7 +8,6 @@ import pytest
 
 from data.db import (
     Preferences,
-    create_goal,
     create_session,
     delete_oauth_token,
     delete_session,
@@ -19,7 +18,6 @@ from data.db import (
     get_session_user_id,
     get_user,
     init_db,
-    list_goals,
     save_oauth_token,
     update_avatar_path,
     upsert_preferences,
@@ -37,7 +35,6 @@ def clean_schema():
     init_db()
     yield
     with get_connection() as conn:
-        conn.execute("DROP TABLE IF EXISTS goals CASCADE")
         conn.execute("DROP TABLE IF EXISTS preferences CASCADE")
         conn.execute("DROP TABLE IF EXISTS oauth_tokens CASCADE")
         conn.execute("DROP TABLE IF EXISTS sessions CASCADE")
@@ -89,25 +86,6 @@ def test_upsert_preferences_creates_row_with_defaults_for_omitted_fields():
     assert prefs == Preferences(
         weekly_goal_km=30, units="mi", notifications_enabled=True, language="en"
     )
-
-
-def test_init_db_creates_goals_table():
-    with get_connection() as conn:
-        result = conn.execute(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name = 'goals' AND table_schema = 'public'"
-        ).fetchall()
-    columns = {row[0] for row in result}
-    assert columns == {
-        "id",
-        "user_id",
-        "description",
-        "target_value",
-        "metric",
-        "period",
-        "deadline",
-        "created_at",
-    }
 
 
 def test_init_db_creates_sessions_table():
@@ -285,55 +263,3 @@ def test_upsert_preferences_partial_update_only_touches_provided_fields():
     assert prefs == Preferences(
         weekly_goal_km=30, units="km", notifications_enabled=True, language="de"
     )
-
-
-def test_create_goal_then_list_goals_returns_it():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
-
-    create_goal(
-        user_id,
-        description="Run 30km this week",
-        target_value=30,
-        metric="distance_km",
-        period="week",
-        deadline=None,
-    )
-    goals = list_goals(user_id)
-
-    assert len(goals) == 1
-    assert goals[0].description == "Run 30km this week"
-    assert goals[0].target_value == 30
-    assert goals[0].metric == "distance_km"
-    assert goals[0].period == "week"
-
-
-def test_list_goals_returns_empty_for_user_with_no_goals():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
-    assert list_goals(user_id) == []
-
-
-def test_list_goals_only_returns_own_users_goals():
-    user_a = find_or_create_user("runner-a@example.com", "google-sub-a", "Runner A")
-    user_b = find_or_create_user("runner-b@example.com", "google-sub-b", "Runner B")
-
-    create_goal(
-        user_a,
-        description="Run 30km this week",
-        target_value=30,
-        metric="distance_km",
-        period="week",
-        deadline=None,
-    )
-    create_goal(
-        user_b,
-        description="Sub-25min 5K by Sept",
-        target_value=5.0,
-        metric="pace_min_per_km",
-        period="deadline",
-        deadline=None,
-    )
-
-    goals_a = list_goals(user_a)
-
-    assert len(goals_a) == 1
-    assert goals_a[0].description == "Run 30km this week"

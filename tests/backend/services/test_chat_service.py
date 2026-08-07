@@ -42,33 +42,6 @@ def _mock_session(tool_names: list[str]):
     return open_mcp_session, session
 
 
-def test_call_tools_routes_local_goal_tool_without_hitting_mcp_session():
-    from backend.services.chat_service import call_tools
-
-    session, mock_session = _mock_session([])[0], _mock_session([])[1]
-
-    with patch(
-        "backend.services.chat_service.create_goal_tool",
-        new=AsyncMock(return_value={"id": "goal-1", "description": "Run 30km this week"}),
-    ) as mock_create_goal:
-        block = MagicMock(type="tool_use", id="call-1")
-        block.name = "create_goal"
-        block.input = {
-            "description": "Run 30km this week",
-            "metric": "distance_km",
-            "target_value": 30,
-            "period": "week",
-            "deadline": None,
-        }
-
-        results = asyncio.run(call_tools("user-123", mock_session, [block]))
-
-    mock_create_goal.assert_called_once_with("user-123", **block.input)
-    mock_session.call_tool.assert_not_called()
-    assert results[0]["tool_use_id"] == "call-1"
-    assert "Run 30km this week" in results[0]["content"]
-
-
 def test_call_tools_still_routes_unknown_tool_names_to_mcp_session():
     from backend.services.chat_service import call_tools
 

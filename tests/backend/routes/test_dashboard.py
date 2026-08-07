@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from data.db import create_session, find_or_create_user, get_connection, init_db
+from data.db import create_session, find_or_create_user, get_connection, init_db, save_oauth_token
 
 
 @pytest.fixture(autouse=True)
@@ -69,8 +69,31 @@ def test_dashboard_requires_auth(client):
     assert response.status_code == 401
 
 
+def test_dashboard_health_not_connected_skips_mcp_and_returns_flag(client):
+    cookies = _session_cookie(client)
+
+    def open_mcp_session_should_not_be_called(user_id):
+        raise AssertionError("MCP session should not be opened when Health is not connected")
+
+    with patch(
+        "backend.routes.dashboard.open_mcp_session",
+        open_mcp_session_should_not_be_called,
+    ):
+        response = client.get("/dashboard", cookies=cookies)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["health_connected"] is False
+    assert body["weekly_stats"] is None
+    assert body["recent_runs"] == []
+
+
 def test_dashboard_returns_weekly_stats_and_recent_runs(client):
     cookies = _session_cookie(client)
+    user_id = find_or_create_user(
+        "dashboard-route@example.com", "dashboard-route-sub", "Dashboard Route"
+    )
+    save_oauth_token(user_id, "health", "access-token", "refresh-token", 9999999999)
     weekly_stats = {
         "run_count": 4,
         "total_distance_km": 21.9,
@@ -81,24 +104,9 @@ def test_dashboard_returns_weekly_stats_and_recent_runs(client):
         {"date": "2026-08-03T06:42:00", "distance_km": 6.1, "duration_min": 33.4, "pace_min_per_km": 5.47},
     ]
 
-    goals = [
-        {
-            "id": "goal-1",
-            "description": "Run 30km this week",
-            "target_value": 30,
-            "metric": "distance_km",
-            "period": "week",
-            "deadline": None,
-            "progress_pct": 73,
-        }
-    ]
-
     with patch(
         "backend.routes.dashboard.open_mcp_session",
         _mock_session(weekly_stats, recent_runs),
-    ), patch(
-        "backend.routes.dashboard.get_goals_with_progress",
-        new=AsyncMock(return_value=goals),
     ):
         response = client.get("/dashboard", cookies=cookies)
 
@@ -106,4 +114,29 @@ def test_dashboard_returns_weekly_stats_and_recent_runs(client):
     body = response.json()
     assert body["weekly_stats"] == weekly_stats
     assert body["recent_runs"] == recent_runs
-    assert body["goals"] == goals
+    assert body["health_connected"] is True
+
+
+def test_dashboard_connected_but_mcp_call_fails_returns_flag(client):
+    cookies = _session_cookie(client)
+    user_id = find_or_create_user(
+        "dashboard-route@example.com", "dashboard-route-sub", "Dashboard Route"
+    )
+    save_oauth_token(user_id, "health", "access-token", "refresh-token", 9999999999)
+
+    @asynccontextmanager
+    async def broken_mcp_session(user_id):
+        raise RuntimeError("Health API unavailable")
+        yield  # pragma: no cover - unreachable, makes this an async generator
+
+    with patch(
+        "backend.routes.dashboard.open_mcp_session",
+        broken_mcp_session,
+    ):
+        response = client.get("/dashboard", cookies=cookies)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["health_connected"] is False
+    assert body["weekly_stats"] is None
+    assert body["recent_runs"] == []

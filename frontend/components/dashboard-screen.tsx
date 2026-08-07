@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { usePreferences } from "@/hooks/use-preferences";
 import { useAuth } from "@/lib/auth-context";
-import type { GoalProgress, RecentRun } from "@/lib/dashboard-api";
+import type { RecentRun } from "@/lib/dashboard-api";
 
 function formatPace(paceMinPerKm: number | null): string {
   if (paceMinPerKm === null) return "–";
@@ -40,20 +40,19 @@ export function DashboardScreen({ locale }: { locale: string }) {
 
   const weeklyGoalKm = preferences?.weekly_goal_km ?? 30;
   const weekStats = [
-    { value: isLoading ? "–" : String(dashboard?.weekly_stats.total_distance_km ?? 0), label: "km" },
+    { value: isLoading ? "–" : String(dashboard?.weekly_stats?.total_distance_km ?? 0), label: "km" },
     {
       value: isLoading
         ? "–"
-        : formatPace(dashboard?.weekly_stats.avg_pace_min_per_km ?? null).replace("/km", ""),
+        : formatPace(dashboard?.weekly_stats?.avg_pace_min_per_km ?? null).replace("/km", ""),
       label: "avg /km",
     },
-    { value: isLoading ? "–" : String(dashboard?.weekly_stats.run_count ?? 0), label: "runs" },
+    { value: isLoading ? "–" : String(dashboard?.weekly_stats?.run_count ?? 0), label: "runs" },
   ];
-  const weekGoalPct = dashboard
+  const weekGoalPct = dashboard?.weekly_stats
     ? Math.min(100, Math.round((dashboard.weekly_stats.total_distance_km / weeklyGoalKm) * 100))
     : 0;
   const recentRuns = dashboard?.recent_runs.map((run) => formatRun(run, locale)) ?? [];
-  const goals: GoalProgress[] = dashboard?.goals ?? [];
 
   return (
     <div className="flex-1 overflow-y-auto px-[22px] py-5 lg:px-[44px] lg:py-9">
@@ -73,7 +72,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
         </Link>
       </div>
 
-      <div className="lg:mb-7 lg:grid lg:grid-cols-[1.3fr_1fr] lg:gap-5">
+      <div className="lg:mb-7">
         <div className="mb-4 flex flex-col gap-4 rounded-[20px] bg-primary p-[22px] lg:mb-0 lg:gap-[18px] lg:p-7">
           <div className="flex justify-between">
             {weekStats.map((stat) => (
@@ -103,28 +102,6 @@ export function DashboardScreen({ locale }: { locale: string }) {
             />
           </div>
         </div>
-
-        <div className="hidden rounded-[20px] border border-border bg-card p-6 lg:flex lg:flex-col lg:gap-[14px]">
-          <div className="text-[13px] font-semibold uppercase tracking-[0.5px] text-muted">
-            {t("goals")}
-          </div>
-          {goals.map((goal) => (
-            <div key={goal.id} className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <div className="text-[13px] font-semibold text-primary">{goal.description}</div>
-                <div className="font-mono text-xs font-semibold text-accent">
-                  {goal.progress_pct}%
-                </div>
-              </div>
-              <div className="h-[5px] w-full overflow-hidden rounded-full bg-border">
-                <div
-                  className="h-full rounded-full bg-accent"
-                  style={{ width: `${goal.progress_pct}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="mb-2.5 mt-5 text-[13px] font-semibold uppercase text-muted lg:mt-0">
@@ -150,28 +127,6 @@ export function DashboardScreen({ locale }: { locale: string }) {
             <div className="text-right font-mono">
               <div className="text-sm font-semibold text-primary">{run.distance}</div>
               <div className="text-xs text-muted-light">{run.pace}</div>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      <div className="mb-2.5 mt-[22px] text-[13px] font-semibold uppercase text-muted lg:hidden">
-        {t("goals")}
-      </div>
-      <div className="flex flex-col gap-2.5 lg:hidden">
-        {goals.map((goal) => (
-          <Card key={goal.id} className="flex flex-col gap-2 rounded-[16px] p-3.5">
-            <div className="flex items-center justify-between">
-              <div className="text-[13px] font-semibold text-primary">{goal.description}</div>
-              <div className="font-mono text-xs font-semibold text-accent">
-                {goal.progress_pct}%
-              </div>
-            </div>
-            <div className="h-[5px] w-full overflow-hidden rounded-full bg-border">
-              <div
-                className="h-full rounded-full bg-accent"
-                style={{ width: `${goal.progress_pct}%` }}
-              />
             </div>
           </Card>
         ))}

@@ -9,7 +9,7 @@ from anthropic import Anthropic
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from data.db import init_db
+from data.db import init_db, pool
 
 client = Anthropic()
 model = "claude-haiku-4-5-20251001"
@@ -26,20 +26,18 @@ You have these tools:
   to km/minutes/pace. Use when the user wants per-run detail, not just totals.
 - get_runs — raw, unconverted data. Avoid unless the other tools don't cover
   what's needed.
-- get_goals — the user's saved goals with real progress already computed against
-  their actual runs. Use for "what are my goals" / "how am I doing on my goals".
-- create_goal — save a new goal when the user states one in conversation (e.g.
-  "I want to run 30km this week"). Pick metric/period based on what they said;
-  ask them to clarify only if it's genuinely ambiguous.
 
 Be concise and encouraging. Only answer running-related questions."""
 
 conversations: dict[str, list] = {}  # per-user message history, keyed by user_id
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    print("--- Connected to Supabase (DB initialized) ----")
     yield
+    pool.close()
 
 
 app = FastAPI(lifespan=lifespan)

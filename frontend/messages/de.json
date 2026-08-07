@@ -8,8 +8,7 @@
   "dashboard": {
     "thisWeek": "Diese Woche",
     "goal": "Ziel: {distance}km diese Woche",
-    "recentRuns": "Letzte Läufe",
-    "goals": "Ziele"
+    "recentRuns": "Letzte Läufe"
   },
   "chat": {
     "coachName": "Coach",
