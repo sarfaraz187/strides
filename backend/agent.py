@@ -24,8 +24,6 @@ You have these tools:
   (YYYY-MM-DD, end_date exclusive). Use for specific date ranges.
 - get_recent_runs(days) — individual runs from the last N days, already converted
   to km/minutes/pace. Use when the user wants per-run detail, not just totals.
-- get_runs — raw, unconverted data. Avoid unless the other tools don't cover
-  what's needed.
 - save_memory — call this when the user shares a durable training goal, an
   injury or physical constraint, or a standing preference. Do not call it for
   one-off statements about a single run or feelings about today's session.

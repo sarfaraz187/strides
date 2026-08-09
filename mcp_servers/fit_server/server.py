@@ -46,24 +46,14 @@ mcp = FastMCP(
 
 
 @mcp.tool()
-def get_runs() -> dict[str, Any]:
-    """Fetch the user's raw recent running activity data (unconverted units)."""
-    user_id = current_user_id()
-    health_access_token = get_valid_access_token(user_id)
-
-    response = get_health_data(
-        health_access_token, f"{BASE_URL}/v4/users/me/dataTypes/exercise/dataPoints"
-    )
-
-    logging.info(f"Fetching runs since: {response}")
-    return response
-
-
-@mcp.tool()
 def get_recent_runs(days: int = 7) -> list[dict[str, Any]]:
     """Get the user's runs from the last N days, with distance in km, duration in
-    minutes, and pace in min/km already calculated. Use days=7 for 'this week',
-    days=30 for 'this month', etc. Default 7 if unspecified."""
+    minutes, and pace in min/km already calculated. Use this for relative/recent
+    queries like "how did I run this week" or "show my last 30 days" — use
+    get_run_stats instead if the user gives explicit calendar dates. Returns a
+    list of run dicts (empty list if no runs in the window, not an error).
+    days=7 for 'this week', days=30 for 'this month', etc. Default 7 if
+    unspecified."""
     user_id = current_user_id()
     health_access_token = get_valid_access_token(user_id)
 
@@ -89,8 +79,12 @@ def get_recent_runs(days: int = 7) -> list[dict[str, Any]]:
 @mcp.tool()
 def get_run_stats(start_date: str, end_date: str) -> dict[str, Any]:
     """Get aggregated running statistics (total distance, total duration, average
-    pace, run count) between start_date and end_date. Dates in YYYY-MM-DD format,
-    e.g. 2023-01-01. end_date is exclusive."""
+    pace, run count) between start_date and end_date. Use this when the user
+    gives explicit calendar dates (e.g. "how far did I run in January") rather
+    than a relative window — get_recent_runs handles relative windows like "last
+    7 days". Dates in YYYY-MM-DD format, e.g. 2023-01-01. end_date is exclusive.
+    avg_pace_min_per_km is null when total_distance_km is 0 (no runs in range),
+    not an error."""
     user_id = current_user_id()
     health_access_token = get_valid_access_token(user_id)
 
@@ -125,9 +119,11 @@ def get_run_stats(start_date: str, end_date: str) -> dict[str, Any]:
 
 @mcp.tool()
 def get_weekly_stats() -> dict[str, Any]:
-    """Get the user's aggregated running statistics for the current week (Monday
-    through today). Returns total distance, total duration, average pace, and
-    run count."""
+    """Get the user's aggregated running statistics for the current week so far
+    (Monday through today, inclusive). Equivalent to calling get_run_stats with
+    this week's Monday as start_date and tomorrow as end_date — use this
+    shortcut instead of computing those dates yourself. Returns the same shape
+    as get_run_stats: total distance, total duration, average pace, run count."""
     today = datetime.now(timezone.utc)
     monday = today - timedelta(days=today.weekday())
     end = today + timedelta(
@@ -142,10 +138,15 @@ def get_weekly_stats() -> dict[str, Any]:
 
 @mcp.tool()
 def calculate(expression: str) -> str:
-    """Safely evaluate a basic math expression."""
+    """Safely evaluate a basic arithmetic expression (e.g. "5.2 * 7" or
+    "(10+3)/2") with no access to builtins or imports — use only for numeric
+    math the model shouldn't compute by hand, not for anything involving run
+    data (those tools already return computed pace/distance/duration). Returns
+    "Invalid expression." for any error (syntax error, division by zero,
+    disallowed name) without distinguishing which."""
     try:
         return f"Result: {eval(expression, {'__builtins__': {}})}"
-    except:
+    except Exception:
         return "Invalid expression."
 
 
