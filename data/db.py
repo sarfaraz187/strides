@@ -55,6 +55,18 @@ def init_db() -> None:
                 language TEXT NOT NULL DEFAULT 'en'
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id SERIAL PRIMARY KEY,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_messages_user_id_id ON messages (user_id, id DESC)"
+        )
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT")
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_path TEXT")
         conn.execute("ALTER TABLE users DROP COLUMN IF EXISTS avatar_url")
@@ -98,9 +110,7 @@ def get_user(user_id: str) -> tuple[str, str, datetime, str | None] | None:
 
 def update_avatar_path(user_id: str, path: str | None) -> None:
     with get_connection() as conn:
-        conn.execute(
-            "UPDATE users SET avatar_path = %s WHERE id = %s", (path, user_id)
-        )
+        conn.execute("UPDATE users SET avatar_path = %s WHERE id = %s", (path, user_id))
         conn.commit()
 
 
@@ -161,6 +171,34 @@ def save_oauth_token(
         conn.commit()
 
 
+def save_message(user_id: str, role: str, content: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO messages (user_id, role, content) VALUES (%s, %s, %s)",
+            (user_id, role, content),
+        )
+        conn.commit()
+
+
+def get_messages(user_id: str, before_id: int | None, limit: int) -> tuple[list[dict], bool]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, role, content, created_at FROM messages
+            WHERE user_id = %s AND (%s::int IS NULL OR id < %s)
+            ORDER BY id DESC
+            LIMIT %s
+            """,
+            (user_id, before_id, before_id, limit + 1),
+        ).fetchall()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    messages = [
+        {"id": row[0], "role": row[1], "content": row[2], "created_at": row[3]} for row in rows
+    ]
+    return messages, has_more
+
+
 def get_oauth_token(user_id: str, provider: str) -> tuple[str, str, int] | None:
     with get_connection() as conn:
         row = conn.execute(
@@ -206,10 +244,14 @@ def upsert_preferences(
     language: str | None = None,
 ) -> Preferences:
     current = get_preferences(user_id)
-    weekly_goal_km = current.weekly_goal_km if weekly_goal_km is None else weekly_goal_km
+    weekly_goal_km = (
+        current.weekly_goal_km if weekly_goal_km is None else weekly_goal_km
+    )
     units = current.units if units is None else units
     notifications_enabled = (
-        current.notifications_enabled if notifications_enabled is None else notifications_enabled
+        current.notifications_enabled
+        if notifications_enabled is None
+        else notifications_enabled
     )
     language = current.language if language is None else language
 

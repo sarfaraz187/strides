@@ -25,6 +25,15 @@
   --color-danger-border: #E3B3B3;
 }
 
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 body {
   background: var(--color-background);
   color: var(--color-primary);

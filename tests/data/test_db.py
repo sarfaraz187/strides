@@ -13,11 +13,13 @@ from data.db import (
     delete_session,
     find_or_create_user,
     get_connection,
+    get_messages,
     get_oauth_token,
     get_preferences,
     get_session_user_id,
     get_user,
     init_db,
+    save_message,
     save_oauth_token,
     update_avatar_path,
     upsert_preferences,
@@ -35,6 +37,7 @@ def clean_schema():
     init_db()
     yield
     with get_connection() as conn:
+        conn.execute("DROP TABLE IF EXISTS messages CASCADE")
         conn.execute("DROP TABLE IF EXISTS preferences CASCADE")
         conn.execute("DROP TABLE IF EXISTS oauth_tokens CASCADE")
         conn.execute("DROP TABLE IF EXISTS sessions CASCADE")
@@ -263,3 +266,66 @@ def test_upsert_preferences_partial_update_only_touches_provided_fields():
     assert prefs == Preferences(
         weekly_goal_km=30, units="km", notifications_enabled=True, language="de"
     )
+
+
+def test_init_db_creates_messages_table():
+    with get_connection() as conn:
+        result = conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'messages' AND table_schema = 'public'"
+        ).fetchall()
+    columns = {row[0] for row in result}
+    assert columns == {"id", "user_id", "role", "content", "created_at"}
+
+
+def test_save_message_then_get_messages_round_trips():
+    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+
+    save_message(user_id, "user", "How far did I run this week?")
+    save_message(user_id, "assistant", "You ran 12km this week.")
+
+    messages, has_more = get_messages(user_id, before_id=None, limit=20)
+
+    assert has_more is False
+    assert [m["role"] for m in messages] == ["assistant", "user"]
+    assert [m["content"] for m in messages] == [
+        "You ran 12km this week.",
+        "How far did I run this week?",
+    ]
+
+
+def test_get_messages_only_returns_requesting_users_messages():
+    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    other_user_id = find_or_create_user("other@example.com", "google-sub-456", "Other Runner")
+    save_message(user_id, "user", "mine")
+    save_message(other_user_id, "user", "not mine")
+
+    messages, _ = get_messages(user_id, before_id=None, limit=20)
+
+    assert [m["content"] for m in messages] == ["mine"]
+
+
+def test_get_messages_paginates_with_before_id_cursor():
+    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    for i in range(5):
+        save_message(user_id, "user", f"message {i}")
+
+    first_page, first_has_more = get_messages(user_id, before_id=None, limit=2)
+    second_page, second_has_more = get_messages(
+        user_id, before_id=first_page[-1]["id"], limit=2
+    )
+
+    assert [m["content"] for m in first_page] == ["message 4", "message 3"]
+    assert first_has_more is True
+    assert [m["content"] for m in second_page] == ["message 2", "message 1"]
+    assert second_has_more is True
+
+
+def test_get_messages_has_more_false_on_last_page():
+    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    save_message(user_id, "user", "only message")
+
+    messages, has_more = get_messages(user_id, before_id=None, limit=20)
+
+    assert has_more is False
+    assert len(messages) == 1

@@ -1,9 +1,9 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,54 @@ import { apiFetch } from "@/lib/api";
 
 type Message = { from: "user" | "coach"; text: string };
 
+type ApiMessage = {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+};
+
+type ChatHistoryPage = { messages: ApiMessage[]; has_more: boolean };
+
+const HISTORY_PAGE_SIZE = 20;
+const SCROLL_TOP_THRESHOLD = 40;
+const SCROLL_BOTTOM_THRESHOLD = 80;
+
+const CHAT_HISTORY_QUERY_KEY = ["chat-history"];
+
 export function ChatScreen({ locale }: { locale: string }) {
   const t = useTranslations("chat");
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+
+  const history = useInfiniteQuery({
+    queryKey: CHAT_HISTORY_QUERY_KEY,
+    queryFn: ({ pageParam }: { pageParam: number | undefined }) =>
+      apiFetch<ChatHistoryPage>(
+        `/chat/history?limit=${HISTORY_PAGE_SIZE}${
+          pageParam ? `&before_id=${pageParam}` : ""
+        }`
+      ),
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.has_more ? lastPage.messages[lastPage.messages.length - 1]?.id : undefined,
+  });
+
+  const historyMessages = useMemo<Message[]>(() => {
+    if (!history.data) return [];
+    return history.data.pages
+      .slice()
+      .reverse()
+      .flatMap((page) =>
+        [...page.messages].reverse().map((m) => ({
+          from: m.role === "assistant" ? ("coach" as const) : ("user" as const),
+          text: m.content,
+        }))
+      );
+  }, [history.data]);
 
   const sendMessage = useMutation({
     mutationFn: (message: string) =>
@@ -23,8 +67,10 @@ export function ChatScreen({ locale }: { locale: string }) {
         method: "POST",
         body: JSON.stringify({ message, locale }),
       }),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setMessages((prev) => [...prev, { from: "coach", text: data.reply }]);
+      await queryClient.invalidateQueries({ queryKey: CHAT_HISTORY_QUERY_KEY });
+      setMessages([]);
     },
   });
 
@@ -36,8 +82,27 @@ export function ChatScreen({ locale }: { locale: string }) {
     sendMessage.mutate(trimmed);
   }
 
+  function handleScroll(e: React.UIEvent<HTMLDivElement>) {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+
+    if (scrollTop <= SCROLL_TOP_THRESHOLD && history.hasNextPage && !history.isFetchingNextPage) {
+      history.fetchNextPage();
+    }
+
+    isNearBottomRef.current = scrollHeight - scrollTop - clientHeight <= SCROLL_BOTTOM_THRESHOLD;
+  }
+
+  const allMessages = [...historyMessages, ...messages];
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container && isNearBottomRef.current) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [allMessages.length]);
+
   return (
-    <div className="flex flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-[720px]">
+    <div className="flex min-h-0 flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-[720px]">
       <div className="flex items-center gap-2.5 border-b border-border px-[22px] py-4 lg:px-0 lg:pt-7 lg:pb-4">
         <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-primary lg:h-9 lg:w-9">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -56,9 +121,19 @@ export function ChatScreen({ locale }: { locale: string }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-[18px] py-4 lg:px-0 lg:py-5">
+      <div
+        ref={scrollContainerRef}
+        data-testid="chat-scroll-container"
+        onScroll={handleScroll}
+        className="scrollbar-none flex-1 overflow-y-auto px-[18px] py-4 lg:px-0 lg:py-5"
+      >
+        {history.isFetchingNextPage && (
+          <div className="flex justify-center py-2">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-primary" />
+          </div>
+        )}
         <AnimatePresence initial={false}>
-          {messages.map((msg, i) => (
+          {allMessages.map((msg, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 8 }}
