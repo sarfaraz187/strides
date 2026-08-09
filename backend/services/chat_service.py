@@ -1,13 +1,52 @@
+import data.db as db
 from backend.services.mcp_client import get_tool_schemas, open_mcp_session
 
-LOCAL_TOOLS: dict = {}
+LOCAL_TOOL_SCHEMAS: list = [
+    {
+        "name": "save_memory",
+        "description": (
+            "Save a durable fact about the user that should persist across future "
+            "conversations — training goals, injuries/physical constraints, or "
+            "standing preferences. Do NOT call this for one-off statements about a "
+            "single run or how the user feels today."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "fact": {"type": "string", "description": "The fact to remember."},
+                "category": {
+                    "type": "string",
+                    "enum": ["goal", "injury", "preference"],
+                },
+            },
+            "required": ["fact", "category"],
+        },
+    }
+]
 
-LOCAL_TOOL_SCHEMAS: list = []
+
+async def _save_memory(user_id: str, fact: str, category: str) -> str:
+    db.save_memory(user_id, fact, category)
+    return "Saved."
+
+
+LOCAL_TOOLS: dict = {"save_memory": _save_memory}
+
+
+def _build_system_prompt(base_prompt: str, user_id: str) -> str:
+    memories = db.get_memories(user_id)
+    if not memories:
+        return base_prompt
+
+    facts = "\n".join(f"- {m['fact']}" for m in memories)
+    return f"{base_prompt}\n\nKnown facts about this user:\n{facts}"
 
 
 async def process_query(user_id: str, messages: list[dict]) -> str:
     """Call Claude, executing any requested tools, until it gives a final answer."""
     from backend.agent import SYSTEM_PROMPT, client, model
+
+    system_prompt = _build_system_prompt(SYSTEM_PROMPT, user_id)
 
     async with open_mcp_session(user_id) as session:
         tools = await get_tool_schemas(session) + LOCAL_TOOL_SCHEMAS
@@ -16,8 +55,9 @@ async def process_query(user_id: str, messages: list[dict]) -> str:
             response = client.messages.create(
                 model=model,
                 max_tokens=1024,
-                system=SYSTEM_PROMPT,
+                system=system_prompt,
                 tools=tools,
+                tool_choice={"type": "auto", "disable_parallel_tool_use": True},
                 messages=messages,
             )
 

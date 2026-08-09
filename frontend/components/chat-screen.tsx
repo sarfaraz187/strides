@@ -37,15 +37,9 @@ export function ChatScreen({ locale }: { locale: string }) {
 
   const history = useInfiniteQuery({
     queryKey: CHAT_HISTORY_QUERY_KEY,
-    queryFn: ({ pageParam }: { pageParam: number | undefined }) =>
-      apiFetch<ChatHistoryPage>(
-        `/chat/history?limit=${HISTORY_PAGE_SIZE}${
-          pageParam ? `&before_id=${pageParam}` : ""
-        }`
-      ),
+    queryFn: ({ pageParam }: { pageParam: number | undefined }) => apiFetch<ChatHistoryPage>(`/chat/history?limit=${HISTORY_PAGE_SIZE}${pageParam ? `&before_id=${pageParam}` : ""}`),
     initialPageParam: undefined as number | undefined,
-    getNextPageParam: (lastPage) =>
-      lastPage.has_more ? lastPage.messages[lastPage.messages.length - 1]?.id : undefined,
+    getNextPageParam: (lastPage) => (lastPage.has_more ? lastPage.messages[lastPage.messages.length - 1]?.id : undefined),
   });
 
   const historyMessages = useMemo<Message[]>(() => {
@@ -57,7 +51,7 @@ export function ChatScreen({ locale }: { locale: string }) {
         [...page.messages].reverse().map((m) => ({
           from: m.role === "assistant" ? ("coach" as const) : ("user" as const),
           text: m.content,
-        }))
+        })),
       );
   }, [history.data]);
 
@@ -102,17 +96,11 @@ export function ChatScreen({ locale }: { locale: string }) {
   }, [allMessages.length]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-[720px]">
-      <div className="flex items-center gap-2.5 border-b border-border px-[22px] py-4 lg:px-0 lg:pt-7 lg:pb-4">
+    <div className="flex min-h-0 flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-[780px]">
+      <div className="flex items-center gap-2.5 border-b border-border px-[22px] py-4 lg:px-0 lg:pt-4 lg:pb-4">
         <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-primary lg:h-9 lg:w-9">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M4 17L9 10L13 14L20 5"
-              stroke="#D8DED0"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <path d="M4 17L9 10L13 14L20 5" stroke="#D8DED0" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
         <div>
@@ -121,12 +109,7 @@ export function ChatScreen({ locale }: { locale: string }) {
         </div>
       </div>
 
-      <div
-        ref={scrollContainerRef}
-        data-testid="chat-scroll-container"
-        onScroll={handleScroll}
-        className="scrollbar-none flex-1 overflow-y-auto px-[18px] py-4 lg:px-0 lg:py-5"
-      >
+      <div ref={scrollContainerRef} data-testid="chat-scroll-container" onScroll={handleScroll} className="scrollbar-none flex-1 overflow-y-auto px-[18px] py-4 lg:px-0 lg:py-5">
         {history.isFetchingNextPage && (
           <div className="flex justify-center py-2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-primary" />
@@ -134,12 +117,7 @@ export function ChatScreen({ locale }: { locale: string }) {
         )}
         <AnimatePresence initial={false}>
           {allMessages.map((msg, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`mb-2.5 flex lg:mb-3 ${msg.from === "user" ? "justify-end" : "justify-start"}`}
-            >
+            <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`mb-2.5 flex lg:mb-3 ${msg.from === "user" ? "justify-end" : "justify-start"}`}>
               <div
                 className={`max-w-[78%] rounded-[16px] px-[15px] py-[11px] text-sm leading-[1.45] lg:max-w-[65%] lg:px-4 lg:py-3 lg:text-[15px] lg:leading-[1.5] ${
                   msg.from === "user"
@@ -162,19 +140,9 @@ export function ChatScreen({ locale }: { locale: string }) {
           className="h-11 rounded-full border-border bg-card px-[18px] text-primary placeholder:text-muted-light lg:h-[46px]"
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
         />
-        <Button
-          aria-label="send"
-          onClick={handleSend}
-          className="h-11 w-11 rounded-full bg-primary p-0 lg:h-[46px] lg:w-[46px]"
-        >
+        <Button aria-label="send" onClick={handleSend} className="h-11 w-11 rounded-full bg-primary p-0 lg:h-[46px] lg:w-[46px]">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M4 12h15m0 0l-6-6m6 6l-6 6"
-              stroke="#F6F4EF"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <path d="M4 12h15m0 0l-6-6m6 6l-6 6" stroke="#F6F4EF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </Button>
       </div>

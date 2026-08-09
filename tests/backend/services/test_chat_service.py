@@ -66,8 +66,8 @@ def test_process_query_merges_local_tool_schemas_with_mcp_tools():
     fake_response.content = [MagicMock(type="text", text="done")]
 
     with patch("backend.services.chat_service.open_mcp_session", open_mcp_session), patch(
-        "backend.agent.client"
-    ) as mock_client:
+        "backend.services.chat_service.db.get_memories", return_value=[]
+    ), patch("backend.agent.client") as mock_client:
         mock_client.messages.create.return_value = fake_response
 
         asyncio.run(process_query("user-123", [{"role": "user", "content": "hi"}]))
@@ -77,3 +77,48 @@ def test_process_query_merges_local_tool_schemas_with_mcp_tools():
         called_names = {t["name"] for t in called_tools}
         assert local_names.issubset(called_names)
         assert "get_weekly_stats" in called_names
+
+
+def test_save_memory_tool_is_registered_locally():
+    from backend.services.chat_service import LOCAL_TOOL_SCHEMAS, LOCAL_TOOLS
+
+    schema_names = {t["name"] for t in LOCAL_TOOL_SCHEMAS}
+    assert "save_memory" in schema_names
+    assert "save_memory" in LOCAL_TOOLS
+
+
+def test_save_memory_tool_writes_to_db():
+    from backend.services.chat_service import LOCAL_TOOLS
+
+    with patch("backend.services.chat_service.db.save_memory") as mock_save_memory:
+        asyncio.run(
+            LOCAL_TOOLS["save_memory"](
+                "user-123", fact="Training for a half marathon", category="goal"
+            )
+        )
+
+    mock_save_memory.assert_called_once_with(
+        "user-123", "Training for a half marathon", "goal"
+    )
+
+
+def test_process_query_injects_memories_into_system_prompt():
+    from backend.services.chat_service import process_query
+
+    open_mcp_session, mock_session = _mock_session([])
+
+    fake_response = MagicMock()
+    fake_response.stop_reason = "end_turn"
+    fake_response.content = [MagicMock(type="text", text="done")]
+
+    fake_memories = [{"fact": "Left knee sore, avoid speed work", "category": "injury"}]
+
+    with patch("backend.services.chat_service.open_mcp_session", open_mcp_session), patch(
+        "backend.services.chat_service.db.get_memories", return_value=fake_memories
+    ), patch("backend.agent.client") as mock_client:
+        mock_client.messages.create.return_value = fake_response
+
+        asyncio.run(process_query("user-123", [{"role": "user", "content": "hi"}]))
+
+        system_prompt = mock_client.messages.create.call_args.kwargs["system"]
+        assert "Left knee sore, avoid speed work" in system_prompt

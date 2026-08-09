@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 from fastapi import APIRouter, Cookie, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from backend.services import auth_service
 from backend.storage import create_signed_url
@@ -55,7 +55,7 @@ def logout(session: str | None = Cookie(default=None)):
     if session is None:
         raise HTTPException(status_code=401, detail="Not logged in")
     delete_session(session)
-    response = RedirectResponse(FRONTEND_URL, status_code=200)
+    response = JSONResponse({"success": True})
     response.delete_cookie("session")
     return response
 

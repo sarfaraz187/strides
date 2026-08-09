@@ -67,6 +67,18 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_messages_user_id_id ON messages (user_id, id DESC)"
         )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS memories (
+                id SERIAL PRIMARY KEY,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                fact TEXT NOT NULL,
+                category TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_memories_user_id ON memories (user_id)"
+        )
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT")
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_path TEXT")
         conn.execute("ALTER TABLE users DROP COLUMN IF EXISTS avatar_url")
@@ -197,6 +209,24 @@ def get_messages(user_id: str, before_id: int | None, limit: int) -> tuple[list[
         {"id": row[0], "role": row[1], "content": row[2], "created_at": row[3]} for row in rows
     ]
     return messages, has_more
+
+
+def save_memory(user_id: str, fact: str, category: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO memories (user_id, fact, category) VALUES (%s, %s, %s)",
+            (user_id, fact, category),
+        )
+        conn.commit()
+
+
+def get_memories(user_id: str) -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT fact, category FROM memories WHERE user_id = %s ORDER BY id",
+            (user_id,),
+        ).fetchall()
+    return [{"fact": row[0], "category": row[1]} for row in rows]
 
 
 def get_oauth_token(user_id: str, provider: str) -> tuple[str, str, int] | None:

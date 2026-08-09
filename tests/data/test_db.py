@@ -13,12 +13,14 @@ from data.db import (
     delete_session,
     find_or_create_user,
     get_connection,
+    get_memories,
     get_messages,
     get_oauth_token,
     get_preferences,
     get_session_user_id,
     get_user,
     init_db,
+    save_memory,
     save_message,
     save_oauth_token,
     update_avatar_path,
@@ -37,6 +39,7 @@ def clean_schema():
     init_db()
     yield
     with get_connection() as conn:
+        conn.execute("DROP TABLE IF EXISTS memories CASCADE")
         conn.execute("DROP TABLE IF EXISTS messages CASCADE")
         conn.execute("DROP TABLE IF EXISTS preferences CASCADE")
         conn.execute("DROP TABLE IF EXISTS oauth_tokens CASCADE")
@@ -329,3 +332,38 @@ def test_get_messages_has_more_false_on_last_page():
 
     assert has_more is False
     assert len(messages) == 1
+
+
+def test_init_db_creates_memories_table():
+    with get_connection() as conn:
+        result = conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'memories' AND table_schema = 'public'"
+        ).fetchall()
+    columns = {row[0] for row in result}
+    assert columns == {"id", "user_id", "fact", "category", "created_at"}
+
+
+def test_save_memory_then_get_memories_round_trips():
+    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+
+    save_memory(user_id, "Training for a half marathon in October", "goal")
+    save_memory(user_id, "Left knee sore, avoid speed work", "injury")
+
+    memories = get_memories(user_id)
+
+    assert memories == [
+        {"fact": "Training for a half marathon in October", "category": "goal"},
+        {"fact": "Left knee sore, avoid speed work", "category": "injury"},
+    ]
+
+
+def test_get_memories_only_returns_requesting_users_memories():
+    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    other_user_id = find_or_create_user("other@example.com", "google-sub-456", "Other Runner")
+    save_memory(user_id, "mine", "preference")
+    save_memory(other_user_id, "not mine", "preference")
+
+    memories = get_memories(user_id)
+
+    assert [m["fact"] for m in memories] == ["mine"]
