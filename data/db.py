@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import psycopg
+from psycopg.types.json import Json
 from psycopg_pool import ConnectionPool
 
 from backend.encryption import decrypt, encrypt
@@ -60,13 +61,21 @@ def init_db() -> None:
                 id SERIAL PRIMARY KEY,
                 user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 role TEXT NOT NULL,
-                content TEXT NOT NULL,
+                content JSONB NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now()
             )
         """)
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_messages_user_id_id ON messages (user_id, id DESC)"
         )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS conversation_summaries (
+                user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                summary_text TEXT NOT NULL,
+                through_message_id INTEGER NOT NULL,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS memories (
                 id SERIAL PRIMARY KEY,
@@ -183,21 +192,28 @@ def save_oauth_token(
         conn.commit()
 
 
-def save_message(user_id: str, role: str, content: str) -> None:
+def save_message(user_id: str, role: str, content: str | list) -> int:
     with get_connection() as conn:
-        conn.execute(
-            "INSERT INTO messages (user_id, role, content) VALUES (%s, %s, %s)",
-            (user_id, role, content),
-        )
+        row = conn.execute(
+            """
+            INSERT INTO messages (user_id, role, content)
+            VALUES (%s, %s, %s) RETURNING id
+            """,
+            (user_id, role, Json(content)),
+        ).fetchone()
         conn.commit()
+    return row[0]
 
 
-def get_messages(user_id: str, before_id: int | None, limit: int) -> tuple[list[dict], bool]:
+def get_messages(
+    user_id: str, before_id: int | None, limit: int
+) -> tuple[list[dict], bool]:
     with get_connection() as conn:
         rows = conn.execute(
             """
             SELECT id, role, content, created_at FROM messages
             WHERE user_id = %s AND (%s::int IS NULL OR id < %s)
+                AND jsonb_typeof(content) = 'string'
             ORDER BY id DESC
             LIMIT %s
             """,
@@ -206,9 +222,56 @@ def get_messages(user_id: str, before_id: int | None, limit: int) -> tuple[list[
     has_more = len(rows) > limit
     rows = rows[:limit]
     messages = [
-        {"id": row[0], "role": row[1], "content": row[2], "created_at": row[3]} for row in rows
+        {"id": row[0], "role": row[1], "content": row[2], "created_at": row[3]}
+        for row in rows
     ]
     return messages, has_more
+
+
+def get_messages_since(user_id: str, after_id: int) -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, role, content FROM messages
+            WHERE user_id = %s AND id > %s
+            ORDER BY id
+            """,
+            (user_id, after_id),
+        ).fetchall()
+    return [{"id": row[0], "role": row[1], "content": row[2]} for row in rows]
+
+
+def get_conversation_summary(user_id: str) -> dict | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT summary_text, through_message_id
+            FROM conversation_summaries WHERE user_id = %s
+            """,
+            (user_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return {"summary_text": row[0], "through_message_id": row[1]}
+
+
+def upsert_conversation_summary(
+    user_id: str, summary_text: str, through_message_id: int
+) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO conversation_summaries
+                (user_id, summary_text, through_message_id, updated_at)
+            VALUES (%s, %s, %s, now())
+            ON CONFLICT (user_id) DO UPDATE SET
+                summary_text = excluded.summary_text,
+                through_message_id = excluded.through_message_id,
+                updated_at = excluded.updated_at
+            """,
+            (user_id, summary_text, through_message_id),
+        )
+        conn.commit()
 
 
 def save_memory(user_id: str, fact: str, category: str) -> None:

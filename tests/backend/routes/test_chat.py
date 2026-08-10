@@ -28,7 +28,21 @@ def client(monkeypatch):
     from backend.agent import app
     from backend.routes import chat as chat_route
 
-    monkeypatch.setattr(chat_route, "process_query", AsyncMock(return_value="mocked reply"))
+    monkeypatch.setattr(
+        chat_route, "process_query", AsyncMock(return_value="mocked reply")
+    )
+
+    async def fake_maybe_fold(user_id, system_prompt, rows, tools):
+        return rows
+
+    monkeypatch.setattr(chat_route, "maybe_fold", fake_maybe_fold)
+
+    @asynccontextmanager
+    async def fake_open_mcp_session(user_id):
+        yield None
+
+    monkeypatch.setattr(chat_route, "open_mcp_session", fake_open_mcp_session)
+    monkeypatch.setattr(chat_route, "get_tool_schemas", AsyncMock(return_value=[]))
 
     @asynccontextmanager
     async def noop_lifespan(app):
@@ -41,7 +55,9 @@ def client(monkeypatch):
 def _session_cookie_for_new_user(client) -> dict[str, str]:
     from datetime import datetime, timedelta, timezone
 
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
     token = create_session(user_id, datetime.now(timezone.utc) + timedelta(days=7))
     return {"session": token}
 
@@ -66,6 +82,22 @@ def test_post_chat_persists_user_and_assistant_messages(client):
 def test_get_chat_history_requires_auth(client):
     response = client.get("/chat/history")
     assert response.status_code == 401
+
+
+def test_post_chat_calls_maybe_fold_with_rows_since_last_summary(client, monkeypatch):
+    from backend.routes import chat as chat_route
+
+    fold_mock = AsyncMock(side_effect=lambda user_id, system_prompt, rows, tools: rows)
+    monkeypatch.setattr(chat_route, "maybe_fold", fold_mock)
+
+    cookies = _session_cookie_for_new_user(client)
+    response = client.post("/chat", json={"message": "hi"}, cookies=cookies)
+
+    assert response.status_code == 200
+    fold_mock.assert_awaited_once()
+    call_args = fold_mock.await_args
+    rows_arg = call_args.args[2]
+    assert [r["content"] for r in rows_arg] == ["hi"]
 
 
 def test_get_chat_history_paginates(client):

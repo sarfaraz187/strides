@@ -1,5 +1,11 @@
+import logging
+
 import data.db as db
 from backend.services.mcp_client import get_tool_schemas, open_mcp_session
+
+logger = logging.getLogger(__name__)
+
+MAX_TOOL_RESULT_CHARS = 4000
 
 LOCAL_TOOL_SCHEMAS: list = [
     {
@@ -34,12 +40,20 @@ LOCAL_TOOLS: dict = {"save_memory": _save_memory}
 
 
 def _build_system_prompt(base_prompt: str, user_id: str) -> str:
-    memories = db.get_memories(user_id)
-    if not memories:
-        return base_prompt
+    prompt = base_prompt
 
-    facts = "\n".join(f"- {m['fact']}" for m in memories)
-    return f"{base_prompt}\n\nKnown facts about this user:\n{facts}"
+    memories = db.get_memories(user_id)
+    if memories:
+        facts = "\n".join(f"- {m['fact']}" for m in memories)
+        prompt = f"{prompt}\n\nKnown facts about this user:\n{facts}"
+
+    summary = db.get_conversation_summary(user_id)
+    if summary:
+        prompt = (
+            f"{prompt}\n\nSummary of earlier conversation:\n{summary['summary_text']}"
+        )
+
+    return prompt
 
 
 async def process_query(user_id: str, messages: list[dict]) -> str:
@@ -61,20 +75,20 @@ async def process_query(user_id: str, messages: list[dict]) -> str:
                 messages=messages,
             )
 
-            messages.append({"role": "assistant", "content": response.content})
+            content_dicts = [block.model_dump() for block in response.content]
+            messages.append({"role": "assistant", "content": content_dicts})
 
             if response.stop_reason != "tool_use":
                 reply = "\n".join(
-                    block.text for block in response.content if block.type == "text"
+                    block["text"] for block in content_dicts if block["type"] == "text"
                 )
                 return reply
 
-            messages.append(
-                {
-                    "role": "user",
-                    "content": await call_tools(user_id, session, response.content),
-                }
-            )
+            db.save_message(user_id, "assistant", content_dicts)
+
+            tool_results = await call_tools(user_id, session, response.content)
+            messages.append({"role": "user", "content": tool_results})
+            db.save_message(user_id, "user", tool_results)
 
 
 async def call_tools(user_id, session, content_blocks):
@@ -88,7 +102,10 @@ async def call_tools(user_id, session, content_blocks):
                 else:
                     result = await session.call_tool(block.name, block.input)
                 content = str(result)
+                if len(content) > MAX_TOOL_RESULT_CHARS:
+                    content = content[:MAX_TOOL_RESULT_CHARS] + "... [truncated]"
             except Exception as e:
+                logger.exception("Tool call failed: %s(%s)", block.name, block.input)
                 content = f"Tool error: {e}"
 
             tool_results.append(

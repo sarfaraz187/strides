@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+import data.db as db
 from data.db import (
     Preferences,
     create_session,
@@ -15,6 +16,7 @@ from data.db import (
     get_connection,
     get_memories,
     get_messages,
+    get_messages_since,
     get_oauth_token,
     get_preferences,
     get_session_user_id,
@@ -39,6 +41,7 @@ def clean_schema():
     init_db()
     yield
     with get_connection() as conn:
+        conn.execute("DROP TABLE IF EXISTS conversation_summaries CASCADE")
         conn.execute("DROP TABLE IF EXISTS memories CASCADE")
         conn.execute("DROP TABLE IF EXISTS messages CASCADE")
         conn.execute("DROP TABLE IF EXISTS preferences CASCADE")
@@ -75,7 +78,9 @@ def test_init_db_creates_preferences_table():
 
 
 def test_get_preferences_returns_defaults_when_no_row_exists():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
 
     prefs = get_preferences(user_id)
 
@@ -85,7 +90,9 @@ def test_get_preferences_returns_defaults_when_no_row_exists():
 
 
 def test_upsert_preferences_creates_row_with_defaults_for_omitted_fields():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
 
     prefs = upsert_preferences(user_id, units="mi")
 
@@ -122,7 +129,9 @@ def test_init_db_creates_oauth_tokens_table():
 
 
 def test_find_or_create_user_creates_new_user():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
     assert user_id is not None
 
 
@@ -132,13 +141,19 @@ def test_init_db_is_idempotent():
 
 
 def test_find_or_create_user_returns_same_id_for_existing_sub():
-    first_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
-    second_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    first_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
+    second_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
     assert first_id == second_id
 
 
 def test_create_session_then_get_session_user_id_round_trips():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
 
     token = create_session(user_id, expires_at)
@@ -152,7 +167,9 @@ def test_get_session_user_id_returns_none_for_unknown_token():
 
 
 def test_get_session_user_id_returns_none_for_expired_session():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
     expired_at = datetime.now(timezone.utc) - timedelta(seconds=1)
 
     token = create_session(user_id, expired_at)
@@ -161,7 +178,9 @@ def test_get_session_user_id_returns_none_for_expired_session():
 
 
 def test_delete_session_invalidates_token():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
     token = create_session(user_id, datetime.now(timezone.utc) + timedelta(days=7))
 
     delete_session(token)
@@ -170,7 +189,9 @@ def test_delete_session_invalidates_token():
 
 
 def test_save_then_get_oauth_token_round_trips_decrypted():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
 
     save_oauth_token(user_id, "health", "access-abc", "refresh-xyz", 1234567890)
     access_token, refresh_token, expires_at = get_oauth_token(user_id, "health")
@@ -181,7 +202,9 @@ def test_save_then_get_oauth_token_round_trips_decrypted():
 
 
 def test_oauth_token_stored_encrypted_at_rest():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
     save_oauth_token(user_id, "health", "access-abc", "refresh-xyz", 1234567890)
 
     with get_connection() as conn:
@@ -193,7 +216,9 @@ def test_oauth_token_stored_encrypted_at_rest():
 
 
 def test_save_oauth_token_upserts_on_conflict():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
     save_oauth_token(user_id, "health", "access-1", "refresh-1", 100)
     save_oauth_token(user_id, "health", "access-2", "refresh-2", 200)
 
@@ -203,12 +228,16 @@ def test_save_oauth_token_upserts_on_conflict():
 
 
 def test_get_oauth_token_returns_none_when_absent():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
     assert get_oauth_token(user_id, "health") is None
 
 
 def test_delete_oauth_token_removes_row():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
     save_oauth_token(user_id, "health", "access-abc", "refresh-xyz", 1234567890)
 
     delete_oauth_token(user_id, "health")
@@ -217,7 +246,9 @@ def test_delete_oauth_token_removes_row():
 
 
 def test_find_or_create_user_stores_name():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
 
     email, name, created_at, avatar_path = get_user(user_id)
 
@@ -232,7 +263,9 @@ def test_get_user_returns_none_for_unknown_id():
 
 
 def test_update_avatar_path_sets_and_clears_path():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
 
     update_avatar_path(user_id, "user-123.jpg")
     _, _, _, avatar_path = get_user(user_id)
@@ -244,10 +277,16 @@ def test_update_avatar_path_sets_and_clears_path():
 
 
 def test_upsert_preferences_then_get_preferences_round_trips():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
 
     upsert_preferences(
-        user_id, weekly_goal_km=30, units="km", notifications_enabled=True, language="en"
+        user_id,
+        weekly_goal_km=30,
+        units="km",
+        notifications_enabled=True,
+        language="en",
     )
     prefs = get_preferences(user_id)
 
@@ -257,10 +296,16 @@ def test_upsert_preferences_then_get_preferences_round_trips():
 
 
 def test_upsert_preferences_partial_update_only_touches_provided_fields():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
 
     upsert_preferences(
-        user_id, weekly_goal_km=30, units="km", notifications_enabled=True, language="en"
+        user_id,
+        weekly_goal_km=30,
+        units="km",
+        notifications_enabled=True,
+        language="en",
     )
     upsert_preferences(user_id, language="de")
 
@@ -282,7 +327,9 @@ def test_init_db_creates_messages_table():
 
 
 def test_save_message_then_get_messages_round_trips():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
 
     save_message(user_id, "user", "How far did I run this week?")
     save_message(user_id, "assistant", "You ran 12km this week.")
@@ -298,8 +345,12 @@ def test_save_message_then_get_messages_round_trips():
 
 
 def test_get_messages_only_returns_requesting_users_messages():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
-    other_user_id = find_or_create_user("other@example.com", "google-sub-456", "Other Runner")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
+    other_user_id = find_or_create_user(
+        "other@example.com", "google-sub-456", "Other Runner"
+    )
     save_message(user_id, "user", "mine")
     save_message(other_user_id, "user", "not mine")
 
@@ -309,7 +360,9 @@ def test_get_messages_only_returns_requesting_users_messages():
 
 
 def test_get_messages_paginates_with_before_id_cursor():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
     for i in range(5):
         save_message(user_id, "user", f"message {i}")
 
@@ -325,7 +378,9 @@ def test_get_messages_paginates_with_before_id_cursor():
 
 
 def test_get_messages_has_more_false_on_last_page():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
     save_message(user_id, "user", "only message")
 
     messages, has_more = get_messages(user_id, before_id=None, limit=20)
@@ -345,7 +400,9 @@ def test_init_db_creates_memories_table():
 
 
 def test_save_memory_then_get_memories_round_trips():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
 
     save_memory(user_id, "Training for a half marathon in October", "goal")
     save_memory(user_id, "Left knee sore, avoid speed work", "injury")
@@ -359,11 +416,145 @@ def test_save_memory_then_get_memories_round_trips():
 
 
 def test_get_memories_only_returns_requesting_users_memories():
-    user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
-    other_user_id = find_or_create_user("other@example.com", "google-sub-456", "Other Runner")
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
+    other_user_id = find_or_create_user(
+        "other@example.com", "google-sub-456", "Other Runner"
+    )
     save_memory(user_id, "mine", "preference")
     save_memory(other_user_id, "not mine", "preference")
 
     memories = get_memories(user_id)
 
     assert [m["fact"] for m in memories] == ["mine"]
+
+
+def test_save_message_returns_new_message_id():
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
+
+    first_id = save_message(user_id, "user", "first")
+    second_id = save_message(user_id, "user", "second")
+
+    assert isinstance(first_id, int)
+    assert second_id == first_id + 1
+
+
+def test_messages_content_column_is_jsonb():
+    with get_connection() as conn:
+        result = conn.execute(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_name = 'messages' AND column_name = 'content'"
+        ).fetchone()
+    assert result[0] == "jsonb"
+
+
+def test_save_message_stores_list_content_and_round_trips_via_get_messages_since():
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
+    block_content = [
+        {"type": "tool_use", "id": "call-1", "name": "get_weekly_stats", "input": {}}
+    ]
+
+    save_message(user_id, "assistant", block_content)
+
+    rows = get_messages_since(user_id, after_id=0)
+    assert rows[0]["content"] == block_content
+
+
+def test_get_messages_since_returns_rows_after_cursor_ascending():
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
+    ids = [save_message(user_id, "user", f"m{i}") for i in range(5)]
+
+    rows = get_messages_since(user_id, after_id=ids[1])
+
+    assert [r["content"] for r in rows] == ["m2", "m3", "m4"]
+    assert [r["id"] for r in rows] == ids[2:]
+
+
+def test_get_messages_since_zero_returns_everything():
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
+    ids = [save_message(user_id, "user", f"m{i}") for i in range(3)]
+
+    rows = get_messages_since(user_id, after_id=0)
+
+    assert [r["id"] for r in rows] == ids
+
+
+def test_get_messages_since_includes_block_content_rows():
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
+    save_message(user_id, "user", "text turn")
+    tool_block = [{"type": "tool_use", "id": "call-1", "name": "x", "input": {}}]
+    save_message(user_id, "assistant", tool_block)
+
+    rows = get_messages_since(user_id, after_id=0)
+
+    assert [r["content"] for r in rows] == ["text turn", tool_block]
+
+
+def test_get_messages_excludes_block_content_rows_from_display():
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
+    save_message(user_id, "user", "text turn")
+    save_message(
+        user_id,
+        "assistant",
+        [{"type": "tool_use", "id": "call-1", "name": "x", "input": {}}],
+    )
+
+    messages, _ = get_messages(user_id, before_id=None, limit=20)
+
+    assert [m["content"] for m in messages] == ["text turn"]
+
+
+def test_init_db_creates_conversation_summaries_table():
+    with get_connection() as conn:
+        result = conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'conversation_summaries' AND table_schema = 'public'"
+        ).fetchall()
+    columns = {row[0] for row in result}
+    assert columns == {"user_id", "summary_text", "through_message_id", "updated_at"}
+
+
+def test_get_conversation_summary_returns_none_when_absent():
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
+    assert db.get_conversation_summary(user_id) is None
+
+
+def test_upsert_then_get_conversation_summary_round_trips():
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
+
+    db.upsert_conversation_summary(user_id, "Training for a fall marathon.", 42)
+
+    summary = db.get_conversation_summary(user_id)
+    assert summary == {
+        "summary_text": "Training for a fall marathon.",
+        "through_message_id": 42,
+    }
+
+
+def test_upsert_conversation_summary_overwrites_existing():
+    user_id = find_or_create_user(
+        "runner@example.com", "google-sub-123", "Runner Example"
+    )
+    db.upsert_conversation_summary(user_id, "First summary.", 10)
+
+    db.upsert_conversation_summary(user_id, "Second summary.", 25)
+
+    summary = db.get_conversation_summary(user_id)
+    assert summary == {"summary_text": "Second summary.", "through_message_id": 25}

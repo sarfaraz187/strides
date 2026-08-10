@@ -30,8 +30,6 @@ You have these tools:
 
 Be concise and encouraging. Only answer running-related questions."""
 
-conversations: dict[str, list] = {}  # per-user message history, keyed by user_id
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

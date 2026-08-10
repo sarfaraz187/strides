@@ -19,11 +19,11 @@ def parse_run(data_point: dict) -> list[dict]:
         metrics_summary = exercise_data["metricsSummary"]
 
         start_time = interval_data["startTime"]
-        distance_mm = metrics_summary["distanceMillimeters"]
+        distance_mm = metrics_summary.get("distanceMillimeters")
         duration_str = exercise_data["activeDuration"]
         calories = metrics_summary.get("caloriesKcal")
 
-        distance_km = distance_mm / 1_000_000
+        distance_km = distance_mm / 1_000_000 if distance_mm is not None else None
         duration_seconds = float(duration_str.rstrip("s"))
         duration_min = duration_seconds / 60
         pace_min_per_km = duration_min / distance_km if distance_km else None
@@ -31,7 +31,7 @@ def parse_run(data_point: dict) -> list[dict]:
         parsed_runs.append(
             {
                 "date": start_time,
-                "distance_km": round(distance_km, 2),
+                "distance_km": round(distance_km, 2) if distance_km is not None else None,
                 "duration_min": round(duration_min, 1),
                 "pace_min_per_km": round(pace_min_per_km, 2)
                 if pace_min_per_km is not None
