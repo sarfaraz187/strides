@@ -1,9 +1,12 @@
 import logging
 
+from langfuse import get_client, observe, propagate_attributes
+
 import data.db as db
 from backend.services.mcp_client import get_tool_schemas, open_mcp_session
 
 logger = logging.getLogger(__name__)
+langfuse_client = get_client()
 
 MAX_TOOL_RESULT_CHARS = 4000
 
@@ -56,39 +59,56 @@ def _build_system_prompt(base_prompt: str, user_id: str) -> str:
     return prompt
 
 
+@observe()
 async def process_query(user_id: str, messages: list[dict]) -> str:
     """Call Claude, executing any requested tools, until it gives a final answer."""
     from backend.agent import SYSTEM_PROMPT, client, model
 
-    system_prompt = _build_system_prompt(SYSTEM_PROMPT, user_id)
+    with propagate_attributes(user_id=user_id):
+        system_prompt = _build_system_prompt(SYSTEM_PROMPT, user_id)
 
-    async with open_mcp_session(user_id) as session:
-        tools = await get_tool_schemas(session) + LOCAL_TOOL_SCHEMAS
+        async with open_mcp_session(user_id) as session:
+            tools = await get_tool_schemas(session) + LOCAL_TOOL_SCHEMAS
 
-        while True:
-            response = client.messages.create(
-                model=model,
-                max_tokens=1024,
-                system=system_prompt,
-                tools=tools,
-                tool_choice={"type": "auto", "disable_parallel_tool_use": True},
-                messages=messages,
-            )
+            while True:
+                with langfuse_client.start_as_current_observation(
+                    as_type="generation",
+                    name="claude-messages-create",
+                    model=model,
+                    input=messages,
+                ) as generation:
+                    response = client.messages.create(
+                        model=model,
+                        max_tokens=1024,
+                        system=system_prompt,
+                        tools=tools,
+                        tool_choice={"type": "auto", "disable_parallel_tool_use": True},
+                        messages=messages,
+                    )
+                    generation.update(
+                        output=[block.model_dump() for block in response.content],
+                        usage_details={
+                            "input": response.usage.input_tokens,
+                            "output": response.usage.output_tokens,
+                        },
+                    )
 
-            content_dicts = [block.model_dump() for block in response.content]
-            messages.append({"role": "assistant", "content": content_dicts})
+                content_dicts = [block.model_dump() for block in response.content]
+                messages.append({"role": "assistant", "content": content_dicts})
 
-            if response.stop_reason != "tool_use":
-                reply = "\n".join(
-                    block["text"] for block in content_dicts if block["type"] == "text"
-                )
-                return reply
+                if response.stop_reason != "tool_use":
+                    reply = "\n".join(
+                        block["text"]
+                        for block in content_dicts
+                        if block["type"] == "text"
+                    )
+                    return reply
 
-            db.save_message(user_id, "assistant", content_dicts)
+                db.save_message(user_id, "assistant", content_dicts)
 
-            tool_results = await call_tools(user_id, session, response.content)
-            messages.append({"role": "user", "content": tool_results})
-            db.save_message(user_id, "user", tool_results)
+                tool_results = await call_tools(user_id, session, response.content)
+                messages.append({"role": "user", "content": tool_results})
+                db.save_message(user_id, "user", tool_results)
 
 
 async def call_tools(user_id, session, content_blocks):
