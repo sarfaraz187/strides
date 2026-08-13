@@ -87,13 +87,14 @@ export function ChatScreen({ locale }: { locale: string }) {
   }
 
   const allMessages = [...historyMessages, ...messages];
+  const lastMessage = allMessages[allMessages.length - 1];
 
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (container && isNearBottomRef.current) {
       container.scrollTop = container.scrollHeight;
     }
-  }, [allMessages.length]);
+  }, [allMessages.length, lastMessage?.text]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-[780px]">
