@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: strides
+    ports:
+      - "5432:5432"
+    volumes:
+      - strides_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  strides_postgres_data:
