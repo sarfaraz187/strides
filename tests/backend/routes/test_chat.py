@@ -1,4 +1,5 @@
 import base64
+import json
 import os
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock
@@ -28,9 +29,11 @@ def client(monkeypatch):
     from backend.agent import app
     from backend.routes import chat as chat_route
 
-    monkeypatch.setattr(
-        chat_route, "process_query", AsyncMock(return_value="mocked reply")
-    )
+    async def fake_process_query(user_id, messages):
+        for chunk in ["mocked ", "reply"]:
+            yield chunk
+
+    monkeypatch.setattr(chat_route, "process_query", fake_process_query)
 
     async def fake_maybe_fold(user_id, system_prompt, rows, tools):
         return rows
@@ -67,12 +70,21 @@ def test_post_chat_requires_auth(client):
     assert response.status_code == 401
 
 
-def test_post_chat_persists_user_and_assistant_messages(client):
+def _collect_sse_text(response) -> str:
+    text = ""
+    for line in response.text.splitlines():
+        if line.startswith("data: "):
+            text += json.loads(line[len("data: ") :])["text"]
+    return text
+
+
+def test_post_chat_streams_sse_and_persists_full_reply(client):
     cookies = _session_cookie_for_new_user(client)
 
     response = client.post("/chat", json={"message": "hi"}, cookies=cookies)
     assert response.status_code == 200
-    assert response.json() == {"reply": "mocked reply"}
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert _collect_sse_text(response) == "mocked reply"
 
     history = client.get("/chat/history", cookies=cookies)
     contents = [m["content"] for m in history.json()["messages"]]

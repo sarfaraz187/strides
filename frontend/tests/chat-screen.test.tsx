@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -21,35 +21,30 @@ function jsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), { status: 200 });
 }
 
+function sseResponse(chunks: string[]) {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`));
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } });
+}
+
 describe("ChatScreen", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("sends the typed message with the current locale and shows the reply", async () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.example.com";
-    let historyCallCount = 0;
     const mockFetch = vi.spyOn(global, "fetch").mockImplementation((input) => {
       const url = input.toString();
       if (url.includes("/chat/history")) {
-        historyCallCount += 1;
-        if (historyCallCount === 1) {
-          return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
-        }
-        return Promise.resolve(
-          jsonResponse({
-            messages: [
-              { id: 2, role: "assistant", content: "8km easy Saturday.", created_at: "" },
-              {
-                id: 1,
-                role: "user",
-                content: "what should I do saturday?",
-                created_at: "",
-              },
-            ],
-            has_more: false,
-          })
-        );
+        return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
       }
-      return Promise.resolve(jsonResponse({ reply: "8km easy Saturday." }));
+      return Promise.resolve(sseResponse(["8km easy ", "Saturday."]));
     });
 
     renderWithProviders(<ChatScreen locale="en" />);
@@ -84,7 +79,7 @@ describe("ChatScreen", () => {
           })
         );
       }
-      return Promise.resolve(jsonResponse({ reply: "unused" }));
+      return Promise.resolve(sseResponse(["unused"]));
     });
 
     renderWithProviders(<ChatScreen locale="en" />);
@@ -115,7 +110,7 @@ describe("ChatScreen", () => {
           })
         );
       }
-      return Promise.resolve(jsonResponse({ reply: "unused" }));
+      return Promise.resolve(sseResponse(["unused"]));
     });
 
     renderWithProviders(<ChatScreen locale="en" />);
@@ -137,32 +132,14 @@ describe("ChatScreen", () => {
     );
   });
 
-  it("does not duplicate a sent message when history refetches after send", async () => {
+  it("does not duplicate a sent message while it streams in", async () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.example.com";
-    let historyCallCount = 0;
     vi.spyOn(global, "fetch").mockImplementation((input) => {
       const url = input.toString();
       if (url.includes("/chat/history")) {
-        historyCallCount += 1;
-        if (historyCallCount === 1) {
-          return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
-        }
-        return Promise.resolve(
-          jsonResponse({
-            messages: [
-              { id: 2, role: "assistant", content: "8km easy Saturday.", created_at: "" },
-              {
-                id: 1,
-                role: "user",
-                content: "what should I do saturday?",
-                created_at: "",
-              },
-            ],
-            has_more: false,
-          })
-        );
+        return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
       }
-      return Promise.resolve(jsonResponse({ reply: "8km easy Saturday." }));
+      return Promise.resolve(sseResponse(["8km easy Saturday."]));
     });
 
     renderWithProviders(<ChatScreen locale="en" />);
@@ -171,12 +148,57 @@ describe("ChatScreen", () => {
     fireEvent.change(input, { target: { value: "what should I do saturday?" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
-    await waitFor(() => expect(screen.getByText("8km easy Saturday.")).toBeInTheDocument());
-    await waitFor(() => expect(historyCallCount).toBeGreaterThan(1));
-
     await waitFor(() => {
       expect(screen.getAllByText("8km easy Saturday.")).toHaveLength(1);
       expect(screen.getAllByText("what should I do saturday?")).toHaveLength(1);
     });
+  });
+
+  it("shows a thinking indicator during a gap between chunks, then hides it when text resumes", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.example.com";
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    let releaseSecondChunk: () => void = () => {};
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: "Checking" })}\n\n`));
+        releaseSecondChunk = () => {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: " your runs" })}\n\n`));
+          controller.close();
+        };
+      },
+    });
+
+    vi.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = input.toString();
+      if (url.includes("/chat/history")) {
+        return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
+      }
+      return Promise.resolve(
+        new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } })
+      );
+    });
+
+    renderWithProviders(<ChatScreen locale="en" />);
+
+    const input = screen.getByPlaceholderText(en.chat.placeholder);
+    fireEvent.change(input, { target: { value: "how was my week?" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(screen.getByText("Checking")).toBeInTheDocument());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    expect(screen.getByTestId("thinking-indicator")).toBeInTheDocument();
+
+    await act(async () => {
+      releaseSecondChunk();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.queryByTestId("thinking-indicator")).not.toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 });

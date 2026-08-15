@@ -16,6 +16,29 @@ def env(monkeypatch):
     )
 
 
+def _mock_stream(final_response, text_chunks: list[str]):
+    """Build a fake client.messages.stream(...) async context manager."""
+
+    class FakeStreamCM:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def _gen(self):
+            for chunk in text_chunks:
+                yield chunk
+
+        def __init__(self):
+            self.text_stream = self._gen()
+
+        async def get_final_message(self):
+            return final_response
+
+    return FakeStreamCM()
+
+
 def _mock_session(tool_names: list[str]):
     session = AsyncMock()
 
@@ -76,11 +99,22 @@ def test_process_query_merges_local_tool_schemas_with_mcp_tools():
         ),
         patch("backend.agent.client") as mock_client,
     ):
-        mock_client.messages.create.return_value = fake_response
+        mock_client.messages.stream = MagicMock(
+            return_value=_mock_stream(fake_response, ["done"])
+        )
 
-        asyncio.run(process_query("user-123", [{"role": "user", "content": "hi"}]))
+        async def drain():
+            chunks = []
+            async for chunk in process_query(
+                "user-123", [{"role": "user", "content": "hi"}]
+            ):
+                chunks.append(chunk)
+            return chunks
 
-        called_tools = mock_client.messages.create.call_args.kwargs["tools"]
+        chunks = asyncio.run(drain())
+
+        assert "".join(chunks) == "done"
+        called_tools = mock_client.messages.stream.call_args.kwargs["tools"]
         local_names = {t["name"] for t in LOCAL_TOOL_SCHEMAS}
         called_names = {t["name"] for t in called_tools}
         assert local_names.issubset(called_names)
@@ -134,11 +168,19 @@ def test_process_query_injects_memories_into_system_prompt():
         ),
         patch("backend.agent.client") as mock_client,
     ):
-        mock_client.messages.create.return_value = fake_response
+        mock_client.messages.stream = MagicMock(
+            return_value=_mock_stream(fake_response, ["done"])
+        )
 
-        asyncio.run(process_query("user-123", [{"role": "user", "content": "hi"}]))
+        async def drain():
+            async for _ in process_query(
+                "user-123", [{"role": "user", "content": "hi"}]
+            ):
+                pass
 
-        system_prompt = mock_client.messages.create.call_args.kwargs["system"]
+        asyncio.run(drain())
+
+        system_prompt = mock_client.messages.stream.call_args.kwargs["system"]
         assert "Left knee sore, avoid speed work" in system_prompt
 
 
@@ -203,11 +245,22 @@ def test_process_query_persists_intermediate_tool_turns():
         patch("backend.services.chat_service.db.save_message") as mock_save_message,
         patch("backend.agent.client") as mock_client,
     ):
-        mock_client.messages.create.side_effect = [tool_call_response, final_response]
-
-        reply = asyncio.run(
-            process_query("user-123", [{"role": "user", "content": "hi"}])
+        mock_client.messages.stream = MagicMock(
+            side_effect=[
+                _mock_stream(tool_call_response, []),
+                _mock_stream(final_response, ["done"]),
+            ]
         )
+
+        async def drain():
+            chunks = []
+            async for chunk in process_query(
+                "user-123", [{"role": "user", "content": "hi"}]
+            ):
+                chunks.append(chunk)
+            return "".join(chunks)
+
+        reply = asyncio.run(drain())
 
     assert reply == "done"
     assert mock_save_message.call_count == 2
@@ -248,11 +301,19 @@ def test_process_query_injects_conversation_summary_into_system_prompt():
         ),
         patch("backend.agent.client") as mock_client,
     ):
-        mock_client.messages.create.return_value = fake_response
+        mock_client.messages.stream = MagicMock(
+            return_value=_mock_stream(fake_response, ["done"])
+        )
 
-        asyncio.run(process_query("user-123", [{"role": "user", "content": "hi"}]))
+        async def drain():
+            async for _ in process_query(
+                "user-123", [{"role": "user", "content": "hi"}]
+            ):
+                pass
 
-        system_prompt = mock_client.messages.create.call_args.kwargs["system"]
+        asyncio.run(drain())
+
+        system_prompt = mock_client.messages.stream.call_args.kwargs["system"]
         assert "User is training for a fall marathon." in system_prompt
 
 
@@ -276,9 +337,17 @@ def test_process_query_omits_summary_section_when_none_exists():
         ),
         patch("backend.agent.client") as mock_client,
     ):
-        mock_client.messages.create.return_value = fake_response
+        mock_client.messages.stream = MagicMock(
+            return_value=_mock_stream(fake_response, ["done"])
+        )
 
-        asyncio.run(process_query("user-123", [{"role": "user", "content": "hi"}]))
+        async def drain():
+            async for _ in process_query(
+                "user-123", [{"role": "user", "content": "hi"}]
+            ):
+                pass
 
-        system_prompt = mock_client.messages.create.call_args.kwargs["system"]
+        asyncio.run(drain())
+
+        system_prompt = mock_client.messages.stream.call_args.kwargs["system"]
         assert "Summary of earlier conversation" not in system_prompt

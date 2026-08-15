@@ -1,6 +1,6 @@
 "use client";
 
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -8,7 +8,9 @@ import ReactMarkdown from "react-markdown";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiStream } from "@/lib/api";
+
+const THINKING_TIMEOUT_MS = 600;
 
 type Message = { from: "user" | "coach"; text: string };
 
@@ -29,11 +31,13 @@ const CHAT_HISTORY_QUERY_KEY = ["chat-history"];
 
 export function ChatScreen({ locale }: { locale: string }) {
   const t = useTranslations("chat");
-  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
+  const lastChunkAtRef = useRef(Date.now());
 
   const history = useInfiniteQuery({
     queryKey: CHAT_HISTORY_QUERY_KEY,
@@ -55,25 +59,37 @@ export function ChatScreen({ locale }: { locale: string }) {
       );
   }, [history.data]);
 
-  const sendMessage = useMutation({
-    mutationFn: (message: string) =>
-      apiFetch<{ reply: string }>("/chat", {
-        method: "POST",
-        body: JSON.stringify({ message, locale }),
-      }),
-    onSuccess: async (data) => {
-      setMessages((prev) => [...prev, { from: "coach", text: data.reply }]);
-      await queryClient.invalidateQueries({ queryKey: CHAT_HISTORY_QUERY_KEY });
-      setMessages([]);
-    },
-  });
-
-  function handleSend() {
+  async function handleSend() {
     const trimmed = draft.trim();
-    if (!trimmed) return;
-    setMessages((prev) => [...prev, { from: "user", text: trimmed }]);
+    if (!trimmed || isSending) return;
     setDraft("");
-    sendMessage.mutate(trimmed);
+    setIsSending(true);
+    setMessages((prev) => [...prev, { from: "user", text: trimmed }, { from: "coach", text: "" }]);
+
+    lastChunkAtRef.current = Date.now();
+    const thinkingTimer = setInterval(() => {
+      setIsThinking(Date.now() - lastChunkAtRef.current > THINKING_TIMEOUT_MS);
+    }, 200);
+
+    try {
+      await apiStream(
+        "/chat",
+        { method: "POST", body: JSON.stringify({ message: trimmed, locale }) },
+        (chunk) => {
+          lastChunkAtRef.current = Date.now();
+          setIsThinking(false);
+          setMessages((prev) => {
+            const next = [...prev];
+            next[next.length - 1] = { from: "coach", text: next[next.length - 1].text + chunk };
+            return next;
+          });
+        }
+      );
+    } finally {
+      clearInterval(thinkingTimer);
+      setIsThinking(false);
+      setIsSending(false);
+    }
   }
 
   function handleScroll(e: React.UIEvent<HTMLDivElement>) {
@@ -126,7 +142,20 @@ export function ChatScreen({ locale }: { locale: string }) {
                     : "rounded-bl-[4px] border border-border bg-card text-primary [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5"
                 }`}
               >
-                {msg.from === "coach" ? <ReactMarkdown>{msg.text}</ReactMarkdown> : msg.text}
+                {msg.from === "coach" ? (
+                  <>
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                    {isThinking && i === allMessages.length - 1 && (
+                      <span data-testid="thinking-indicator" className="inline-flex gap-1">
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-light [animation-delay:-0.2s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-light [animation-delay:-0.1s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-light" />
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  msg.text
+                )}
               </div>
             </motion.div>
           ))}

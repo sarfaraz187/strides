@@ -1,6 +1,6 @@
 import logging
 
-from langfuse import get_client, observe, propagate_attributes
+from langfuse import get_client, propagate_attributes
 
 import data.db as db
 from backend.services.mcp_client import get_tool_schemas, open_mcp_session
@@ -42,6 +42,19 @@ async def _save_memory(user_id: str, fact: str, category: str) -> str:
 LOCAL_TOOLS: dict = {"save_memory": _save_memory}
 
 
+def _to_input_block(block) -> dict:
+    if block.type == "text":
+        return {"type": "text", "text": block.text}
+    if block.type == "tool_use":
+        return {
+            "type": "tool_use",
+            "id": block.id,
+            "name": block.name,
+            "input": block.input,
+        }
+    return block.model_dump()
+
+
 def _build_system_prompt(base_prompt: str, user_id: str) -> str:
     prompt = base_prompt
 
@@ -59,56 +72,80 @@ def _build_system_prompt(base_prompt: str, user_id: str) -> str:
     return prompt
 
 
-@observe()
-async def process_query(user_id: str, messages: list[dict]) -> str:
-    """Call Claude, executing any requested tools, until it gives a final answer."""
+async def process_query(user_id: str, messages: list[dict]):
+    """Call Claude, executing any requested tools, until it gives a final answer.
+
+    Yields text chunks as they stream in. The final assistant text is the
+    concatenation of every chunk yielded across the whole call.
+    """
     from backend.agent import SYSTEM_PROMPT, client, model
 
     with propagate_attributes(user_id=user_id):
+        logger.info(
+            "------------- Starting new query for user %s -------------", user_id
+        )
         system_prompt = _build_system_prompt(SYSTEM_PROMPT, user_id)
 
         async with open_mcp_session(user_id) as session:
             tools = await get_tool_schemas(session) + LOCAL_TOOL_SCHEMAS
 
-            while True:
-                with langfuse_client.start_as_current_observation(
-                    as_type="generation",
-                    name="claude-messages-create",
-                    model=model,
-                    input=messages,
-                ) as generation:
-                    response = client.messages.create(
+            with langfuse_client.start_as_current_observation(
+                as_type="span", name="process_query"
+            ):
+                while True:
+                    with langfuse_client.start_as_current_observation(
+                        as_type="generation",
+                        name="claude-messages-create",
                         model=model,
-                        max_tokens=1024,
-                        system=system_prompt,
-                        tools=tools,
-                        tool_choice={"type": "auto", "disable_parallel_tool_use": True},
-                        messages=messages,
-                    )
-                    generation.update(
-                        output=[block.model_dump() for block in response.content],
-                        usage_details={
-                            "input": response.usage.input_tokens,
-                            "output": response.usage.output_tokens,
-                        },
-                    )
+                        input=messages,
+                    ) as generation:
+                        async with client.messages.stream(
+                            model=model,
+                            max_tokens=1024,
+                            system=system_prompt,
+                            tools=tools,
+                            tool_choice={
+                                "type": "auto",
+                                "disable_parallel_tool_use": True,
+                            },
+                            messages=messages,
+                        ) as stream:
+                            # logger.info("Stream Response %s", stream.text_stream)
+                            async for text in stream.text_stream:
+                                # logger.info("Stream text %s", text)
+                                yield text
+                            response = await stream.get_final_message()
+                            logger.info(
+                                "Final response from stream %s", response.model_dump()
+                            )
 
-                content_dicts = [block.model_dump() for block in response.content]
-                messages.append({"role": "assistant", "content": content_dicts})
+                        generation.update(
+                            output=[block.model_dump() for block in response.content],
+                            usage_details={
+                                "input": response.usage.input_tokens,
+                                "output": response.usage.output_tokens,
+                            },
+                        )
 
-                if response.stop_reason != "tool_use":
-                    reply = "\n".join(
-                        block["text"]
-                        for block in content_dicts
-                        if block["type"] == "text"
-                    )
-                    return reply
+                    content_dicts = [
+                        _to_input_block(block) for block in response.content
+                    ]
+                    # logger.debug("Assistant content dicts: %s", content_dicts)
+                    messages.append({"role": "assistant", "content": content_dicts})
 
-                db.save_message(user_id, "assistant", content_dicts)
+                    if response.stop_reason != "tool_use":
+                        return
 
-                tool_results = await call_tools(user_id, session, response.content)
-                messages.append({"role": "user", "content": tool_results})
-                db.save_message(user_id, "user", tool_results)
+                    db.save_message(user_id, "assistant", content_dicts)
+
+                    with langfuse_client.start_as_current_observation(
+                        as_type="span", name="call_tools"
+                    ):
+                        tool_results = await call_tools(
+                            user_id, session, response.content
+                        )
+                    messages.append({"role": "user", "content": tool_results})
+                    db.save_message(user_id, "user", tool_results)
 
 
 async def call_tools(user_id, session, content_blocks):

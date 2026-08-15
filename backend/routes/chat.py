@@ -1,4 +1,7 @@
+import json
+
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import data.db as db
@@ -36,10 +39,15 @@ async def chat(request: ChatRequest, user_id: str = Depends(require_user)):
     rows = await maybe_fold(user_id, system_prompt, rows, tools)
 
     messages = [{"role": r["role"], "content": r["content"]} for r in rows]
-    reply = await process_query(user_id, messages)
-    db.save_message(user_id, "assistant", reply)
 
-    return {"reply": reply}
+    async def event_stream():
+        full_reply = ""
+        async for chunk in process_query(user_id, messages):
+            full_reply += chunk
+            yield f"data: {json.dumps({'text': chunk})}\n\n"
+        db.save_message(user_id, "assistant", full_reply)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @router.get("/chat/history")

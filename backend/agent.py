@@ -7,11 +7,14 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from anthropic import Anthropic
+from anthropic import AsyncAnthropic
 
 from data.db import init_db, pool
+from logging_config import setup_logging
 
-client = Anthropic()
+setup_logging()
+
+client = AsyncAnthropic()
 model = "claude-haiku-4-5-20251001"
 
 SYSTEM_PROMPT = """You are Strides, a personal running coach. Always call a tool

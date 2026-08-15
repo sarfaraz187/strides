@@ -1,5 +1,8 @@
+import logging
 import data.db as db
 from backend.agent import client, model
+
+logger = logging.getLogger(__name__)
 
 FOLD_TOKEN_THRESHOLD = 40_000
 KEEP_RECENT_MESSAGES = 15
@@ -46,16 +49,19 @@ def _render_chunk(chunk: list[dict]) -> str:
 
 def _is_orphaned_tool_result(row: dict) -> bool:
     content = row["content"]
-    return isinstance(content, list) and any(b.get("type") == "tool_result" for b in content)
+    return isinstance(content, list) and any(
+        b.get("type") == "tool_result" for b in content
+    )
 
 
 async def maybe_fold(
     user_id: str, system_prompt: str, rows: list[dict], tools: list[dict]
 ) -> list[dict]:
     messages_for_count = [{"role": r["role"], "content": r["content"]} for r in rows]
-    count = client.messages.count_tokens(
+    count = await client.messages.count_tokens(
         model=model, system=system_prompt, tools=tools, messages=messages_for_count
     )
+
     if count.input_tokens <= FOLD_TOKEN_THRESHOLD:
         return rows
     if len(rows) <= KEEP_RECENT_MESSAGES:
@@ -69,7 +75,7 @@ async def maybe_fold(
     existing = db.get_conversation_summary(user_id)
     existing_summary = existing["summary_text"] if existing else "(none yet)"
 
-    response = client.messages.create(
+    response = await client.messages.create(
         model=model,
         max_tokens=1024,
         system=FOLD_SYSTEM_PROMPT,
