@@ -90,15 +90,17 @@ async def process_query(user_id: str, messages: list[dict]):
             tools = await get_tool_schemas(session) + LOCAL_TOOL_SCHEMAS
 
             with langfuse_client.start_as_current_observation(
-                as_type="span", name="process_query"
-            ):
+                as_type="span",
+                name="process_query",
+                input=messages[-1]["content"],
+            ) as process_span:  # <--- One Trace from langfuse
                 while True:
                     with langfuse_client.start_as_current_observation(
                         as_type="generation",
                         name="claude-messages-create",
                         model=model,
                         input=messages,
-                    ) as generation:
+                    ) as generation:  # <---- one observation from langfuse
                         async with client.messages.stream(
                             model=model,
                             max_tokens=1024,
@@ -110,14 +112,9 @@ async def process_query(user_id: str, messages: list[dict]):
                             },
                             messages=messages,
                         ) as stream:
-                            # logger.info("Stream Response %s", stream.text_stream)
                             async for text in stream.text_stream:
-                                # logger.info("Stream text %s", text)
                                 yield text
                             response = await stream.get_final_message()
-                            logger.info(
-                                "Final response from stream %s", response.model_dump()
-                            )
 
                         generation.update(
                             output=[block.model_dump() for block in response.content],
@@ -130,20 +127,21 @@ async def process_query(user_id: str, messages: list[dict]):
                     content_dicts = [
                         _to_input_block(block) for block in response.content
                     ]
-                    # logger.debug("Assistant content dicts: %s", content_dicts)
                     messages.append({"role": "assistant", "content": content_dicts})
 
                     if response.stop_reason != "tool_use":
+                        process_span.update(
+                            output="".join(
+                                block.text
+                                for block in response.content
+                                if block.type == "text"
+                            )
+                        )
                         return
 
                     db.save_message(user_id, "assistant", content_dicts)
 
-                    with langfuse_client.start_as_current_observation(
-                        as_type="span", name="call_tools"
-                    ):
-                        tool_results = await call_tools(
-                            user_id, session, response.content
-                        )
+                    tool_results = await call_tools(user_id, session, response.content)
                     messages.append({"role": "user", "content": tool_results})
                     db.save_message(user_id, "user", tool_results)
 
@@ -153,17 +151,25 @@ async def call_tools(user_id, session, content_blocks):
     tool_results = []
     for block in content_blocks:
         if block.type == "tool_use":
-            try:
-                if block.name in LOCAL_TOOLS:
-                    result = await LOCAL_TOOLS[block.name](user_id, **block.input)
-                else:
-                    result = await session.call_tool(block.name, block.input)
-                content = str(result)
-                if len(content) > MAX_TOOL_RESULT_CHARS:
-                    content = content[:MAX_TOOL_RESULT_CHARS] + "... [truncated]"
-            except Exception as e:
-                logger.exception("Tool call failed: %s(%s)", block.name, block.input)
-                content = f"Tool error: {e}"
+            with langfuse_client.start_as_current_observation(
+                as_type="tool", name=block.name, input=block.input
+            ) as tool_obs:
+                try:
+                    if block.name in LOCAL_TOOLS:
+                        result = await LOCAL_TOOLS[block.name](user_id, **block.input)
+                    else:
+                        result = await session.call_tool(block.name, block.input)
+                    content = str(result)
+                    if len(content) > MAX_TOOL_RESULT_CHARS:
+                        content = content[:MAX_TOOL_RESULT_CHARS] + "... [truncated]"
+                except Exception as e:
+                    logger.exception(
+                        "Tool call failed: %s(%s)", block.name, block.input
+                    )
+                    content = f"Tool error: {e}"
+                    tool_obs.update(level="ERROR", status_message=str(e))
+
+                tool_obs.update(output=content)
 
             tool_results.append(
                 {
