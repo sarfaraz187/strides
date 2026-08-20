@@ -1,3 +1,5 @@
+import base64
+import os
 import time
 from pathlib import Path
 
@@ -5,8 +7,16 @@ import jwt
 from jwt.algorithms import RSAAlgorithm
 
 _KEYS_DIR = Path(__file__).parent / "keys"
-PRIVATE_KEY = (_KEYS_DIR / "private.pem").read_text()
-PUBLIC_KEY = (_KEYS_DIR / "public.pem").read_text()
+
+
+def _load_key(env_var: str, filename: str) -> str:
+    if encoded := os.environ.get(env_var):
+        return base64.b64decode(encoded).decode()
+    return (_KEYS_DIR / filename).read_text()
+
+
+PRIVATE_KEY = _load_key("PRIVATE_KEY_B64", "private.pem")
+PUBLIC_KEY = _load_key("PUBLIC_KEY_B64", "public.pem")
 KID = "strides-1"
 AUDIENCE = "strides-mcp"
 TOKEN_TTL_SECONDS = 300
