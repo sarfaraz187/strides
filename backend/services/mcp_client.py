@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 import httpx
@@ -7,7 +8,7 @@ from mcp.client.streamable_http import streamable_http_client
 
 from backend.jwt_issuer import mint_token
 
-SERVER_URL = "http://127.0.0.1:8001/mcp"
+SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://127.0.0.1:8001/mcp")
 
 
 @asynccontextmanager
