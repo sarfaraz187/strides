@@ -89,18 +89,22 @@ async def process_query(user_id: str, messages: list[dict]):
         async with open_mcp_session(user_id) as session:
             tools = await get_tool_schemas(session) + LOCAL_TOOL_SCHEMAS
 
-            with langfuse_client.start_as_current_observation(
-                as_type="span",
-                name="process_query",
-                input=messages[-1]["content"],
-            ) as process_span:  # <--- One Trace from langfuse
+            with (
+                langfuse_client.start_as_current_observation(
+                    as_type="span",
+                    name="process_query",
+                    input=messages[-1][
+                        "content"
+                    ],  # The entire build messages including system prompt is being sent. For tracing pursponse we are just tracing with last user message
+                ) as process_span
+            ):  # <--- One Trace from langfuse
                 while True:
                     with langfuse_client.start_as_current_observation(
                         as_type="generation",
                         name="claude-messages-create",
                         model=model,
                         input=messages,
-                    ) as generation:  # <---- one observation from langfuse
+                    ) as generation:  # <---- One observation from langfuse
                         async with client.messages.stream(
                             model=model,
                             max_tokens=1024,
@@ -153,7 +157,7 @@ async def call_tools(user_id, session, content_blocks):
         if block.type == "tool_use":
             with langfuse_client.start_as_current_observation(
                 as_type="tool", name=block.name, input=block.input
-            ) as tool_obs:
+            ) as tool_obs:  # <--- Observation for tool call
                 try:
                     if block.name in LOCAL_TOOLS:
                         result = await LOCAL_TOOLS[block.name](user_id, **block.input)
