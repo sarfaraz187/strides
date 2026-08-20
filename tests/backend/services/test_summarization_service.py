@@ -1,6 +1,6 @@
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 def _count_tokens_result(input_tokens: int):
@@ -17,8 +17,8 @@ def test_maybe_fold_returns_rows_unchanged_when_under_threshold():
 
     rows = [{"id": 1, "role": "user", "content": "hi"}]
 
-    with patch("backend.services.summarization_service.client") as mock_client:
-        mock_client.messages.count_tokens.return_value = _count_tokens_result(100)
+    with patch("backend.agent.client") as mock_client:
+        mock_client.messages.count_tokens = AsyncMock(return_value=_count_tokens_result(100))
 
         result = asyncio.run(maybe_fold("user-123", "system prompt", rows, tools=[]))
 
@@ -34,8 +34,8 @@ def test_maybe_fold_returns_rows_unchanged_when_at_or_below_recent_window():
         for i in range(KEEP_RECENT_MESSAGES)
     ]
 
-    with patch("backend.services.summarization_service.client") as mock_client:
-        mock_client.messages.count_tokens.return_value = _count_tokens_result(50_000)
+    with patch("backend.agent.client") as mock_client:
+        mock_client.messages.count_tokens = AsyncMock(return_value=_count_tokens_result(50_000))
 
         result = asyncio.run(maybe_fold("user-123", "system prompt", rows, tools=[]))
 
@@ -52,11 +52,11 @@ def test_maybe_fold_folds_oldest_rows_and_returns_remainder():
     ]
 
     with (
-        patch("backend.services.summarization_service.client") as mock_client,
+        patch("backend.agent.client") as mock_client,
         patch("backend.services.summarization_service.db") as mock_db,
     ):
-        mock_client.messages.count_tokens.return_value = _count_tokens_result(50_000)
-        mock_client.messages.create.return_value = _text_response("Compressed summary.")
+        mock_client.messages.count_tokens = AsyncMock(return_value=_count_tokens_result(50_000))
+        mock_client.messages.create = AsyncMock(return_value=_text_response("Compressed summary."))
         mock_db.get_conversation_summary.return_value = None
 
         result = asyncio.run(maybe_fold("user-123", "system prompt", rows, tools=[]))
@@ -97,11 +97,11 @@ def test_maybe_fold_keeps_tool_use_and_tool_result_pair_together():
     assert len(rows) - KEEP_RECENT_MESSAGES == 2  # sanity check on the naive cutoff
 
     with (
-        patch("backend.services.summarization_service.client") as mock_client,
+        patch("backend.agent.client") as mock_client,
         patch("backend.services.summarization_service.db") as mock_db,
     ):
-        mock_client.messages.count_tokens.return_value = _count_tokens_result(50_000)
-        mock_client.messages.create.return_value = _text_response("Compressed summary.")
+        mock_client.messages.count_tokens = AsyncMock(return_value=_count_tokens_result(50_000))
+        mock_client.messages.create = AsyncMock(return_value=_text_response("Compressed summary."))
         mock_db.get_conversation_summary.return_value = None
 
         result = asyncio.run(maybe_fold("user-123", "system prompt", rows, tools=[]))
@@ -120,11 +120,11 @@ def test_maybe_fold_includes_existing_summary_in_the_fold_prompt():
     rows = [{"id": i, "role": "user", "content": f"msg {i}"} for i in range(total)]
 
     with (
-        patch("backend.services.summarization_service.client") as mock_client,
+        patch("backend.agent.client") as mock_client,
         patch("backend.services.summarization_service.db") as mock_db,
     ):
-        mock_client.messages.count_tokens.return_value = _count_tokens_result(50_000)
-        mock_client.messages.create.return_value = _text_response("New summary.")
+        mock_client.messages.count_tokens = AsyncMock(return_value=_count_tokens_result(50_000))
+        mock_client.messages.create = AsyncMock(return_value=_text_response("New summary."))
         mock_db.get_conversation_summary.return_value = {
             "summary_text": "Existing summary text.",
             "through_message_id": 0,
@@ -143,8 +143,8 @@ def test_maybe_fold_passes_tools_to_count_tokens():
     rows = [{"id": 1, "role": "user", "content": "hi"}]
     fake_tools = [{"name": "get_weekly_stats", "description": "", "input_schema": {}}]
 
-    with patch("backend.services.summarization_service.client") as mock_client:
-        mock_client.messages.count_tokens.return_value = _count_tokens_result(100)
+    with patch("backend.agent.client") as mock_client:
+        mock_client.messages.count_tokens = AsyncMock(return_value=_count_tokens_result(100))
 
         asyncio.run(maybe_fold("user-123", "system prompt", rows, tools=fake_tools))
 

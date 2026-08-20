@@ -1,6 +1,5 @@
 import logging
 import data.db as db
-from backend.agent import client, model
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +56,8 @@ def _is_orphaned_tool_result(row: dict) -> bool:
 async def maybe_fold(
     user_id: str, system_prompt: str, rows: list[dict], tools: list[dict]
 ) -> list[dict]:
+    from backend.agent import client, model
+
     messages_for_count = [{"role": r["role"], "content": r["content"]} for r in rows]
     count = await client.messages.count_tokens(
         model=model, system=system_prompt, tools=tools, messages=messages_for_count
