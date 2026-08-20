@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -35,8 +36,8 @@ class StridesTokenVerifier(TokenVerifier):
 
 mcp = FastMCP(
     "strides",
-    host="127.0.0.1",
-    port=8001,
+    host="0.0.0.0",
+    port=int(os.environ.get("PORT", 8001)),
     token_verifier=StridesTokenVerifier(),
     auth=AuthSettings(
         issuer_url="http://localhost:8000",
