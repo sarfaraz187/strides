@@ -36,6 +36,8 @@
   "connectors": {
     "title": "Connectors",
     "subtitle": "Let Coach read data from your other apps and services.",
+    "googleHealth": "Google Health",
+    "googleCalendar": "Google Calendar",
     "connected": "Connected",
     "connecting": "Connecting…",
     "notConnected": "Not connected",
