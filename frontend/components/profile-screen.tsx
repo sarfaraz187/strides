@@ -113,7 +113,8 @@ export function ProfileScreen({ locale }: { locale: string }) {
     updateDebounced({ weekly_goal_km: nextGoal });
   }
 
-  function onLanguageChange(newLanguage: Preferences["language"]) {
+  function onLanguageChange(newLanguage: Preferences["language"] | null) {
+    if (newLanguage === null) return;
     updateNow({ language: newLanguage });
     const segments = pathname.split("/");
     segments[1] = newLanguage;
