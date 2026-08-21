@@ -94,6 +94,15 @@ def init_db() -> None:
         conn.execute(
             "ALTER TABLE preferences ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'en'"
         )
+        conn.execute(
+            "ALTER TABLE oauth_tokens ADD COLUMN IF NOT EXISTS calendar_id TEXT"
+        )
+        conn.execute(
+            "ALTER TABLE preferences ADD COLUMN IF NOT EXISTS location_lat DOUBLE PRECISION"
+        )
+        conn.execute(
+            "ALTER TABLE preferences ADD COLUMN IF NOT EXISTS location_lon DOUBLE PRECISION"
+        )
         conn.commit()
 
 
@@ -316,12 +325,38 @@ def delete_oauth_token(user_id: str, provider: str) -> None:
         conn.commit()
 
 
+def get_calendar_id(user_id: str) -> str | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT calendar_id FROM oauth_tokens
+            WHERE user_id = %s AND provider = 'calendar'
+            """,
+            (user_id,),
+        ).fetchone()
+    return row[0] if row is not None else None
+
+
+def save_calendar_id(user_id: str, calendar_id: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE oauth_tokens SET calendar_id = %s
+            WHERE user_id = %s AND provider = 'calendar'
+            """,
+            (calendar_id, user_id),
+        )
+        conn.commit()
+
+
 @dataclass
 class Preferences:
     weekly_goal_km: float
     units: str
     notifications_enabled: bool
     language: str
+    location_lat: float | None = None
+    location_lon: float | None = None
 
 
 _DEFAULT_PREFERENCES = Preferences(
@@ -335,6 +370,8 @@ def upsert_preferences(
     units: str | None = None,
     notifications_enabled: bool | None = None,
     language: str | None = None,
+    location_lat: float | None = None,
+    location_lon: float | None = None,
 ) -> Preferences:
     current = get_preferences(user_id)
     weekly_goal_km = (
@@ -347,19 +384,24 @@ def upsert_preferences(
         else notifications_enabled
     )
     language = current.language if language is None else language
+    location_lat = current.location_lat if location_lat is None else location_lat
+    location_lon = current.location_lon if location_lon is None else location_lon
 
     with get_connection() as conn:
         conn.execute(
             """
-            INSERT INTO preferences (user_id, weekly_goal_km, units, notifications_enabled, language)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO preferences
+                (user_id, weekly_goal_km, units, notifications_enabled, language, location_lat, location_lon)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (user_id) DO UPDATE SET
                 weekly_goal_km = excluded.weekly_goal_km,
                 units = excluded.units,
                 notifications_enabled = excluded.notifications_enabled,
-                language = excluded.language
+                language = excluded.language,
+                location_lat = excluded.location_lat,
+                location_lon = excluded.location_lon
             """,
-            (user_id, weekly_goal_km, units, notifications_enabled, language),
+            (user_id, weekly_goal_km, units, notifications_enabled, language, location_lat, location_lon),
         )
         conn.commit()
     return Preferences(
@@ -367,6 +409,8 @@ def upsert_preferences(
         units=units,
         notifications_enabled=notifications_enabled,
         language=language,
+        location_lat=location_lat,
+        location_lon=location_lon,
     )
 
 
@@ -374,17 +418,26 @@ def get_preferences(user_id: str) -> Preferences:
     with get_connection() as conn:
         row = conn.execute(
             """
-            SELECT weekly_goal_km, units, notifications_enabled, language
+            SELECT weekly_goal_km, units, notifications_enabled, language, location_lat, location_lon
             FROM preferences WHERE user_id = %s
             """,
             (user_id,),
         ).fetchone()
     if row is None:
         return _DEFAULT_PREFERENCES
-    weekly_goal_km, units, notifications_enabled, language = row
+    (
+        weekly_goal_km,
+        units,
+        notifications_enabled,
+        language,
+        location_lat,
+        location_lon,
+    ) = row
     return Preferences(
         weekly_goal_km=float(weekly_goal_km),
         units=units,
         notifications_enabled=notifications_enabled,
         language=language,
+        location_lat=location_lat,
+        location_lon=location_lon,
     )

@@ -85,3 +85,41 @@ def exchange_code_for_health_tokens(code: str) -> dict:
     )
     response.raise_for_status()
     return response.json()
+
+
+CALENDAR_SCOPE = (
+    "https://www.googleapis.com/auth/calendar "
+    "https://www.googleapis.com/auth/calendar.events"
+)
+CALENDAR_CALLBACK_URL = os.environ.get(
+    "GOOGLE_CALENDAR_CALLBACK_URL", "http://localhost:8000/auth/calendar/callback"
+)
+
+
+def build_calendar_connect_url() -> str:
+    params = {
+        "client_id": CLIENT_ID,
+        "redirect_uri": CALENDAR_CALLBACK_URL,
+        "response_type": "code",
+        "scope": CALENDAR_SCOPE,
+        "access_type": "offline",
+        "prompt": "consent",
+    }
+    return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(
+        params
+    )
+
+
+def exchange_code_for_calendar_tokens(code: str) -> dict:
+    response = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "code": code,
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "redirect_uri": CALENDAR_CALLBACK_URL,
+            "grant_type": "authorization_code",
+        },
+    )
+    response.raise_for_status()
+    return response.json()
