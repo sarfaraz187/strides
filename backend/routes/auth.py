@@ -23,6 +23,7 @@ router = APIRouter(prefix="/auth")
 
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000/en/connectors")
 SESSION_DURATION = timedelta(days=7)
+IS_PROD = FRONTEND_URL.startswith("https://")
 
 
 @router.get("/login")
@@ -45,6 +46,8 @@ def callback(code: str):
         "session",
         session_token,
         httponly=True,
+        secure=IS_PROD,
+        samesite="none" if IS_PROD else "lax",
         expires=int(SESSION_DURATION.total_seconds()),
     )
     return response
