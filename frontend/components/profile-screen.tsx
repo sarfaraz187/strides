@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/avatar";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -17,11 +18,111 @@ import {
 import { usePreferences } from "@/hooks/use-preferences";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { searchCities, type GeocodingResult } from "@/lib/geocoding-api";
 import type { Preferences } from "@/lib/preferences-api";
 
 const GOAL_STEP_KM = 5;
 const MIN_GOAL_KM = 5;
 const KM_TO_MI = 0.621;
+const CITY_SEARCH_DEBOUNCE_MS = 400;
+
+type LocationFieldProps = {
+  locationSet: boolean;
+  onUpdate: (lat: number, lon: number) => void;
+};
+
+function LocationField({ locationSet, onUpdate }: LocationFieldProps) {
+  const t = useTranslations("profile");
+  const [isEditing, setIsEditing] = useState(!locationSet);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<GeocodingResult[]>([]);
+  const [geoError, setGeoError] = useState<string | null>(null);
+  const searchDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function useMyLocation() {
+    setGeoError(null);
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoError(t("locationDenied"));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        onUpdate(position.coords.latitude, position.coords.longitude);
+        setIsEditing(false);
+      },
+      () => setGeoError(t("locationDenied"))
+    );
+  }
+
+  function onQueryChange(value: string) {
+    setQuery(value);
+    if (searchDebounceTimer.current) clearTimeout(searchDebounceTimer.current);
+    searchDebounceTimer.current = setTimeout(async () => {
+      setResults(await searchCities(value));
+    }, CITY_SEARCH_DEBOUNCE_MS);
+  }
+
+  function selectCity(result: GeocodingResult) {
+    onUpdate(result.latitude, result.longitude);
+    setQuery(result.name);
+    setResults([]);
+    setIsEditing(false);
+  }
+
+  if (!isEditing) {
+    return (
+      <Card className="flex-row items-center justify-between rounded-2xl px-4 py-3.5 lg:px-[22px] lg:py-[18px]">
+        <div className="text-sm font-semibold text-primary lg:text-[15px]">{t("location")}</div>
+        <div className="flex items-center gap-3">
+          <div className="text-[13px] text-muted-light">
+            {locationSet ? t("locationSet") : t("locationNotSet")}
+          </div>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="h-[30px] cursor-pointer rounded-full border border-border bg-surface px-3.5 text-xs font-semibold text-primary lg:h-[34px] lg:px-4 lg:text-[13px]"
+          >
+            {t("editLocation")}
+          </button>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="flex flex-col gap-3 rounded-2xl px-4 py-3.5 lg:px-[22px] lg:py-[18px]">
+      <div className="text-sm font-semibold text-primary lg:text-[15px]">{t("location")}</div>
+      <button
+        onClick={useMyLocation}
+        className="h-[34px] w-fit cursor-pointer rounded-full border border-border bg-surface px-3.5 text-xs font-semibold text-primary lg:h-[36px] lg:px-4 lg:text-[13px]"
+      >
+        {t("useMyLocation")}
+      </button>
+      {geoError && <div className="text-xs text-danger">{geoError}</div>}
+      <div className="relative">
+        <Input
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          placeholder={t("citySearchPlaceholder")}
+        />
+        {results.length > 0 && (
+          <div className="absolute z-10 mt-1 w-full rounded-lg border border-border bg-surface shadow-lg">
+            {results.map((result) => (
+              <button
+                key={`${result.latitude}-${result.longitude}`}
+                onClick={() => selectCity(result)}
+                className="block w-full cursor-pointer px-3 py-2 text-left text-sm text-primary hover:bg-icon-tile"
+              >
+                {result.name}
+                {result.admin1 ? `, ${result.admin1}` : ""}
+                {result.country ? `, ${result.country}` : ""}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
 
 export function ProfileScreen({ locale }: { locale: string }) {
   const t = useTranslations("profile");
@@ -235,6 +336,11 @@ export function ProfileScreen({ locale }: { locale: string }) {
             </SelectContent>
           </Select>
         </Card>
+
+        <LocationField
+          locationSet={preferences.location_lat !== null && preferences.location_lon !== null}
+          onUpdate={(lat, lon) => updateNow({ location_lat: lat, location_lon: lon })}
+        />
 
         <Card className="flex-row items-center justify-between rounded-2xl px-4 py-3.5 lg:px-[22px] lg:py-[18px]">
           <div className="text-sm font-semibold text-primary lg:text-[15px]">{t("memberSince")}</div>

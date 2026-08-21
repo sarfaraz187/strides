@@ -1,14 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 
 import { Avatar } from "@/components/avatar";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { usePreferences } from "@/hooks/use-preferences";
+import { usePlanRun } from "@/hooks/use-plan-run";
+import { CALENDAR_CONNECT_URL } from "@/hooks/use-calendar-connector";
 import { useAuth } from "@/lib/auth-context";
-import type { RecentRun } from "@/lib/dashboard-api";
+import { cn } from "@/lib/utils";
+import type { RecentRun, UpcomingRun } from "@/lib/dashboard-api";
 
 function formatPace(paceMinPerKm: number | null): string {
   if (paceMinPerKm === null) return "–";
@@ -27,11 +33,98 @@ function formatRun(run: RecentRun, locale: string) {
   };
 }
 
+function formatUpcomingRun(run: UpcomingRun, locale: string) {
+  const date = new Date(run.start.dateTime);
+  return {
+    id: run.id,
+    summary: run.summary,
+    day: date.toLocaleDateString(locale, { weekday: "long", month: "short", day: "numeric" }),
+    time: date.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
+    forecast: run.forecast,
+  };
+}
+
+type PlanRunModalProps = {
+  onClose: () => void;
+};
+
+function PlanRunModal({ onClose }: PlanRunModalProps) {
+  const t = useTranslations("dashboard");
+  const planRun = usePlanRun();
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [duration, setDuration] = useState("30");
+  const [notes, setNotes] = useState("");
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    planRun.mutate(
+      {
+        title,
+        start_time: `${date}T${time}:00`,
+        duration_minutes: Number(duration),
+        notes,
+      },
+      { onSuccess: onClose }
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4">
+      <Card className="w-full max-w-sm rounded-2xl p-5">
+        <div className="mb-4 text-base font-semibold text-primary">{t("planRunTitle")}</div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-xs text-muted">
+            {t("planRunName")}
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted">
+            {t("planRunDate")}
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted">
+            {t("planRunTime")}
+            <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted">
+            {t("planRunDuration")}
+            <Input
+              type="number"
+              min={1}
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted">
+            {t("planRunNotes")}
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </label>
+
+          {planRun.isError && <div className="text-xs text-danger">{t("planRunError")}</div>}
+
+          <div className="mt-2 flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              {t("planRunCancel")}
+            </Button>
+            <Button type="submit" disabled={planRun.isPending}>
+              {t("planRunSubmit")}
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  );
+}
+
 export function DashboardScreen({ locale }: { locale: string }) {
   const t = useTranslations("dashboard");
+  const tConnectors = useTranslations("connectors");
   const { user } = useAuth();
   const { dashboard, isLoading } = useDashboard();
   const { preferences } = usePreferences();
+  const [isPlanRunOpen, setIsPlanRunOpen] = useState(false);
   const today = new Date().toLocaleDateString(locale, {
     weekday: "long",
     month: "short",
@@ -53,6 +146,9 @@ export function DashboardScreen({ locale }: { locale: string }) {
     ? Math.min(100, Math.round((dashboard.weekly_stats.total_distance_km / weeklyGoalKm) * 100))
     : 0;
   const recentRuns = dashboard?.recent_runs.map((run) => formatRun(run, locale)) ?? [];
+  const calendarConnected = dashboard?.calendar_connected ?? false;
+  const upcomingRuns = dashboard?.upcoming_runs?.map((run) => formatUpcomingRun(run, locale)) ?? [];
+  const currentWeather = dashboard?.current_weather ?? null;
 
   return (
     <div className="flex-1 overflow-y-auto px-[22px] py-5 lg:px-[44px] lg:py-9">
@@ -63,14 +159,40 @@ export function DashboardScreen({ locale }: { locale: string }) {
             {t("thisWeek")}
           </div>
         </div>
-        <Link href={`/${locale}/profile`} className="lg:hidden">
-          <Avatar
-            user={{ name: user?.name ?? null, avatar_url: user?.avatar_url ?? null }}
-            size="md"
-            className="h-[38px] w-[38px] rounded-xl"
-          />
-        </Link>
+        <div className="flex items-center gap-3">
+          {calendarConnected && (
+            <Button variant="outline" className="rounded-full" onClick={() => setIsPlanRunOpen(true)}>
+              {t("planARun")}
+            </Button>
+          )}
+          <Link href={`/${locale}/profile`} className="lg:hidden">
+            <Avatar
+              user={{ name: user?.name ?? null, avatar_url: user?.avatar_url ?? null }}
+              size="md"
+              className="h-[38px] w-[38px] rounded-xl"
+            />
+          </Link>
+        </div>
       </div>
+
+      {isPlanRunOpen && <PlanRunModal onClose={() => setIsPlanRunOpen(false)} />}
+
+      {currentWeather && (
+        <Card className="mb-5 flex flex-row items-center justify-between rounded-[16px] p-4 lg:mb-7 lg:px-5 lg:py-[18px]">
+          <div>
+            <div className="text-[13px] font-semibold uppercase text-muted">{t("weather")}</div>
+            <div className="text-sm text-primary">
+              {currentWeather.temp}°C, {currentWeather.condition}
+            </div>
+          </div>
+          <div className="text-right text-xs text-muted-light">
+            <div>Feels like {currentWeather.feels_like}°C</div>
+            <div>
+              Humidity {currentWeather.humidity}% · Wind {currentWeather.wind} km/h
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="lg:mb-7">
         <div className="mb-4 flex flex-col gap-4 rounded-[20px] bg-primary p-[22px] lg:mb-0 lg:gap-[18px] lg:p-7">
@@ -131,6 +253,39 @@ export function DashboardScreen({ locale }: { locale: string }) {
           </Card>
         ))}
       </div>
+
+      <div className="mb-2.5 mt-5 text-[13px] font-semibold uppercase text-muted lg:mt-7">
+        {t("upcomingRuns")}
+      </div>
+      {calendarConnected ? (
+        <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-3">
+          {upcomingRuns.map((run) => (
+            <Card
+              key={run.id}
+              className="flex flex-row items-center justify-between rounded-[16px] p-4 lg:px-5 lg:py-[18px]"
+            >
+              <div>
+                <div className="text-sm font-semibold text-primary">{run.summary}</div>
+                <div className="text-xs text-muted-light">
+                  {run.day}, {run.time}
+                </div>
+              </div>
+              {run.forecast && (
+                <div className="text-right text-xs text-muted-light">
+                  {run.forecast.temp}°C, {run.forecast.condition}
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card className="rounded-[16px] p-4 text-sm text-muted lg:px-5 lg:py-[18px]">
+          {t("connectCalendarPrompt")}{" "}
+          <a href={CALENDAR_CONNECT_URL} className={cn(buttonVariants({ variant: "outline" }), "ml-2 rounded-full")}>
+            {tConnectors("connect")}
+          </a>
+        </Card>
+      )}
     </div>
   );
 }

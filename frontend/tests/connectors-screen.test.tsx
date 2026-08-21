@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConnectorsScreen } from "@/components/connectors-screen";
 import en from "../messages/en.json";
@@ -13,11 +13,18 @@ function renderWithIntl(ui: React.ReactElement) {
   );
 }
 
+const baseUser = {
+  email: "runner@example.com",
+  name: "Runner",
+  created_at: "",
+  health_connected: true,
+  calendar_connected: false,
+  avatar_url: null,
+};
+
+const useAuthMock = vi.fn();
 vi.mock("@/lib/auth-context", () => ({
-  useAuth: () => ({
-    user: { email: "runner@example.com", name: "Runner", created_at: "", health_connected: true, avatar_url: null },
-    isLoading: false,
-  }),
+  useAuth: () => useAuthMock(),
 }));
 
 vi.mock("@/hooks/use-health-connector", () => ({
@@ -26,25 +33,50 @@ vi.mock("@/hooks/use-health-connector", () => ({
   useHealthConnectErrorFromUrl: () => false,
 }));
 
+const disconnectCalendarMock = vi.fn();
+vi.mock("@/hooks/use-calendar-connector", () => ({
+  CALENDAR_CONNECT_URL: "http://localhost:8000/auth/calendar/connect",
+  useCalendarDisconnect: () => ({ disconnect: disconnectCalendarMock, isPending: false, error: null }),
+  useCalendarConnectErrorFromUrl: () => false,
+}));
+
 const useDashboardMock = vi.fn();
 vi.mock("@/hooks/use-dashboard", () => ({
   useDashboard: () => useDashboardMock(),
 }));
 
 describe("ConnectorsScreen", () => {
-  it("shows Google Health as connected and offers disconnect", () => {
+  beforeEach(() => {
+    disconnectCalendarMock.mockClear();
+    useAuthMock.mockReturnValue({ user: baseUser, isLoading: false });
     useDashboardMock.mockReturnValue({ dashboard: undefined, isLoading: false, isError: false });
+  });
+
+  it("shows Google Health as connected and offers disconnect", () => {
     renderWithIntl(<ConnectorsScreen />);
 
     expect(screen.getByText("Google Health")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /disconnect/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /disconnect/i }).length).toBeGreaterThan(0);
   });
 
-  it("does not render a Google Calendar card", () => {
-    useDashboardMock.mockReturnValue({ dashboard: undefined, isLoading: false, isError: false });
+  it("shows a Google Calendar card with a Connect link when not connected", () => {
     renderWithIntl(<ConnectorsScreen />);
 
-    expect(screen.queryByText("Google Calendar")).not.toBeInTheDocument();
+    expect(screen.getByText("Google Calendar")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: en.connectors.connect })).toHaveAttribute(
+      "href",
+      "http://localhost:8000/auth/calendar/connect"
+    );
+  });
+
+  it("shows Disconnect for Google Calendar when connected and calls the calendar disconnect hook", () => {
+    useAuthMock.mockReturnValue({ user: { ...baseUser, calendar_connected: true }, isLoading: false });
+    renderWithIntl(<ConnectorsScreen />);
+
+    const disconnectButtons = screen.getAllByRole("button", { name: /disconnect/i });
+    fireEvent.click(disconnectButtons[disconnectButtons.length - 1]);
+
+    expect(disconnectCalendarMock).toHaveBeenCalled();
   });
 
   it("shows the account-not-linked notice with a link when health_error is present", () => {

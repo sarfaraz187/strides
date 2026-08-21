@@ -7,6 +7,7 @@ on:
     paths:
       - "backend/**"
       - "mcp_servers/fit_server/**"
+      - "mcp_servers/calendar_server/**"
       - "data/**"
       - "auth/**"
       - "pyproject.toml"
@@ -48,7 +49,7 @@ jobs:
             --image=${{ env.REPO }}/backend:${{ github.sha }} \
             --allow-unauthenticated \
             --min-instances=0 --max-instances=3 \
-            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},TOKEN_ENCRYPTION_KEY=${{ secrets.TOKEN_ENCRYPTION_KEY }},GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},FRONTEND_URL=${{ secrets.FRONTEND_URL }},MCP_SERVER_URL=${{ secrets.MCP_SERVER_URL }},LANGFUSE_SECRET_KEY=${{ secrets.LANGFUSE_SECRET_KEY }},LANGFUSE_PUBLIC_KEY=${{ secrets.LANGFUSE_PUBLIC_KEY }},LANGFUSE_BASE_URL=${{ secrets.LANGFUSE_BASE_URL }},LANGFUSE_TRACING_ENVIRONMENT=production,PRIVATE_KEY_B64=${{ secrets.PRIVATE_KEY_B64 }},PUBLIC_KEY_B64=${{ secrets.PUBLIC_KEY_B64 }},GOOGLE_LOGIN_CALLBACK_URL=https://backend-991288124020.us-central1.run.app/auth/callback,GOOGLE_HEALTH_CALLBACK_URL=https://backend-991288124020.us-central1.run.app/auth/health/callback"
+            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},TOKEN_ENCRYPTION_KEY=${{ secrets.TOKEN_ENCRYPTION_KEY }},GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},FRONTEND_URL=${{ secrets.FRONTEND_URL }},MCP_SERVER_URL=${{ secrets.MCP_SERVER_URL }},CALENDAR_MCP_SERVER_URL=${{ secrets.CALENDAR_MCP_SERVER_URL }},LANGFUSE_SECRET_KEY=${{ secrets.LANGFUSE_SECRET_KEY }},LANGFUSE_PUBLIC_KEY=${{ secrets.LANGFUSE_PUBLIC_KEY }},LANGFUSE_BASE_URL=${{ secrets.LANGFUSE_BASE_URL }},LANGFUSE_TRACING_ENVIRONMENT=production,PRIVATE_KEY_B64=${{ secrets.PRIVATE_KEY_B64 }},PUBLIC_KEY_B64=${{ secrets.PUBLIC_KEY_B64 }},GOOGLE_LOGIN_CALLBACK_URL=https://backend-991288124020.us-central1.run.app/auth/callback,GOOGLE_HEALTH_CALLBACK_URL=https://backend-991288124020.us-central1.run.app/auth/health/callback"
 
   deploy-mcp-server:
     runs-on: ubuntu-latest
@@ -74,6 +75,34 @@ jobs:
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --image=${{ env.REPO }}/mcp-server:${{ github.sha }} \
+            --allow-unauthenticated \
+            --min-instances=0 --max-instances=3 \
+            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},TOKEN_ENCRYPTION_KEY=${{ secrets.TOKEN_ENCRYPTION_KEY }},GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},STRIDES_JWKS_URL=${{ secrets.STRIDES_JWKS_URL }}"
+
+  deploy-calendar-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: "projects/991288124020/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          service_account: "strides-deployer@strides-503723.iam.gserviceaccount.com"
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - run: |
+          docker build -f mcp_servers/calendar_server/Dockerfile -t ${{ env.REPO }}/calendar-server:${{ github.sha }} .
+          docker push ${{ env.REPO }}/calendar-server:${{ github.sha }}
+
+      - run: |
+          gcloud run deploy calendar-server \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --image=${{ env.REPO }}/calendar-server:${{ github.sha }} \
             --allow-unauthenticated \
             --min-instances=0 --max-instances=3 \
             --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},TOKEN_ENCRYPTION_KEY=${{ secrets.TOKEN_ENCRYPTION_KEY }},GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},STRIDES_JWKS_URL=${{ secrets.STRIDES_JWKS_URL }}"

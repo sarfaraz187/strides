@@ -13,6 +13,7 @@ from data.db import (
     delete_oauth_token,
     delete_session,
     find_or_create_user,
+    get_calendar_id,
     get_connection,
     get_memories,
     get_messages,
@@ -25,6 +26,7 @@ from data.db import (
     save_memory,
     save_message,
     save_oauth_token,
+    save_calendar_id,
     update_avatar_path,
     upsert_preferences,
 )
@@ -74,6 +76,8 @@ def test_init_db_creates_preferences_table():
         "units",
         "notifications_enabled",
         "language",
+        "location_lat",
+        "location_lon",
     }
 
 
@@ -125,6 +129,7 @@ def test_init_db_creates_oauth_tokens_table():
         "access_token",
         "refresh_token",
         "expires_at",
+        "calendar_id",
     }
 
 
@@ -236,13 +241,37 @@ def test_get_oauth_token_returns_none_when_absent():
 
 def test_delete_oauth_token_removes_row():
     user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
+        "[EMAIL]", "google-sub-123", "Runner Example"
     )
-    save_oauth_token(user_id, "health", "access-abc", "refresh-xyz", 1234567890)
+    save_oauth_token(user_id, "health", "access-abc", "refresh-xyz", 9999999999)
 
     delete_oauth_token(user_id, "health")
 
     assert get_oauth_token(user_id, "health") is None
+
+
+def test_save_and_get_calendar_id_roundtrip():
+    user_id = find_or_create_user(
+        "[EMAIL]", "google-sub-1", "Runner"
+    )
+    save_oauth_token(user_id, "calendar", "access-1", "refresh-1", 9999999999)
+
+    assert get_calendar_id(user_id) is None
+
+    save_calendar_id(user_id, "strides-runs-calendar-id")
+
+    assert get_calendar_id(user_id) == "strides-runs-calendar-id"
+
+
+def test_save_calendar_id_overwrites_existing():
+    user_id = find_or_create_user(
+        "[EMAIL]", "google-sub-1", "Runner"
+    )
+    save_oauth_token(user_id, "calendar", "access-1", "refresh-1", 9999999999)
+    save_calendar_id(user_id, "cal-a")
+    save_calendar_id(user_id, "cal-b")
+
+    assert get_calendar_id(user_id) == "cal-b"
 
 
 def test_find_or_create_user_stores_name():
@@ -314,6 +343,43 @@ def test_upsert_preferences_partial_update_only_touches_provided_fields():
     assert prefs == Preferences(
         weekly_goal_km=30, units="km", notifications_enabled=True, language="de"
     )
+
+
+def test_upsert_preferences_stores_and_returns_location():
+    user_id = find_or_create_user(
+        "[EMAIL]", "google-sub-2", "Runner"
+    )
+
+    result = upsert_preferences(user_id, location_lat=17.385, location_lon=78.4867)
+
+    assert result.location_lat == 17.385
+    assert result.location_lon == 78.4867
+
+    fetched = get_preferences(user_id)
+    assert fetched.location_lat == 17.385
+    assert fetched.location_lon == 78.4867
+
+
+def test_get_preferences_defaults_location_to_none():
+    user_id = find_or_create_user(
+        "[EMAIL]", "google-sub-3", "Runner Two"
+    )
+    assert get_preferences(user_id).location_lat is None
+    assert get_preferences(user_id).location_lon is None
+
+
+def test_upsert_preferences_preserves_location_on_partial_update():
+    user_id = find_or_create_user(
+        "[EMAIL]", "google-sub-3", "Runner Two"
+    )
+    upsert_preferences(user_id, location_lat=17.385, location_lon=78.4867)
+
+    upsert_preferences(user_id, units="mi")
+
+    prefs = get_preferences(user_id)
+    assert prefs.units == "mi"
+    assert prefs.location_lat == 17.385
+    assert prefs.location_lon == 78.4867
 
 
 def test_init_db_creates_messages_table():

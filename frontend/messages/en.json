@@ -8,7 +8,20 @@
   "dashboard": {
     "thisWeek": "This week",
     "goal": "Goal: {distance}km this week",
-    "recentRuns": "Recent runs"
+    "recentRuns": "Recent runs",
+    "upcomingRuns": "Upcoming runs",
+    "planARun": "+ Plan a run",
+    "weather": "Weather",
+    "connectCalendarPrompt": "Connect Google Calendar to plan and see upcoming runs.",
+    "planRunTitle": "Plan a run",
+    "planRunName": "Title",
+    "planRunDate": "Date",
+    "planRunTime": "Time",
+    "planRunDuration": "Duration (minutes)",
+    "planRunNotes": "Notes",
+    "planRunCancel": "Cancel",
+    "planRunSubmit": "Plan run",
+    "planRunError": "Couldn't plan this run. Please try again."
   },
   "chat": {
     "coachName": "Coach",
@@ -29,6 +42,7 @@
     "connect": "Connect",
     "disconnect": "Disconnect",
     "connectFailed": "Couldn't connect to Google Health. Please try again.",
+    "connectFailedCalendar": "Couldn't connect to Google Calendar. Please try again.",
     "healthErrorAction": "Continue setup"
   },
   "profile": {
@@ -48,6 +62,13 @@
     "changeAvatar": "Change profile picture",
     "avatarUploadFailed": "Couldn't upload your picture. Try again.",
     "avatarInvalidType": "Must be a JPEG or PNG image.",
-    "avatarTooLarge": "Image must be 5MB or smaller."
+    "avatarTooLarge": "Image must be 5MB or smaller.",
+    "location": "Location",
+    "locationNotSet": "Not set",
+    "locationSet": "Location set",
+    "editLocation": "Edit",
+    "useMyLocation": "Use my location",
+    "locationDenied": "Couldn't get your location — search for a city instead.",
+    "citySearchPlaceholder": "Search for a city..."
   }
 }

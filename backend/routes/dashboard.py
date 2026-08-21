@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends
 
 from backend.dependencies import require_user
-from backend.services.mcp_client import open_mcp_session
-from data.db import get_oauth_token
+from backend.services import weather_service
+from backend.services.mcp_client import CALENDAR_SERVER_URL, open_mcp_session
+from data.db import get_oauth_token, get_preferences
 
 router = APIRouter()
 
@@ -31,9 +32,50 @@ async def dashboard(user_id: str = Depends(require_user)):
         except Exception:
             health_connected = False
 
+    calendar_connected = get_oauth_token(user_id, "calendar") is not None
+    upcoming_runs = []
+    current_weather = None
+    prefs = get_preferences(user_id)
+
+    if calendar_connected:
+        try:
+            async with open_mcp_session(
+                user_id, server_url=CALENDAR_SERVER_URL
+            ) as session:
+                result = await session.call_tool("list_upcoming_runs", {"days_ahead": 7})
+            events = result.structuredContent or []
+
+            for event in events:
+                forecast = None
+                if prefs.location_lat is not None and prefs.location_lon is not None:
+                    start = event.get("start", {}).get("dateTime", "")
+                    date = start[:10] if start else None
+                    if date:
+                        forecast = await weather_service.get_forecast(
+                            prefs.location_lat, prefs.location_lon, date
+                        )
+                upcoming_runs.append({**event, "forecast": forecast})
+        except Exception:
+            calendar_connected = False
+
+    if prefs.location_lat is not None and prefs.location_lon is not None:
+        try:
+            conditions = await weather_service.get_current_conditions(
+                prefs.location_lat, prefs.location_lon
+            )
+            air_quality = await weather_service.get_air_quality(
+                prefs.location_lat, prefs.location_lon
+            )
+            current_weather = {**conditions, **air_quality}
+        except Exception:
+            current_weather = None
+
     return {
         "weekly_stats": weekly_stats,
         "recent_runs": recent_runs,
         "health_connected": health_connected,
         "health_error": health_error,
+        "calendar_connected": calendar_connected,
+        "upcoming_runs": upcoming_runs,
+        "current_weather": current_weather,
     }

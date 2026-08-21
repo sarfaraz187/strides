@@ -59,7 +59,7 @@ def _mock_session(tool_names: list[str]):
     session.list_tools = AsyncMock(return_value=tools_response)
 
     @asynccontextmanager
-    async def open_mcp_session(user_id):
+    async def open_mcp_session(user_id, **kwargs):
         yield session
 
     return open_mcp_session, session
@@ -77,6 +77,107 @@ def test_call_tools_still_routes_unknown_tool_names_to_mcp_session():
     asyncio.run(call_tools("user-123", mock_session, [block]))
 
     mock_session.call_tool.assert_called_once_with("get_weekly_stats", {})
+
+
+def test_call_tools_routes_to_calendar_session_for_calendar_tool_names():
+    from backend.services.chat_service import call_tools
+
+    health_session = AsyncMock()
+    calendar_session = AsyncMock()
+    calendar_session.call_tool.return_value = AsyncMock(__str__=lambda self: "ok")
+
+    block = MagicMock(type="tool_use", id="tool-1")
+    block.name = "create_run_event"
+    block.input = {"title": "Easy 5K"}
+
+    sessions_by_tool = {"create_run_event": calendar_session}
+
+    results = asyncio.run(
+        call_tools(
+            "user-1", health_session, [block], sessions_by_tool=sessions_by_tool
+        )
+    )
+
+    calendar_session.call_tool.assert_called_once_with(
+        "create_run_event", {"title": "Easy 5K"}
+    )
+    health_session.call_tool.assert_not_called()
+    assert results[0]["tool_use_id"] == "tool-1"
+
+
+def test_call_tools_falls_back_to_default_session_for_unmapped_tools():
+    from backend.services.chat_service import call_tools
+
+    health_session = AsyncMock()
+    health_session.call_tool.return_value = AsyncMock(__str__=lambda self: "ok")
+    calendar_session = AsyncMock()
+
+    block = MagicMock(type="tool_use", id="tool-2")
+    block.name = "get_weekly_stats"
+    block.input = {}
+
+    asyncio.run(
+        call_tools(
+            "user-1",
+            health_session,
+            [block],
+            sessions_by_tool={"create_run_event": calendar_session},
+        )
+    )
+
+    health_session.call_tool.assert_called_once_with("get_weekly_stats", {})
+    calendar_session.call_tool.assert_not_called()
+
+
+def test_get_weather_tool_uses_stored_location():
+    from backend.services.chat_service import _get_weather
+
+    with (
+        patch("backend.services.chat_service.db.get_preferences") as mock_prefs,
+        patch(
+            "backend.services.chat_service.weather_service.get_current_conditions"
+        ) as mock_weather,
+    ):
+        mock_prefs.return_value.location_lat = 17.385
+        mock_prefs.return_value.location_lon = 78.4867
+        mock_weather.return_value = {
+            "temp": 27,
+            "condition": "clear",
+            "feels_like": 30,
+            "humidity": 74,
+            "wind": 9,
+        }
+
+        result = asyncio.run(_get_weather("user-1"))
+
+    mock_weather.assert_called_once_with(17.385, 78.4867)
+    assert "27" in result and "clear" in result
+
+
+def test_get_weather_tool_prompts_for_location_when_unset():
+    from backend.services.chat_service import _get_weather
+
+    with (
+        patch("backend.services.chat_service.db.get_preferences") as mock_prefs,
+        patch(
+            "backend.services.chat_service.weather_service.get_current_conditions"
+        ) as mock_weather,
+    ):
+        mock_prefs.return_value.location_lat = None
+        mock_prefs.return_value.location_lon = None
+
+        result = asyncio.run(_get_weather("user-1"))
+
+    mock_weather.assert_not_called()
+    assert "No location set" in result
+
+
+def test_get_weather_tool_is_registered_locally():
+    from backend.services.chat_service import LOCAL_TOOL_SCHEMAS, LOCAL_TOOLS
+
+    schema_names = {t["name"] for t in LOCAL_TOOL_SCHEMAS}
+    assert "get_weather" in schema_names
+    assert "get_weather" in LOCAL_TOOLS
 
 
 def test_process_query_merges_local_tool_schemas_with_mcp_tools():

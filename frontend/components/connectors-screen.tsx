@@ -8,15 +8,23 @@ import { useAuth } from "@/lib/auth-context";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { cn } from "@/lib/utils";
 import { HEALTH_CONNECT_URL, useHealthConnectErrorFromUrl, useHealthDisconnect } from "@/hooks/use-health-connector";
+import { CALENDAR_CONNECT_URL, useCalendarConnectErrorFromUrl, useCalendarDisconnect } from "@/hooks/use-calendar-connector";
 
 export function ConnectorsScreen() {
   const t = useTranslations("connectors");
   const { user } = useAuth();
   const { disconnect, isPending, error: disconnectError } = useHealthDisconnect();
   const showConnectError = useHealthConnectErrorFromUrl();
+  const {
+    disconnect: disconnectCalendar,
+    isPending: isCalendarPending,
+    error: calendarDisconnectError,
+  } = useCalendarDisconnect();
+  const showCalendarConnectError = useCalendarConnectErrorFromUrl();
   const { dashboard } = useDashboard();
 
   const isConnected = user?.health_connected ?? false;
+  const isCalendarConnected = user?.calendar_connected ?? false;
   const healthError = dashboard?.health_error;
 
   return (
@@ -27,6 +35,9 @@ export function ConnectorsScreen() {
       </div>
 
       {(showConnectError || disconnectError) && <div className="mb-4 rounded-xl bg-danger/10 p-3 text-[13px] text-danger">{t("connectFailed")}</div>}
+      {(showCalendarConnectError || calendarDisconnectError) && (
+        <div className="mb-4 rounded-xl bg-danger/10 p-3 text-[13px] text-danger">{t("connectFailedCalendar")}</div>
+      )}
 
       <div className="flex flex-col gap-2.5 lg:gap-3">
         <Card className="flex-row items-center justify-between gap-4 rounded-2xl p-4 lg:gap-5 lg:px-6 lg:py-5">
@@ -66,6 +77,40 @@ export function ConnectorsScreen() {
             </Button>
           ) : (
             <a href={HEALTH_CONNECT_URL} className={cn(buttonVariants({ variant: "outline" }), "flex-none rounded-full")}>
+              {t("connect")}
+            </a>
+          )}
+        </Card>
+
+        <Card className="flex-row items-center justify-between gap-4 rounded-2xl p-4 lg:gap-5 lg:px-6 lg:py-5">
+          <div className="flex min-w-0 items-center gap-4 lg:gap-5">
+            <div className="flex h-12 w-12 flex-none items-center justify-center rounded-xl p-2.5 lg:h-14 lg:w-14" style={{ background: "var(--color-icon-tile)" }}>
+              <img src="/calendar-icon.svg" alt="" className="h-full w-full object-contain" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-base font-semibold text-primary lg:text-lg">Google Calendar</div>
+              <div
+                className="text-sm lg:text-sm"
+                style={{
+                  color: isCalendarConnected ? "var(--color-status-connected)" : "var(--color-status-disconnected)",
+                }}
+              >
+                {isCalendarConnected ? t("connected") : t("notConnected")}
+              </div>
+            </div>
+          </div>
+
+          {isCalendarConnected ? (
+            <Button
+              variant="ghost"
+              onClick={() => disconnectCalendar()}
+              disabled={isCalendarPending}
+              className="flex-none text-danger hover:bg-danger/10 hover:text-danger"
+            >
+              {t("disconnect")}
+            </Button>
+          ) : (
+            <a href={CALENDAR_CONNECT_URL} className={cn(buttonVariants({ variant: "outline" }), "flex-none rounded-full")}>
               {t("connect")}
             </a>
           )}

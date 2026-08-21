@@ -21,10 +21,30 @@ export type HealthError = {
   redirect_uri?: string;
 };
 
+export type UpcomingRun = {
+  id: string;
+  summary: string;
+  start: { dateTime: string };
+  forecast: { temp: number; condition: string } | null;
+};
+
+export type CurrentWeather = {
+  temp: number;
+  feels_like: number;
+  humidity: number;
+  wind: number;
+  condition: string;
+  aqi: number;
+  hourly: { time: string[]; temperature_2m: number[] };
+};
+
 export type Dashboard = {
   weekly_stats: WeeklyStats | null;
   recent_runs: RecentRun[];
   health_error?: HealthError | null;
+  calendar_connected: boolean;
+  upcoming_runs: UpcomingRun[];
+  current_weather: CurrentWeather | null;
 };
 
 export function getDashboard(): Promise<Dashboard> {
