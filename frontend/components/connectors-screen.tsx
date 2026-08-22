@@ -24,7 +24,7 @@ export function ConnectorsScreen() {
   const connectors: ConnectorConfig[] = [
     {
       name: t("googleHealth"),
-      iconSrc: "/google_health_app_logo.svg",
+      iconSrc: "/google_health_logo.svg",
       isConnected,
       connectUrl: HEALTH_CONNECT_URL,
       onDisconnect: disconnect,
@@ -33,7 +33,7 @@ export function ConnectorsScreen() {
     },
     {
       name: t("googleCalendar"),
-      iconSrc: "/google_calendar-logo.svg",
+      iconSrc: "/google_calendar_logo.svg",
       isConnected: isCalendarConnected,
       connectUrl: CALENDAR_CONNECT_URL,
       onDisconnect: disconnectCalendar,

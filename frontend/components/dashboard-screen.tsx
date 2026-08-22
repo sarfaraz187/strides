@@ -169,7 +169,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
         </div>
         <div className="flex items-center gap-3">
           {calendarConnected && (
-            <Button variant="outline" className="rounded-full" onClick={() => setIsPlanRunOpen(true)}>
+            <Button className="rounded-full px-4" onClick={() => setIsPlanRunOpen(true)}>
               {t("planARun")}
             </Button>
           )}
