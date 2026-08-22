@@ -2,6 +2,7 @@
 
 import { LayoutGrid, Lock, MessageSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Image from "next/image";
 import Link from "next/link";
 
 import { Avatar } from "@/components/avatar";
@@ -20,8 +21,8 @@ import {
 
 function getMenuButtonClassName(collapsed: boolean) {
   return cn(
-    "h-auto rounded-[10px] text-sm font-semibold",
-    collapsed ? "w-8 justify-center p-2" : "gap-3 px-3 py-[11px]"
+    "h-auto rounded-xl text-sm font-semibold",
+    collapsed ? "w-8 justify-center p-2" : "gap-3 px-3 py-2.5"
   );
 }
 
@@ -45,7 +46,7 @@ export function Sidebar({
       collapsible="none"
       className={cn(
         "bg-sidebar py-7 transition-[width] duration-200 ease-linear",
-        collapsed ? "w-[76px] px-3" : "w-[240px] px-5",
+        collapsed ? "w-19 px-3" : "w-60 px-5",
         className
       )}
     >
@@ -55,16 +56,8 @@ export function Sidebar({
           collapsed && "justify-center"
         )}
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-sidebar-primary">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M4 17L9 10L13 14L20 5"
-              stroke="var(--sidebar-primary-foreground)"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg">
+          <Image src="/icon-512.png" alt="Strides" width={40} height={40} className="h-full w-full object-cover" />
         </div>
         {!collapsed && (
           <span className="text-lg font-bold tracking-[-0.3px] text-sidebar-accent-foreground">
@@ -122,12 +115,12 @@ export function Sidebar({
           )}
         >
           <Avatar
-            user={{ name: user?.name ?? null, avatar_url: user?.avatar_url ?? null }}
+            user={user}
             size="sm"
-            className="rounded-[9px] bg-sidebar-primary text-sidebar-primary-foreground"
+            className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
           />
           {!collapsed && (
-            <div className="text-[13px] font-medium text-sidebar-foreground">{displayName}</div>
+            <div className="text-sm font-medium text-sidebar-foreground">{displayName}</div>
           )}
         </Link>
       </SidebarFooter>

@@ -20,7 +20,7 @@ export function BottomNav({
   return (
     <div
       className={cn(
-        "flex h-[74px] items-center justify-around border-t border-border bg-surface pb-2",
+        "flex h-18 items-center justify-around border-t border-border bg-surface pb-2",
         className
       )}
     >
@@ -31,7 +31,7 @@ export function BottomNav({
         }`}
       >
         <LayoutGrid size={22} strokeWidth={1.8} />
-        <span className="text-[10px] font-semibold">{t("dashboard")}</span>
+        <span className="text-xs font-semibold">{t("dashboard")}</span>
       </Link>
       <Link
         href={`/${locale}/chat`}
@@ -40,7 +40,7 @@ export function BottomNav({
         }`}
       >
         <MessageSquare size={22} strokeWidth={1.8} />
-        <span className="text-[10px] font-semibold">{t("coach")}</span>
+        <span className="text-xs font-semibold">{t("coach")}</span>
       </Link>
       <Link
         href={`/${locale}/connectors`}
@@ -49,7 +49,7 @@ export function BottomNav({
         }`}
       >
         <Lock size={22} strokeWidth={1.8} />
-        <span className="text-[10px] font-semibold">{t("connectors")}</span>
+        <span className="text-xs font-semibold">{t("connectors")}</span>
       </Link>
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -11,23 +12,15 @@ export function SignInScreen() {
 
   return (
     <div className="flex h-screen items-center justify-center bg-background">
-      <div className="flex h-full w-full max-w-[480px] flex-col items-center justify-between bg-surface px-8 pt-[60px] pb-12 lg:h-auto lg:w-[380px] lg:justify-center lg:gap-[22px] lg:bg-transparent">
+      <div className="flex h-full w-full max-w-[480px] flex-col items-center justify-between bg-surface px-8 pt-15 pb-12 lg:h-auto lg:w-[380px] lg:justify-center lg:gap-6 lg:bg-transparent">
         <div className="lg:hidden" />
-        <div className="flex flex-col items-center gap-[18px]">
-          <div className="flex h-16 w-16 items-center justify-center rounded-[18px] bg-primary">
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M4 17L9 10L13 14L20 5"
-                stroke="#D8DED0"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+        <div className="flex flex-col items-center gap-5">
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl">
+            <Image src="/icon-512.png" alt="Strides" width={80} height={80} className="h-full w-full object-cover" priority />
           </div>
           <div className="text-center">
-            <div className="text-[30px] font-bold tracking-[-0.5px] text-primary">{t("title")}</div>
-            <div className="mt-1.5 text-[15px] font-medium text-muted">{t("tagline")}</div>
+            <div className="text-3xl font-bold tracking-[-0.5px] text-primary">{t("title")}</div>
+            <div className="mt-1.5 text-sm font-medium text-muted">{t("tagline")}</div>
           </div>
         </div>
         <div className="flex w-full flex-col gap-3">
@@ -35,7 +28,7 @@ export function SignInScreen() {
             href={loginUrl}
             className={cn(
               buttonVariants(),
-              "h-[54px] gap-2.5 rounded-[16px] bg-primary text-[15px] text-primary-foreground"
+              "h-14 gap-2.5 rounded-2xl bg-primary text-base text-primary-foreground"
             )}
           >
             <svg width="18" height="18" viewBox="0 0 24 24">

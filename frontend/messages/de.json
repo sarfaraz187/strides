@@ -32,7 +32,8 @@
   "chat": {
     "coachName": "Coach",
     "syncedStatus": "Mit Google Health synchronisiert",
-    "placeholder": "Frag etwas zu deinem Training..."
+    "placeholder": "Frag etwas zu deinem Training...",
+    "sendFailed": "Nachricht konnte nicht gesendet werden. Versuch es erneut."
   },
   "nav": {
     "dashboard": "Übersicht",
@@ -51,19 +52,35 @@
     "disconnect": "Trennen",
     "connectFailed": "Verbindung zu Google Health fehlgeschlagen. Bitte versuche es erneut.",
     "connectFailedCalendar": "Verbindung zu Google Calendar fehlgeschlagen. Bitte versuche es erneut.",
-    "healthErrorAction": "Einrichtung fortsetzen"
+    "healthErrorAction": "Einrichtung fortsetzen",
+    "statusCheckFailed": "Verbindungsstatus konnte gerade nicht geprüft werden."
   },
   "profile": {
+    "eyebrow": "Konto",
+    "title": "Profil & Einstellungen",
+    "editProfile": "Profil bearbeiten",
+    "doneEditing": "Fertig",
     "weeklyGoal": "Wochenziel",
+    "weeklyGoalSubtitle": "Zieldistanz pro Woche",
+    "goalPercentComplete": "{percent}% erreicht",
+    "doneThisWeek": "{distance} diese Woche",
+    "toGo": "noch {distance}",
     "decreaseGoal": "Wochenziel verringern",
     "increaseGoal": "Wochenziel erhöhen",
+    "preferences": "Einstellungen",
     "units": "Einheiten",
+    "unitsSubtitle": "Distanz- und Tempoformat",
     "kilometers": "Kilometer",
     "miles": "Meilen",
     "language": "Sprache",
+    "languageSubtitle": "Oberfläche und Coach-Antworten",
     "english": "Englisch",
     "german": "Deutsch",
     "notifications": "Benachrichtigungen",
+    "notificationsSubtitle": "Wochenrückblick und Zielerinnerungen",
+    "account": "Konto",
+    "signOut": "Abmelden",
+    "signOutSubtitle": "Du musst dich auf diesem Gerät erneut anmelden",
     "memberSince": "Mitglied seit",
     "logOut": "Abmelden",
     "saveFailed": "Änderung konnte nicht gespeichert werden. Bitte erneut versuchen.",
@@ -72,9 +89,7 @@
     "avatarInvalidType": "Muss ein JPEG- oder PNG-Bild sein.",
     "avatarTooLarge": "Bild darf höchstens 5MB groß sein.",
     "location": "Standort",
-    "locationNotSet": "Nicht festgelegt",
     "locationSet": "Standort festgelegt",
-    "editLocation": "Bearbeiten",
     "useMyLocation": "Meinen Standort verwenden",
     "locationDenied": "Standort konnte nicht ermittelt werden. Bitte überprüfe die Standortberechtigung deines Browsers und versuche es erneut."
   }

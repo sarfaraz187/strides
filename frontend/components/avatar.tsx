@@ -8,25 +8,35 @@ export function initialsFromName(name: string | null): string {
 
 const SIZE_CLASSES = {
   sm: "h-8 w-8 text-xs",
-  md: "h-9 w-9 text-[13px]",
+  md: "h-9 w-9 text-sm",
   lg: "h-14 w-14 text-lg lg:h-16 lg:w-16 lg:text-xl",
 };
+
+// Matches the base (mobile) pixel size of each SIZE_CLASSES entry above, so
+// the browser can reserve layout space before the image loads instead of
+// shifting content once it decodes.
+const SIZE_PX = { sm: 32, md: 36, lg: 56 };
 
 export function Avatar({
   user,
   size,
   className,
 }: {
-  user: { name: string | null; avatar_url: string | null };
+  user: { name: string | null; avatar_url: string | null } | null;
   size: "sm" | "md" | "lg";
   className?: string;
 }) {
-  if (user.avatar_url) {
+  const name = user?.name ?? null;
+  const avatarUrl = user?.avatar_url ?? null;
+
+  if (avatarUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={user.avatar_url}
-        alt={user.name ?? "Profile picture"}
+        src={avatarUrl}
+        alt={name ?? "Profile picture"}
+        width={SIZE_PX[size]}
+        height={SIZE_PX[size]}
         className={cn("flex-none rounded-full object-cover", SIZE_CLASSES[size], className)}
       />
     );
@@ -40,7 +50,7 @@ export function Avatar({
         className
       )}
     >
-      {initialsFromName(user.name)}
+      {initialsFromName(name)}
     </div>
   );
 }
