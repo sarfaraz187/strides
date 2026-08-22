@@ -2,10 +2,10 @@
 
 import { LayoutGrid, Lock, MessageSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Image from "next/image";
 import Link from "next/link";
 
 import { Avatar } from "@/components/avatar";
-import { Logo } from "@/components/logo";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import {
@@ -56,8 +56,8 @@ export function Sidebar({
           collapsed && "justify-center"
         )}
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
-          <Logo strokeWidth={2.4} stroke="var(--sidebar-primary-foreground)" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg">
+          <Image src="/icon-512.png" alt="Strides" width={40} height={40} className="h-full w-full object-cover" />
         </div>
         {!collapsed && (
           <span className="text-lg font-bold tracking-[-0.3px] text-sidebar-accent-foreground">

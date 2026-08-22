@@ -4,10 +4,10 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
-import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch, apiStream } from "@/lib/api";
@@ -134,8 +134,8 @@ export function ChatScreen({ locale }: { locale: string }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-[780px]">
       <div className="flex items-center gap-2.5 border-b border-border px-6 py-4 lg:px-0 lg:py-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-          <Logo />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl">
+          <Image src="/icon-512.png" alt="Strides" width={40} height={40} className="h-full w-full object-cover" />
         </div>
         <div>
           <div className="text-sm font-semibold text-primary lg:text-base">{t("coachName")}</div>

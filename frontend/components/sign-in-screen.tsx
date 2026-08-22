@@ -1,8 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 
-import { Logo } from "@/components/logo";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -15,8 +15,8 @@ export function SignInScreen() {
       <div className="flex h-full w-full max-w-[480px] flex-col items-center justify-between bg-surface px-8 pt-15 pb-12 lg:h-auto lg:w-[380px] lg:justify-center lg:gap-6 lg:bg-transparent">
         <div className="lg:hidden" />
         <div className="flex flex-col items-center gap-5">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary">
-            <Logo size={30} strokeWidth={2.4} />
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl">
+            <Image src="/icon-512.png" alt="Strides" width={80} height={80} className="h-full w-full object-cover" priority />
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold tracking-[-0.5px] text-primary">{t("title")}</div>
