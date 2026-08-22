@@ -57,7 +57,7 @@ async def dashboard(user_id: str = Depends(require_user)):
                 result = await session.call_tool(
                     "list_upcoming_runs", {"days_ahead": 7}
                 )
-            events = result.structuredContent or []
+            events = (result.structuredContent or {}).get("result", [])
 
             for event in events:
                 forecast = None

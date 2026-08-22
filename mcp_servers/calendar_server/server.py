@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -16,6 +17,7 @@ from mcp_servers.calendar_server.helpers.calendar_api import (
     create_event,
     delete_event,
     ensure_calendar,
+    get_calendar_timezone,
     list_events,
     update_event,
 )
@@ -23,6 +25,8 @@ from mcp_servers.calendar_server.helpers.common import current_user_id
 from mcp_servers.calendar_server.mcp_auth import verify_bearer_token
 
 setup_logging()
+
+logger = logging.getLogger(__name__)
 
 
 class StridesTokenVerifier(TokenVerifier):
@@ -50,7 +54,7 @@ mcp = FastMCP(
 
 @mcp.tool()
 def list_upcoming_runs(days_ahead: int = 7) -> list[dict[str, Any]]:
-    """List planned runs from the user's dedicated 'Strides Runs' Google Calendar
+    """List planned runs from the user's dedicated 'Strides' Google Calendar
     for the next N days (default 7). Returns raw Calendar event dicts (empty list
     if none scheduled, not an error)."""
     user_id = current_user_id()
@@ -68,17 +72,36 @@ def list_upcoming_runs(days_ahead: int = 7) -> list[dict[str, Any]]:
 def create_run_event(
     title: str, start_time: str, duration_minutes: int, notes: str = ""
 ) -> dict[str, Any]:
-    """Create a planned run on the user's dedicated 'Strides Runs' Google Calendar.
+    """Create a planned run on the user's dedicated 'Strides' Google Calendar.
     Only call this after the user has explicitly confirmed a proposed plan — never
     schedule proactively without confirmation. start_time is an ISO 8601 local
     datetime, e.g. '2026-08-25T07:00:00'."""
     user_id = current_user_id()
-    access_token = get_valid_access_token(user_id, provider="calendar")
-    calendar_id = ensure_calendar(access_token, user_id)
-
-    return create_event(
-        access_token, calendar_id, title, start_time, duration_minutes, notes
+    logger.info(
+        "create_run_event: user=%s title=%r start=%s", user_id, title, start_time
     )
+
+    try:
+        access_token = get_valid_access_token(user_id, provider="calendar")
+        calendar_id = ensure_calendar(access_token, user_id)
+        time_zone = get_calendar_timezone(access_token, calendar_id)
+        event = create_event(
+            access_token,
+            calendar_id,
+            title,
+            start_time,
+            duration_minutes,
+            time_zone,
+            notes,
+        )
+    except Exception:
+        logger.exception("create_run_event failed: user=%s title=%r", user_id, title)
+        raise
+
+    logger.info(
+        "create_run_event: user=%s created event id=%s", user_id, event.get("id")
+    )
+    return event
 
 
 @mcp.tool()

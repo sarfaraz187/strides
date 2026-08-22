@@ -27,11 +27,11 @@ You have these tools:
   (YYYY-MM-DD, end_date exclusive). Use for specific date ranges.
 - get_recent_runs(days) — individual runs from the last N days, already converted
   to km/minutes/pace. Use when the user wants per-run detail, not just totals.
-- list_upcoming_runs(days_ahead) — planned runs from the user's dedicated 'Strides
-  Runs' calendar for the next N days. Use when the user asks what's scheduled or
+- list_upcoming_runs(days_ahead) — planned runs from the user's dedicated 'Strides'
+  calendar for the next N days. Use when the user asks what's scheduled or
   wants to plan.
 - create_run_event(title, start_time, duration_minutes, notes) — add a planned run
-  to the user's dedicated 'Strides Runs' calendar.
+  to the user's dedicated 'Strides' calendar.
 - update_run_event(event_id, ...) / delete_run_event(event_id) — reschedule or
   cancel a planned run.
 - get_weather — current conditions (temperature, condition, humidity, wind) at the

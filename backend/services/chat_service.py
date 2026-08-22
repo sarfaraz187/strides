@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 
 from langfuse import get_client, propagate_attributes
 
@@ -85,7 +86,8 @@ def _to_input_block(block) -> dict:
 
 
 def _build_system_prompt(base_prompt: str, user_id: str) -> str:
-    prompt = base_prompt
+    today = datetime.now(timezone.utc).strftime("%A, %Y-%m-%d")
+    prompt = f"{base_prompt}\n\nToday's date is {today} (UTC)."
 
     memories = db.get_memories(user_id)
     if memories:
@@ -178,8 +180,6 @@ async def process_query(user_id: str, messages: list[dict]):
                         )
                         return
 
-                    db.save_message(user_id, "assistant", content_dicts)
-
                     tool_results = await call_tools(
                         user_id,
                         health_session,
@@ -187,6 +187,8 @@ async def process_query(user_id: str, messages: list[dict]):
                         sessions_by_tool=sessions_by_tool,
                     )
                     messages.append({"role": "user", "content": tool_results})
+
+                    db.save_message(user_id, "assistant", content_dicts)
                     db.save_message(user_id, "user", tool_results)
 
 
