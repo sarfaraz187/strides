@@ -281,8 +281,112 @@ def test_process_query_injects_memories_into_system_prompt():
 
         asyncio.run(drain())
 
-        system_prompt = mock_client.messages.stream.call_args.kwargs["system"]
-        assert "Left knee sore, avoid speed work" in system_prompt
+        system_blocks = mock_client.messages.stream.call_args.kwargs["system"]
+        assert "Left knee sore, avoid speed work" in system_blocks[1]["text"]
+
+
+def test_process_query_sets_cache_control_on_system_and_tools():
+    from backend.agent import SYSTEM_PROMPT
+    from backend.services.chat_service import process_query
+
+    open_mcp_session, mock_session = _mock_session(["get_weekly_stats"])
+
+    fake_response = MagicMock()
+    fake_response.stop_reason = "end_turn"
+    text_block = MagicMock(type="text", text="done")
+    text_block.model_dump.return_value = {"type": "text", "text": "done"}
+    fake_response.content = [text_block]
+
+    with (
+        patch("backend.services.chat_service.open_mcp_session", open_mcp_session),
+        patch("backend.services.chat_service.db.get_memories", return_value=[]),
+        patch(
+            "backend.services.chat_service.db.get_conversation_summary",
+            return_value=None,
+        ),
+        patch("backend.agent.client") as mock_client,
+    ):
+        mock_client.messages.stream = MagicMock(
+            return_value=_mock_stream(fake_response, ["done"])
+        )
+
+        async def drain():
+            async for _ in process_query(
+                "user-123", [{"role": "user", "content": "hi"}]
+            ):
+                pass
+
+        asyncio.run(drain())
+
+        call_kwargs = mock_client.messages.stream.call_args.kwargs
+
+        system_blocks = call_kwargs["system"]
+        assert isinstance(system_blocks, list)
+        assert system_blocks[0]["text"] == SYSTEM_PROMPT
+        assert system_blocks[0]["cache_control"] == {"type": "ephemeral"}
+        assert "cache_control" not in system_blocks[1]
+
+        tools = call_kwargs["tools"]
+        assert tools[-1]["cache_control"] == {"type": "ephemeral"}
+        for tool in tools[:-1]:
+            assert "cache_control" not in tool
+
+
+def test_process_query_reports_cache_usage_to_langfuse():
+    from backend.services.chat_service import process_query
+
+    open_mcp_session, mock_session = _mock_session([])
+
+    fake_response = MagicMock()
+    fake_response.stop_reason = "end_turn"
+    text_block = MagicMock(type="text", text="done")
+    text_block.model_dump.return_value = {"type": "text", "text": "done"}
+    fake_response.content = [text_block]
+    fake_response.usage.input_tokens = 10
+    fake_response.usage.output_tokens = 5
+    fake_response.usage.cache_creation_input_tokens = 100
+    fake_response.usage.cache_read_input_tokens = 200
+
+    mock_span_cm = MagicMock()
+    mock_span_cm.__enter__.return_value = MagicMock()
+    mock_span_cm.__exit__.return_value = False
+
+    mock_generation = MagicMock()
+    mock_generation_cm = MagicMock()
+    mock_generation_cm.__enter__.return_value = mock_generation
+    mock_generation_cm.__exit__.return_value = False
+
+    mock_langfuse = MagicMock()
+    mock_langfuse.start_as_current_observation.side_effect = [
+        mock_span_cm,
+        mock_generation_cm,
+    ]
+
+    with (
+        patch("backend.services.chat_service.open_mcp_session", open_mcp_session),
+        patch("backend.services.chat_service.db.get_memories", return_value=[]),
+        patch(
+            "backend.services.chat_service.db.get_conversation_summary",
+            return_value=None,
+        ),
+        patch("backend.services.chat_service.langfuse_client", mock_langfuse),
+        patch("backend.agent.client") as mock_client,
+    ):
+        mock_client.messages.stream = MagicMock(
+            return_value=_mock_stream(fake_response, ["done"])
+        )
+
+        async def drain():
+            async for _ in process_query(
+                "user-123", [{"role": "user", "content": "hi"}]
+            ):
+                pass
+
+        asyncio.run(drain())
+
+    usage_details = mock_generation.update.call_args.kwargs["usage_details"]
+    assert usage_details["cache_creation_input_tokens"] == 100
+    assert usage_details["cache_read_input_tokens"] == 200
 
 
 def test_call_tools_truncates_large_tool_results():
@@ -414,8 +518,8 @@ def test_process_query_injects_conversation_summary_into_system_prompt():
 
         asyncio.run(drain())
 
-        system_prompt = mock_client.messages.stream.call_args.kwargs["system"]
-        assert "User is training for a fall marathon." in system_prompt
+        system_blocks = mock_client.messages.stream.call_args.kwargs["system"]
+        assert "User is training for a fall marathon." in system_blocks[1]["text"]
 
 
 def test_process_query_omits_summary_section_when_none_exists():
@@ -450,5 +554,5 @@ def test_process_query_omits_summary_section_when_none_exists():
 
         asyncio.run(drain())
 
-        system_prompt = mock_client.messages.stream.call_args.kwargs["system"]
-        assert "Summary of earlier conversation" not in system_prompt
+        system_blocks = mock_client.messages.stream.call_args.kwargs["system"]
+        assert "Summary of earlier conversation" not in system_blocks[1]["text"]

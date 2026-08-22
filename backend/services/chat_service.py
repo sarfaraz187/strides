@@ -85,22 +85,33 @@ def _to_input_block(block) -> dict:
     return block.model_dump()
 
 
-def _build_system_prompt(base_prompt: str, user_id: str) -> str:
+def _build_system_prompt(base_prompt: str, user_id: str) -> list[dict]:
+    """Build the system prompt as cache-friendly blocks: the static base_prompt
+    (identical for every user/request, so it's marked cacheable) followed by a
+    dynamic suffix (date/memories/summary, which changes per request and is
+    left uncached)."""
     today = datetime.now(timezone.utc).strftime("%A, %Y-%m-%d")
-    prompt = f"{base_prompt}\n\nToday's date is {today} (UTC)."
+    suffix = f"Today's date is {today} (UTC)."
 
     memories = db.get_memories(user_id)
     if memories:
         facts = "\n".join(f"- {m['fact']}" for m in memories)
-        prompt = f"{prompt}\n\nKnown facts about this user:\n{facts}"
+        suffix = f"{suffix}\n\nKnown facts about this user:\n{facts}"
 
     summary = db.get_conversation_summary(user_id)
     if summary:
-        prompt = (
-            f"{prompt}\n\nSummary of earlier conversation:\n{summary['summary_text']}"
+        suffix = (
+            f"{suffix}\n\nSummary of earlier conversation:\n{summary['summary_text']}"
         )
 
-    return prompt
+    return [
+        {
+            "type": "text",
+            "text": base_prompt,
+            "cache_control": {"type": "ephemeral"},
+        },
+        {"type": "text", "text": suffix},
+    ]
 
 
 async def process_query(user_id: str, messages: list[dict]):
@@ -119,11 +130,14 @@ async def process_query(user_id: str, messages: list[dict]):
 
         async with (
             open_mcp_session(user_id, server_url=HEALTH_SERVER_URL) as health_session,
-            open_mcp_session(user_id, server_url=CALENDAR_SERVER_URL) as calendar_session,
+            open_mcp_session(
+                user_id, server_url=CALENDAR_SERVER_URL
+            ) as calendar_session,
         ):
             health_tools = await get_tool_schemas(health_session)
             calendar_tools = await get_tool_schemas(calendar_session)
             tools = health_tools + calendar_tools + LOCAL_TOOL_SCHEMAS
+            tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
             sessions_by_tool = {t["name"]: calendar_session for t in calendar_tools}
 
             with (
@@ -162,6 +176,12 @@ async def process_query(user_id: str, messages: list[dict]):
                             usage_details={
                                 "input": response.usage.input_tokens,
                                 "output": response.usage.output_tokens,
+                                "cache_creation_input_tokens": (
+                                    response.usage.cache_creation_input_tokens
+                                ),
+                                "cache_read_input_tokens": (
+                                    response.usage.cache_read_input_tokens
+                                ),
                             },
                         )
 
