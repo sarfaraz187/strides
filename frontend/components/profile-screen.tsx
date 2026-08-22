@@ -15,6 +15,7 @@ import { useLocationName } from "@/hooks/use-location-name";
 import { usePreferences } from "@/hooks/use-preferences";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { computeGoalProgress } from "@/lib/goal-progress";
 import type { Preferences } from "@/lib/preferences-api";
 
 const GOAL_STEP_KM = 1;
@@ -157,8 +158,7 @@ export function ProfileScreen({ locale }: { locale: string }) {
   const weeklyGoalUnit = preferences.units === "km" ? "km" : "mi";
 
   const doneKm = dashboard?.weekly_stats?.total_distance_km ?? 0;
-  const toGoKm = Math.max(0, displayedGoalKm - doneKm);
-  const goalPct = displayedGoalKm > 0 ? Math.min(100, Math.round((doneKm / displayedGoalKm) * 100)) : 0;
+  const { toGoKm, goalPct } = computeGoalProgress(doneKm, displayedGoalKm);
   const formatKm = (km: number) => (preferences.units === "km" ? `${km} km` : `${Math.round(km * KM_TO_MI)} mi`);
 
   function setGoal(nextGoal: number) {

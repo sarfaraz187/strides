@@ -15,6 +15,7 @@ import { usePreferences } from "@/hooks/use-preferences";
 import { usePlanRun } from "@/hooks/use-plan-run";
 import { useAuth } from "@/lib/auth-context";
 import type { RecentRun, UpcomingRun } from "@/lib/dashboard-api";
+import { computeGoalProgress } from "@/lib/goal-progress";
 
 function formatPace(paceMinPerKm: number | null): string {
   if (paceMinPerKm === null) return "–";
@@ -153,7 +154,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
     },
     { value: isLoading ? "–" : String(dashboard?.weekly_stats?.run_count ?? 0), label: "runs" },
   ];
-  const weekGoalPct = dashboard?.weekly_stats ? Math.min(100, Math.round((dashboard.weekly_stats.total_distance_km / weeklyGoalKm) * 100)) : 0;
+  const { goalPct: weekGoalPct } = computeGoalProgress(dashboard?.weekly_stats?.total_distance_km ?? 0, weeklyGoalKm);
   const recentRuns = dashboard?.recent_runs.map((run) => formatRun(run, locale)) ?? [];
   const calendarConnected = dashboard?.calendar_connected ?? false;
   const upcomingRuns = dashboard?.upcoming_runs?.map((run) => formatUpcomingRun(run, locale)) ?? [];
