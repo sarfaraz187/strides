@@ -5,6 +5,8 @@ export type Preferences = {
   units: "km" | "mi";
   notifications_enabled: boolean;
   language: "en" | "de";
+  location_lat: number | null;
+  location_lon: number | null;
 };
 
 export function getPreferences(): Promise<Preferences> {

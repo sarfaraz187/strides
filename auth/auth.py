@@ -35,7 +35,7 @@ def refresh_access_token(refresh_token: str) -> dict:
     return response.json()
 
 
-def get_valid_access_token(user_id: str) -> str:
+def get_valid_access_token(user_id: str, provider: str = "health") -> str:
     with get_connection() as conn:
         row = conn.execute(
             """
@@ -43,13 +43,13 @@ def get_valid_access_token(user_id: str) -> str:
             FROM oauth_tokens WHERE user_id = %s AND provider = %s
             FOR UPDATE
             """,
-            (user_id, "health"),
+            (user_id, provider),
         ).fetchone()
 
         if row is None:
             raise ValueError(
-                f"No Health token for user {user_id}; user must complete "
-                "/auth/health/connect first"
+                f"No {provider} token for user {user_id}; user must complete "
+                f"/auth/{provider}/connect first"
             )
 
         access_token, refresh_token, expires_at = row
@@ -65,7 +65,7 @@ def get_valid_access_token(user_id: str) -> str:
             UPDATE oauth_tokens SET access_token = %s, expires_at = %s
             WHERE user_id = %s AND provider = %s
             """,
-            (encrypt(response["access_token"]), new_expires_at, user_id, "health"),
+            (encrypt(response["access_token"]), new_expires_at, user_id, provider),
         )
         conn.commit()
         return response["access_token"]

@@ -12,6 +12,8 @@ class PreferencesUpdate(BaseModel):
     units: str | None = None
     notifications_enabled: bool | None = None
     language: str | None = None
+    location_lat: float | None = None
+    location_lon: float | None = None
 
 
 @router.get("")
@@ -27,4 +29,6 @@ def write_preferences(body: PreferencesUpdate, user_id: str = Depends(require_us
         units=body.units,
         notifications_enabled=body.notifications_enabled,
         language=body.language,
+        location_lat=body.location_lat,
+        location_lon=body.location_lon,
     )

@@ -1,9 +1,16 @@
 import logging
+from datetime import datetime, timezone
 
 from langfuse import get_client, propagate_attributes
 
 import data.db as db
-from backend.services.mcp_client import get_tool_schemas, open_mcp_session
+from backend.services import weather_service
+from backend.services.mcp_client import (
+    CALENDAR_SERVER_URL,
+    HEALTH_SERVER_URL,
+    get_tool_schemas,
+    open_mcp_session,
+)
 
 logger = logging.getLogger(__name__)
 langfuse_client = get_client()
@@ -30,7 +37,16 @@ LOCAL_TOOL_SCHEMAS: list = [
             },
             "required": ["fact", "category"],
         },
-    }
+    },
+    {
+        "name": "get_weather",
+        "description": (
+            "Get the current weather conditions (temperature, condition, "
+            "humidity, wind) at the user's stored location. Use this when "
+            "reasoning about whether/how to plan an upcoming run."
+        ),
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
 ]
 
 
@@ -39,7 +55,21 @@ async def _save_memory(user_id: str, fact: str, category: str) -> str:
     return "Saved."
 
 
-LOCAL_TOOLS: dict = {"save_memory": _save_memory}
+async def _get_weather(user_id: str) -> str:
+    prefs = db.get_preferences(user_id)
+    if prefs.location_lat is None or prefs.location_lon is None:
+        return "No location set for this user — ask them to set one in their profile."
+    conditions = await weather_service.get_current_conditions(
+        prefs.location_lat, prefs.location_lon
+    )
+    return (
+        f"{conditions['temp']}°C, {conditions['condition']}, "
+        f"feels like {conditions['feels_like']}°C, humidity {conditions['humidity']}%, "
+        f"wind {conditions['wind']} km/h"
+    )
+
+
+LOCAL_TOOLS: dict = {"save_memory": _save_memory, "get_weather": _get_weather}
 
 
 def _to_input_block(block) -> dict:
@@ -56,7 +86,8 @@ def _to_input_block(block) -> dict:
 
 
 def _build_system_prompt(base_prompt: str, user_id: str) -> str:
-    prompt = base_prompt
+    today = datetime.now(timezone.utc).strftime("%A, %Y-%m-%d")
+    prompt = f"{base_prompt}\n\nToday's date is {today} (UTC)."
 
     memories = db.get_memories(user_id)
     if memories:
@@ -86,8 +117,14 @@ async def process_query(user_id: str, messages: list[dict]):
         )
         system_prompt = _build_system_prompt(SYSTEM_PROMPT, user_id)
 
-        async with open_mcp_session(user_id) as session:
-            tools = await get_tool_schemas(session) + LOCAL_TOOL_SCHEMAS
+        async with (
+            open_mcp_session(user_id, server_url=HEALTH_SERVER_URL) as health_session,
+            open_mcp_session(user_id, server_url=CALENDAR_SERVER_URL) as calendar_session,
+        ):
+            health_tools = await get_tool_schemas(health_session)
+            calendar_tools = await get_tool_schemas(calendar_session)
+            tools = health_tools + calendar_tools + LOCAL_TOOL_SCHEMAS
+            sessions_by_tool = {t["name"]: calendar_session for t in calendar_tools}
 
             with (
                 langfuse_client.start_as_current_observation(
@@ -143,15 +180,23 @@ async def process_query(user_id: str, messages: list[dict]):
                         )
                         return
 
-                    db.save_message(user_id, "assistant", content_dicts)
-
-                    tool_results = await call_tools(user_id, session, response.content)
+                    tool_results = await call_tools(
+                        user_id,
+                        health_session,
+                        response.content,
+                        sessions_by_tool=sessions_by_tool,
+                    )
                     messages.append({"role": "user", "content": tool_results})
+
+                    db.save_message(user_id, "assistant", content_dicts)
                     db.save_message(user_id, "user", tool_results)
 
 
-async def call_tools(user_id, session, content_blocks):
+async def call_tools(
+    user_id, session, content_blocks, sessions_by_tool: dict | None = None
+):
     """Execute every tool_use block and return their results as tool_result blocks."""
+    sessions_by_tool = sessions_by_tool or {}
     tool_results = []
     for block in content_blocks:
         if block.type == "tool_use":
@@ -162,7 +207,8 @@ async def call_tools(user_id, session, content_blocks):
                     if block.name in LOCAL_TOOLS:
                         result = await LOCAL_TOOLS[block.name](user_id, **block.input)
                     else:
-                        result = await session.call_tool(block.name, block.input)
+                        target_session = sessions_by_tool.get(block.name, session)
+                        result = await target_session.call_tool(block.name, block.input)
                     content = str(result)
                     if len(content) > MAX_TOOL_RESULT_CHARS:
                         content = content[:MAX_TOOL_RESULT_CHARS] + "... [truncated]"

@@ -8,26 +8,35 @@ from mcp.client.streamable_http import streamable_http_client
 
 from backend.jwt_issuer import mint_token
 
-SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://127.0.0.1:8001/mcp")
+HEALTH_SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://127.0.0.1:8001/mcp")
+CALENDAR_SERVER_URL = os.environ.get(
+    "CALENDAR_MCP_SERVER_URL", "http://127.0.0.1:8002/mcp"
+)
 
 
 @asynccontextmanager
-async def open_mcp_session(user_id: str):
+async def open_mcp_session(user_id: str, server_url: str):
     """Open a fresh, per-caller MCP session authenticated as user_id.
 
     Short-lived by design, matching the 5-minute JWT it mints — a cached,
     long-lived session couldn't carry a fresh token per request anyway."""
     token = mint_token(user_id)
-    async with httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"}) as http_client:
+    async with httpx.AsyncClient(
+        headers={"Authorization": f"Bearer {token}"}
+    ) as http_client:
         try:
-            async with streamable_http_client(SERVER_URL, http_client=http_client) as (read, write, _):
+            async with streamable_http_client(server_url, http_client=http_client) as (
+                read,
+                write,
+                _,
+            ):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     yield session
         except* httpx.ConnectError as eg:
             raise HTTPException(
                 status_code=503,
-                detail=f"Health data service unavailable — is the MCP fit_server running on {SERVER_URL}?",
+                detail=f"A data service is unavailable — is the MCP server running on {server_url}?",
             ) from eg
 
 

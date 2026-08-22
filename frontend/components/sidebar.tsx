@@ -1,5 +1,6 @@
 "use client";
 
+import { LayoutGrid, Lock, MessageSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 
@@ -81,12 +82,7 @@ export function Sidebar({
               tooltip={collapsed ? t("dashboard") : undefined}
               className={getMenuButtonClassName(collapsed)}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
-                <rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
-                <rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
-                <rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
-              </svg>
+              <LayoutGrid size={18} strokeWidth={1.8} />
               {!collapsed && t("dashboard")}
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -98,9 +94,7 @@ export function Sidebar({
               tooltip={collapsed ? t("coach") : undefined}
               className={getMenuButtonClassName(collapsed)}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M4 5h16v11H8l-4 4V5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-              </svg>
+              <MessageSquare size={18} strokeWidth={1.8} />
               {!collapsed && t("coach")}
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -112,14 +106,7 @@ export function Sidebar({
               tooltip={collapsed ? t("connectors") : undefined}
               className={getMenuButtonClassName(collapsed)}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M6 10h12v4a6 6 0 01-6 6 6 6 0 01-6-6v-4z"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <Lock size={18} strokeWidth={1.8} />
               {!collapsed && t("connectors")}
             </SidebarMenuButton>
           </SidebarMenuItem>

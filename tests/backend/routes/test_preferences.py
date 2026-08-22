@@ -60,6 +60,8 @@ def test_get_preferences_returns_defaults_for_new_user(client):
         "units": "km",
         "notifications_enabled": True,
         "language": "en",
+        "location_lat": None,
+        "location_lon": None,
     }
 
 
@@ -78,3 +80,21 @@ def test_put_preferences_partial_update_round_trips_through_get(client):
 
     get_response = client.get("/preferences", cookies=cookies)
     assert get_response.json()["language"] == "de"
+
+
+def test_put_preferences_accepts_location(client):
+    cookies = _session_cookie_for_new_user(client)
+
+    response = client.put(
+        "/preferences",
+        json={"location_lat": 17.385, "location_lon": 78.4867},
+        cookies=cookies,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["location_lat"] == 17.385
+    assert response.json()["location_lon"] == 78.4867
+
+    get_response = client.get("/preferences", cookies=cookies)
+    assert get_response.json()["location_lat"] == 17.385
+    assert get_response.json()["location_lon"] == 78.4867

@@ -70,6 +70,7 @@ describe("ProfileScreen", () => {
             name: "Runner Example",
             created_at: "2026-01-15T00:00:00Z",
             health_connected: false,
+            calendar_connected: false,
             avatar_url: null,
           },
           isLoading: false,
@@ -114,5 +115,84 @@ describe("ProfileScreen", () => {
 
     expect(screen.getByText(en.profile.avatarTooLarge)).toBeInTheDocument();
     expect((global.fetch as ReturnType<typeof vi.spyOn>).mock.calls.length).toBe(fetchCallsBefore);
+  });
+});
+
+describe("ProfileScreen location", () => {
+  function mockFetch() {
+    return vi.spyOn(global, "fetch").mockImplementation((url, options) => {
+      const urlString = String(url);
+      if (urlString.endsWith("/preferences") && options?.method === "PUT") {
+        const body = JSON.parse(options.body as string);
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              weekly_goal_km: 30,
+              units: "km",
+              notifications_enabled: true,
+              language: "en",
+              location_lat: body.location_lat ?? null,
+              location_lon: body.location_lon ?? null,
+            })
+          )
+        );
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            weekly_goal_km: 30,
+            units: "km",
+            notifications_enabled: true,
+            language: "en",
+            location_lat: null,
+            location_lon: null,
+          })
+        )
+      );
+    });
+  }
+
+  it("uses geolocation and saves the returned coordinates", async () => {
+    mockFetch();
+    const getCurrentPosition = vi.fn((success: PositionCallback) =>
+      success({ coords: { latitude: 17.385, longitude: 78.4867 } } as GeolocationPosition)
+    );
+    Object.defineProperty(global.navigator, "geolocation", {
+      value: { getCurrentPosition },
+      configurable: true,
+    });
+
+    renderWithProviders(<ProfileScreen locale="en" />);
+    await waitFor(() => expect(screen.getByText(en.profile.useMyLocation)).toBeInTheDocument());
+
+    (await screen.findByText(en.profile.useMyLocation)).click();
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/preferences"),
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({ location_lat: 17.385, location_lon: 78.4867 }),
+        })
+      )
+    );
+  });
+
+  it("shows an error message on geolocation failure without throwing", async () => {
+    mockFetch();
+    const getCurrentPosition = vi.fn((_success: PositionCallback, error?: PositionErrorCallback) =>
+      error?.({ code: 1, message: "denied" } as GeolocationPositionError)
+    );
+    Object.defineProperty(global.navigator, "geolocation", {
+      value: { getCurrentPosition },
+      configurable: true,
+    });
+
+    renderWithProviders(<ProfileScreen locale="en" />);
+    await waitFor(() => expect(screen.getByText(en.profile.useMyLocation)).toBeInTheDocument());
+
+    (await screen.findByText(en.profile.useMyLocation)).click();
+
+    await waitFor(() => expect(screen.getByText(en.profile.locationDenied)).toBeInTheDocument());
   });
 });

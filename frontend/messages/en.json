@@ -8,7 +8,26 @@
   "dashboard": {
     "thisWeek": "This week",
     "goal": "Goal: {distance}km this week",
-    "recentRuns": "Recent runs"
+    "recentRuns": "Recent runs",
+    "upcomingRuns": "Upcoming runs",
+    "planARun": "+ Plan a run",
+    "weather": "Weather",
+    "feelsLike": "Feels like {temp}°C",
+    "humidity": "Humidity",
+    "wind": "Wind",
+    "aqi": "AQI",
+    "insightPoorAir": "Air quality is poor — consider an indoor session.",
+    "insightHumid": "Humidity is high — start easy and carry water.",
+    "insightGood": "Conditions look good for a run.",
+    "planRunTitle": "Plan a run",
+    "planRunName": "Title",
+    "planRunDate": "Date",
+    "planRunTime": "Time",
+    "planRunDuration": "Duration (minutes)",
+    "planRunNotes": "Notes",
+    "planRunCancel": "Cancel",
+    "planRunSubmit": "Plan run",
+    "planRunError": "Couldn't plan this run. Please try again."
   },
   "chat": {
     "coachName": "Coach",
@@ -23,12 +42,15 @@
   "connectors": {
     "title": "Connectors",
     "subtitle": "Let Coach read data from your other apps and services.",
+    "googleHealth": "Google Health",
+    "googleCalendar": "Google Calendar",
     "connected": "Connected",
     "connecting": "Connecting…",
     "notConnected": "Not connected",
     "connect": "Connect",
     "disconnect": "Disconnect",
     "connectFailed": "Couldn't connect to Google Health. Please try again.",
+    "connectFailedCalendar": "Couldn't connect to Google Calendar. Please try again.",
     "healthErrorAction": "Continue setup"
   },
   "profile": {
@@ -48,6 +70,12 @@
     "changeAvatar": "Change profile picture",
     "avatarUploadFailed": "Couldn't upload your picture. Try again.",
     "avatarInvalidType": "Must be a JPEG or PNG image.",
-    "avatarTooLarge": "Image must be 5MB or smaller."
+    "avatarTooLarge": "Image must be 5MB or smaller.",
+    "location": "Location",
+    "locationNotSet": "Not set",
+    "locationSet": "Location set",
+    "editLocation": "Edit",
+    "useMyLocation": "Use my location",
+    "locationDenied": "Couldn't get your location. Check your browser's location permission and try again."
   }
 }

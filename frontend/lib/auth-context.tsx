@@ -8,6 +8,7 @@ import { apiFetch } from "./api";
 type User = {
   email: string;
   health_connected: boolean;
+  calendar_connected: boolean;
   created_at: string;
   name: string | null;
   avatar_url: string | null;
@@ -23,6 +24,7 @@ const MOCK_USER: User = {
   name: "Dev User",
   created_at: "",
   health_connected: false,
+  calendar_connected: false,
   avatar_url: null,
 };
 

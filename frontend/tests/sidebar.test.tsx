@@ -11,7 +11,14 @@ function renderWithUser(name: string | null, ui: React.ReactElement) {
   return render(
     <AuthContext.Provider
       value={{
-        user: { email: "runner@example.com", name, created_at: "", health_connected: false, avatar_url: null },
+        user: {
+          email: "runner@example.com",
+          name,
+          created_at: "",
+          health_connected: false,
+          calendar_connected: false,
+          avatar_url: null,
+        },
         isLoading: false,
       }}
     >

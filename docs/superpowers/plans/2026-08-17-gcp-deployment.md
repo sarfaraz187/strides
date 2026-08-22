@@ -446,12 +446,12 @@ git commit -m "ci: add GitHub Actions workflow to deploy backend and MCP server 
 
 No files change in this task — this is GitHub repo configuration (Settings → Secrets and variables → Actions) plus the first manual deploy to break the URL chicken-and-egg problem described in the spec.
 
-- [ ] **Step 1: Add repository secrets**
+- [x] **Step 1: Add repository secrets**
 
 Add each of these (values copied from local `.env`, `git.log-visible` values excluded):
 `DATABASE_URL`, `ANTHROPIC_API_KEY`, `TOKEN_ENCRYPTION_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_BASE_URL`
 
-- [ ] **Step 2: First-deploy the MCP server manually to obtain its URL**
+- [x] **Step 2: First-deploy the MCP server manually to obtain its URL**
 
 Push only `mcp_servers/fit_server/**` changes first (or temporarily comment out the `deploy-backend` job), so `deploy-mcp-server` runs and Cloud Run assigns it a URL:
 
@@ -459,13 +459,13 @@ Push only `mcp_servers/fit_server/**` changes first (or temporarily comment out 
 gcloud run services describe mcp-server --project=strides-503723 --region=us-central1 --format="value(status.url)"
 ```
 
-- [ ] **Step 3: Add the remaining URL-dependent secrets**
+- [x] **Step 3: Add the remaining URL-dependent secrets**
 
 Add `MCP_SERVER_URL` (from Step 2's output, with `/mcp` appended — matching the local `http://127.0.0.1:8001/mcp` shape) and `FRONTEND_URL` (the Vercel deployment URL).
 
 After the backend's first deploy, get its URL the same way and add `STRIDES_JWKS_URL` as `<backend-url>/.well-known/jwks.json`.
 
-- [ ] **Step 4: Push to trigger a full pipeline run**
+- [x] **Step 4: Push to trigger a full pipeline run**
 
 Push any change matching the workflow's path filters (or an empty commit touching `backend/Dockerfile`) to run both jobs end-to-end now that all secrets exist.
 
@@ -475,7 +475,7 @@ Push any change matching the workflow's path filters (or an empty commit touchin
 
 No files change — this is manual verification that the deployed system actually works.
 
-- [ ] **Step 1: Confirm the backend is reachable**
+- [x] **Step 1: Confirm the backend is reachable**
 
 ```bash
 curl -i https://<backend-cloud-run-url>/.well-known/jwks.json
@@ -483,7 +483,7 @@ curl -i https://<backend-cloud-run-url>/.well-known/jwks.json
 
 Expected: HTTP 200, JSON body
 
-- [ ] **Step 2: Confirm the MCP server is reachable and can verify a JWT from the deployed backend**
+- [x] **Step 2: Confirm the MCP server is reachable and can verify a JWT from the deployed backend**
 
 Send a real chat message through the deployed frontend (pointed at the deployed backend URL) that requires a tool call, e.g. "how was my run yesterday."
 Expected: a real answer referencing actual run data — confirms backend → MCP server → Google Health API → Claude → response all work end-to-end in the cloud.

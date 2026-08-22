@@ -8,7 +8,26 @@
   "dashboard": {
     "thisWeek": "Diese Woche",
     "goal": "Ziel: {distance}km diese Woche",
-    "recentRuns": "Letzte Läufe"
+    "recentRuns": "Letzte Läufe",
+    "upcomingRuns": "Geplante Läufe",
+    "planARun": "+ Lauf planen",
+    "weather": "Wetter",
+    "feelsLike": "Gefühlt {temp}°C",
+    "humidity": "Luftfeuchtigkeit",
+    "wind": "Wind",
+    "aqi": "AQI",
+    "insightPoorAir": "Die Luftqualität ist schlecht — erwäge eine Einheit drinnen.",
+    "insightHumid": "Hohe Luftfeuchtigkeit — starte locker und nimm Wasser mit.",
+    "insightGood": "Gute Bedingungen für einen Lauf.",
+    "planRunTitle": "Lauf planen",
+    "planRunName": "Titel",
+    "planRunDate": "Datum",
+    "planRunTime": "Uhrzeit",
+    "planRunDuration": "Dauer (Minuten)",
+    "planRunNotes": "Notizen",
+    "planRunCancel": "Abbrechen",
+    "planRunSubmit": "Lauf planen",
+    "planRunError": "Der Lauf konnte nicht geplant werden. Bitte versuche es erneut."
   },
   "chat": {
     "coachName": "Coach",
@@ -23,12 +42,15 @@
   "connectors": {
     "title": "Verbindungen",
     "subtitle": "Erlaube Coach, Daten aus deinen anderen Apps und Diensten zu lesen.",
+    "googleHealth": "Google Health",
+    "googleCalendar": "Google Calendar",
     "connected": "Verbunden",
     "connecting": "Verbindet…",
     "notConnected": "Nicht verbunden",
     "connect": "Verbinden",
     "disconnect": "Trennen",
     "connectFailed": "Verbindung zu Google Health fehlgeschlagen. Bitte versuche es erneut.",
+    "connectFailedCalendar": "Verbindung zu Google Calendar fehlgeschlagen. Bitte versuche es erneut.",
     "healthErrorAction": "Einrichtung fortsetzen"
   },
   "profile": {
@@ -48,6 +70,12 @@
     "changeAvatar": "Profilbild ändern",
     "avatarUploadFailed": "Bild konnte nicht hochgeladen werden. Bitte erneut versuchen.",
     "avatarInvalidType": "Muss ein JPEG- oder PNG-Bild sein.",
-    "avatarTooLarge": "Bild darf höchstens 5MB groß sein."
+    "avatarTooLarge": "Bild darf höchstens 5MB groß sein.",
+    "location": "Standort",
+    "locationNotSet": "Nicht festgelegt",
+    "locationSet": "Standort festgelegt",
+    "editLocation": "Bearbeiten",
+    "useMyLocation": "Meinen Standort verwenden",
+    "locationDenied": "Standort konnte nicht ermittelt werden. Bitte überprüfe die Standortberechtigung deines Browsers und versuche es erneut."
   }
 }

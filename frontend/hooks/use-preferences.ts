@@ -12,6 +12,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   units: "km",
   notifications_enabled: true,
   language: "en",
+  location_lat: null,
+  location_lon: null,
 };
 
 export function usePreferences() {
