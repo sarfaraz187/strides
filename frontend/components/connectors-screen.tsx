@@ -15,7 +15,7 @@ export function ConnectorsScreen() {
   const showConnectError = useHealthConnectErrorFromUrl();
   const { disconnect: disconnectCalendar, isPending: isCalendarPending, error: calendarDisconnectError } = useCalendarDisconnect();
   const showCalendarConnectError = useCalendarConnectErrorFromUrl();
-  const { dashboard } = useDashboard();
+  const { dashboard, isError: isDashboardError } = useDashboard();
 
   const isConnected = user?.health_connected ?? false;
   const isCalendarConnected = user?.calendar_connected ?? false;
@@ -50,6 +50,7 @@ export function ConnectorsScreen() {
 
       {(showConnectError || disconnectError) && <div className="mb-4 rounded-xl bg-danger/10 p-3 text-sm text-danger">{t("connectFailed")}</div>}
       {(showCalendarConnectError || calendarDisconnectError) && <div className="mb-4 rounded-xl bg-danger/10 p-3 text-sm text-danger">{t("connectFailedCalendar")}</div>}
+      {isDashboardError && <div className="mb-4 rounded-xl bg-danger/10 p-3 text-sm text-danger">{t("statusCheckFailed")}</div>}
 
       <div className="flex flex-col gap-2.5 lg:gap-3">
         {connectors.map((connector) => (

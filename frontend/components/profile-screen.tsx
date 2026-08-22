@@ -4,12 +4,16 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Camera } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Avatar } from "@/components/avatar";
+import { SectionLabel } from "@/components/section-label";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { WeeklyGoalStepper } from "@/components/weekly-goal-stepper";
+import { useAvatarUpload } from "@/hooks/use-avatar-upload";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { useLocationName } from "@/hooks/use-location-name";
 import { usePreferences } from "@/hooks/use-preferences";
@@ -32,12 +36,13 @@ function LocationEditor({ onUseMyLocation, geoError }: LocationEditorProps) {
   const t = useTranslations("profile");
   return (
     <div className="flex flex-col gap-2">
-      <button
+      <Button
+        variant="ghost"
         onClick={onUseMyLocation}
-        className="h-8 w-fit cursor-pointer rounded-full border border-primary-foreground/25 bg-primary-foreground/10 px-3.5 text-xs font-semibold text-primary-foreground"
+        className="h-8 w-fit rounded-full border border-primary-foreground/25 bg-primary-foreground/10 px-3.5 text-xs font-semibold text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
       >
         {t("useMyLocation")}
-      </button>
+      </Button>
       {geoError && <div className="text-xs text-danger">{geoError}</div>}
     </div>
   );
@@ -64,7 +69,7 @@ export function ProfileScreen({ locale }: { locale: string }) {
   const { dashboard } = useDashboard();
   const { user } = useAuth();
   const displayName = user?.name ?? user?.email ?? "";
-  const memberSince = user?.created_at ? new Date(user.created_at).toLocaleDateString("en", { month: "short", year: "numeric" }) : "";
+  const memberSince = user?.created_at ? new Date(user.created_at).toLocaleDateString(locale, { month: "short", year: "numeric" }) : "";
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
@@ -86,44 +91,9 @@ export function ProfileScreen({ locale }: { locale: string }) {
     },
   });
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  const uploadAvatar = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-      const response = await fetch(`${baseUrl}/profile/avatar`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-      if (!response.ok) throw new Error("Upload failed");
-      return (await response.json()) as { avatar_url: string };
-    },
-    onSuccess: ({ avatar_url }) => {
-      setUploadError(null);
-      queryClient.setQueryData(["auth", "me"], (previous: typeof user) => (previous ? { ...previous, avatar_url } : previous));
-    },
-    onError: () => setUploadError(t("avatarUploadFailed")),
-  });
-
-  function onAvatarFileChosen(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    if (!["image/jpeg", "image/png"].includes(file.type)) {
-      setUploadError(t("avatarInvalidType"));
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError(t("avatarTooLarge"));
-      return;
-    }
-    setUploadError(null);
-    uploadAvatar.mutate(file);
-  }
+  const { fileInputRef, error: avatarError, isUploading, onFileChosen, triggerUpload } = useAvatarUpload();
+  const uploadErrorMessage =
+    avatarError === "invalidType" ? t("avatarInvalidType") : avatarError === "tooLarge" ? t("avatarTooLarge") : avatarError === "uploadFailed" ? t("avatarUploadFailed") : null;
 
   const locationName = useLocationName(preferences?.location_lat ?? null, preferences?.location_lon ?? null);
 
@@ -181,34 +151,41 @@ export function ProfileScreen({ locale }: { locale: string }) {
   return (
     <div className="flex-1 overflow-y-auto px-4 lg:mx-auto lg:w-full lg:max-w-[960px] lg:px-0 lg:pb-9">
       <div className="mb-3">
-        <div className="text-sm font-semibold uppercase text-muted">{t("eyebrow")}</div>
+        <SectionLabel>{t("eyebrow")}</SectionLabel>
         <div className="text-2xl font-bold tracking-[-0.3px] text-primary lg:text-3xl">{t("title")}</div>
       </div>
 
-      {uploadError && <div className="mb-4 rounded-xl bg-danger/10 p-3 text-sm text-danger">{uploadError}</div>}
+      {uploadErrorMessage && <div className="mb-4 rounded-xl bg-danger/10 p-3 text-sm text-danger">{uploadErrorMessage}</div>}
       {error && <div className="mb-4 rounded-xl bg-danger/10 p-3 text-sm text-danger">{t("saveFailed")}</div>}
 
       <div className="mb-3 flex flex-col gap-4 rounded-xl bg-primary p-6 lg:mb-4 lg:gap-5 lg:p-7">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3.5 lg:gap-4">
-            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadAvatar.isPending} className="group relative flex-none rounded-full disabled:cursor-not-allowed">
-              <Avatar user={{ name: user?.name ?? null, avatar_url: user?.avatar_url ?? null }} size="lg" />
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={triggerUpload}
+              disabled={isUploading}
+              className="group relative h-auto flex-none rounded-xl p-0 hover:bg-transparent"
+            >
+              <Avatar user={user} size="lg" />
               <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                {uploadAvatar.isPending ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Camera size={18} className="text-white" />}
+                {isUploading ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Camera size={18} className="text-white" />}
               </div>
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" aria-label={t("changeAvatar")} className="hidden" onChange={onAvatarFileChosen} />
+            </Button>
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" aria-label={t("changeAvatar")} className="hidden" onChange={onFileChosen} />
             <div>
               <div className="text-lg font-bold text-primary-foreground lg:text-2xl">{displayName}</div>
               <div className="text-sm text-goal-label lg:text-sm">{user?.email ?? ""}</div>
             </div>
           </div>
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setIsEditingProfile((editing) => !editing)}
-            className="h-8 flex-none cursor-pointer rounded-full border border-primary-foreground/25 bg-primary-foreground/10 px-3.5 text-xs font-semibold text-primary-foreground lg:h-9 lg:px-4 lg:text-sm"
+            className="h-8 flex-none rounded-xl border border-primary-foreground/25 bg-primary-foreground/10 px-3.5 text-xs font-semibold text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground lg:h-9 lg:px-4 lg:text-sm"
           >
             {isEditingProfile ? t("doneEditing") : t("editProfile")}
-          </button>
+          </Button>
         </div>
 
         <div className="h-px bg-primary-foreground/10" />
@@ -237,26 +214,14 @@ export function ProfileScreen({ locale }: { locale: string }) {
               {t("weeklyGoalSubtitle")} · {t("goalPercentComplete", { percent: goalPct })}
             </div>
           </div>
-          <div className="flex items-center gap-3 rounded-full bg-surface px-1.5 py-1.5 lg:gap-3.5 lg:py-2">
-            <button
-              onClick={() => adjustGoal(-GOAL_STEP_KM)}
-              aria-label={t("decreaseGoal")}
-              className="h-7 w-7 cursor-pointer rounded-full bg-card text-base font-semibold text-primary shadow-sm lg:h-8 lg:w-8"
-            >
-              –
-            </button>
-            <div className="flex min-w-13 items-baseline justify-center gap-1 text-sm font-semibold text-primary lg:min-w-15 lg:text-base">
-              <span className="font-mono">{weeklyGoalValue}</span>
-              <span>{weeklyGoalUnit}</span>
-            </div>
-            <button
-              onClick={() => adjustGoal(GOAL_STEP_KM)}
-              aria-label={t("increaseGoal")}
-              className="h-7 w-7 cursor-pointer rounded-full bg-primary text-base font-semibold text-primary-foreground lg:h-8 lg:w-8"
-            >
-              +
-            </button>
-          </div>
+          <WeeklyGoalStepper
+            value={weeklyGoalValue}
+            unit={weeklyGoalUnit}
+            onDecrement={() => adjustGoal(-GOAL_STEP_KM)}
+            onIncrement={() => adjustGoal(GOAL_STEP_KM)}
+            decrementLabel={t("decreaseGoal")}
+            incrementLabel={t("increaseGoal")}
+          />
         </div>
         <Slider aria-label={t("weeklyGoal")} min={MIN_GOAL_KM} max={MAX_GOAL_KM} step={1} value={displayedGoalKm} onValueChange={(nextGoal) => setGoal(nextGoal)} />
         <div className="flex items-center justify-between text-xs text-muted-light">
@@ -266,32 +231,34 @@ export function ProfileScreen({ locale }: { locale: string }) {
       </Card>
 
       <Card className="mb-3 gap-0 rounded-xl p-4 lg:mb-4 lg:px-6">
-        <div className="text-sm font-semibold uppercase text-muted">{t("preferences")}</div>
+        <SectionLabel>{t("preferences")}</SectionLabel>
         <div className="divide-y divide-border">
           <PreferenceRow label={t("units")} subtitle={t("unitsSubtitle")}>
             <div className="flex rounded-full border border-border bg-surface p-0.5">
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => updateNow({ units: "km" })}
-                className={`h-7 cursor-pointer rounded-full px-3 text-xs font-semibold lg:h-8 lg:px-3.5 lg:text-sm ${
-                  preferences.units === "km" ? "bg-card text-primary shadow-sm" : "text-muted-light"
+                className={`h-7 rounded-full px-3 text-xs font-semibold hover:bg-transparent lg:h-8 lg:px-3.5 lg:text-sm ${
+                  preferences.units === "km" ? "bg-card text-primary shadow-sm hover:bg-card" : "text-muted-light"
                 }`}
               >
                 {t("kilometers")}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={() => updateNow({ units: "mi" })}
-                className={`h-7 cursor-pointer rounded-full px-3 text-xs font-semibold lg:h-8 lg:px-3.5 lg:text-sm ${
-                  preferences.units === "mi" ? "bg-card text-primary shadow-sm" : "text-muted-light"
+                className={`h-7 rounded-full px-3 text-xs font-semibold hover:bg-transparent lg:h-8 lg:px-3.5 lg:text-sm ${
+                  preferences.units === "mi" ? "bg-card text-primary shadow-sm hover:bg-card" : "text-muted-light"
                 }`}
               >
                 {t("miles")}
-              </button>
+              </Button>
             </div>
           </PreferenceRow>
 
           <PreferenceRow label={t("language")} subtitle={t("languageSubtitle")}>
             <Select items={{ en: t("english"), de: t("german") }} value={preferences.language} onValueChange={onLanguageChange}>
-              <SelectTrigger className="h-8 w-auto rounded-full border border-border bg-surface px-3.5 text-xs font-semibold text-primary lg:h-9 lg:px-4 lg:text-sm">
+              <SelectTrigger className="h-8 w-auto rounded-xl border border-border bg-surface px-3.5 text-xs font-semibold text-primary lg:h-9 lg:px-4 lg:text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -302,39 +269,41 @@ export function ProfileScreen({ locale }: { locale: string }) {
           </PreferenceRow>
 
           <PreferenceRow label={t("notifications")} subtitle={t("notificationsSubtitle")}>
-            <button
+            <Button
+              variant="ghost"
               onClick={() => updateNow({ notifications_enabled: !preferences.notifications_enabled })}
               aria-pressed={preferences.notifications_enabled}
               aria-label={t("notifications")}
-              className="relative h-6 w-11 flex-none cursor-pointer rounded-full"
+              className="relative h-6 w-11 flex-none rounded-full p-0"
               style={{
                 background: preferences.notifications_enabled ? "var(--color-accent)" : "var(--color-border)",
               }}
             >
               <span
-                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform ${
+                className={`absolute top-1/2 left-0.5 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow-md transition-transform ${
                   preferences.notifications_enabled ? "translate-x-5" : "translate-x-0"
                 }`}
               />
-            </button>
+            </Button>
           </PreferenceRow>
         </div>
       </Card>
 
       <Card className="gap-0 rounded-xl px-4 py-1 lg:px-6">
-        <div className="pt-3 text-sm font-semibold uppercase text-muted">{t("account")}</div>
+        <SectionLabel className="pt-3">{t("account")}</SectionLabel>
         <div className="flex items-center justify-between gap-3 py-3.5">
           <div>
             <div className="text-sm font-semibold text-primary lg:text-base">{t("signOut")}</div>
             <div className="text-xs text-muted-light">{t("signOutSubtitle")}</div>
           </div>
-          <button
+          <Button
+            variant="ghost"
             onClick={() => logOut.mutate()}
             disabled={logOut.isPending}
-            className="h-9 cursor-pointer rounded-full border border-danger-border bg-danger-bg px-4 text-xs font-semibold text-danger disabled:cursor-not-allowed disabled:opacity-60 lg:text-sm"
+            className="h-9 rounded-xl border border-danger-border bg-danger-bg px-4 text-xs font-semibold text-danger hover:bg-danger-bg disabled:opacity-60 lg:text-sm"
           >
             {t("logOut")}
-          </button>
+          </Button>
         </div>
       </Card>
     </div>

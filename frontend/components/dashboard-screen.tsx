@@ -6,13 +6,14 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 
 import { Avatar } from "@/components/avatar";
+import { PlanRunModal } from "@/components/plan-run-modal";
+import { RunCard } from "@/components/run-card";
+import { SectionLabel } from "@/components/section-label";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { useLocationName } from "@/hooks/use-location-name";
 import { usePreferences } from "@/hooks/use-preferences";
-import { usePlanRun } from "@/hooks/use-plan-run";
 import { useAuth } from "@/lib/auth-context";
 import type { RecentRun, UpcomingRun } from "@/lib/dashboard-api";
 import { computeGoalProgress } from "@/lib/goal-progress";
@@ -27,6 +28,7 @@ function formatPace(paceMinPerKm: number | null): string {
 function formatRun(run: RecentRun, locale: string) {
   const date = new Date(run.date);
   return {
+    id: run.date,
     day: date.toLocaleDateString(locale, { weekday: "long" }),
     time: date.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
     distance: `${run.distance_km} km`,
@@ -63,74 +65,6 @@ function insightKey(humidity: number, aqi: number): "insightPoorAir" | "insightH
   if (aqi > 100) return "insightPoorAir";
   if (humidity > 70) return "insightHumid";
   return "insightGood";
-}
-
-type PlanRunModalProps = {
-  onClose: () => void;
-};
-
-function PlanRunModal({ onClose }: PlanRunModalProps) {
-  const t = useTranslations("dashboard");
-  const planRun = usePlanRun();
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [duration, setDuration] = useState("30");
-  const [notes, setNotes] = useState("");
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    planRun.mutate(
-      {
-        title,
-        start_time: `${date}T${time}:00`,
-        duration_minutes: Number(duration),
-        notes,
-      },
-      { onSuccess: onClose },
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4">
-      <Card className="w-full max-w-sm rounded-2xl p-5">
-        <div className="mb-4 text-base font-semibold text-primary">{t("planRunTitle")}</div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            {t("planRunName")}
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            {t("planRunDate")}
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            {t("planRunTime")}
-            <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            {t("planRunDuration")}
-            <Input type="number" min={1} value={duration} onChange={(e) => setDuration(e.target.value)} required />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            {t("planRunNotes")}
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </label>
-
-          {planRun.isError && <div className="text-xs text-danger">{t("planRunError")}</div>}
-
-          <div className="mt-2 flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              {t("planRunCancel")}
-            </Button>
-            <Button type="submit" disabled={planRun.isPending}>
-              {t("planRunSubmit")}
-            </Button>
-          </div>
-        </form>
-      </Card>
-    </div>
-  );
 }
 
 export function DashboardScreen({ locale }: { locale: string }) {
@@ -175,7 +109,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
             </Button>
           )}
           <Link href={`/${locale}/profile`} className="lg:hidden">
-            <Avatar user={{ name: user?.name ?? null, avatar_url: user?.avatar_url ?? null }} size="md" className="h-10 w-10 rounded-xl" />
+            <Avatar user={user} size="md" className="h-10 w-10 rounded-xl" />
           </Link>
         </div>
       </div>
@@ -205,7 +139,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
         {currentWeather && (
           <Card className="flex flex-col gap-2 rounded-2xl p-6 lg:p-7">
             <div className="flex items-start justify-between">
-              <div className="text-sm font-semibold uppercase text-muted">{t("weather")}</div>
+              <SectionLabel>{t("weather")}</SectionLabel>
               {locationName && (
                 <div className="flex items-center gap-1 text-xs text-muted-light">
                   <MapPin size={16} />
@@ -253,46 +187,47 @@ export function DashboardScreen({ locale }: { locale: string }) {
 
       <div className="mt-5 grid grid-cols-1 gap-x-7 gap-y-5 lg:mt-7 lg:grid-cols-2">
         <div>
-          <div className="mb-2.5 text-sm font-semibold uppercase text-muted">{t("recentRuns")}</div>
+          <SectionLabel className="mb-2.5">{t("recentRuns")}</SectionLabel>
           <div className="flex flex-col gap-2.5">
             {recentRuns.map((run) => (
-              <Card key={`${run.day}-${run.time}`} className="flex flex-row items-center justify-between rounded-2xl p-4 lg:px-5 lg:py-5">
-                <div className="flex items-center gap-3">
+              <RunCard
+                key={run.id}
+                title={run.day}
+                subtitle={run.time}
+                leading={
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-icon-tile lg:h-10 lg:w-10">
                     <Zap size={16} fill="#5C7A5E" stroke="none" />
                   </div>
-                  <div>
-                    <div className="text-sm font-semibold text-primary">{run.day}</div>
-                    <div className="text-xs text-muted-light">{run.time}</div>
+                }
+                trailing={
+                  <div className="text-right font-mono">
+                    <div className="text-sm font-semibold text-primary">{run.distance}</div>
+                    <div className="text-xs text-muted-light">{run.pace}</div>
                   </div>
-                </div>
-                <div className="text-right font-mono">
-                  <div className="text-sm font-semibold text-primary">{run.distance}</div>
-                  <div className="text-xs text-muted-light">{run.pace}</div>
-                </div>
-              </Card>
+                }
+              />
             ))}
           </div>
         </div>
 
         {calendarConnected && (
           <div>
-            <div className="mb-2.5 text-sm font-semibold uppercase text-muted">{t("upcomingRuns")}</div>
+            <SectionLabel className="mb-2.5">{t("upcomingRuns")}</SectionLabel>
             <div className="flex flex-col gap-2.5">
               {upcomingRuns.map((run) => (
-                <Card key={run.id} className={`flex flex-row items-center justify-between rounded-2xl p-4 lg:px-5 lg:py-5 ${run.tint}`}>
-                  <div>
-                    <div className="text-sm font-semibold text-primary">{run.summary}</div>
-                    <div className="text-xs text-muted-light">
-                      {run.day}, {run.time}
-                    </div>
-                  </div>
-                  {run.forecast && (
-                    <div className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                      {run.forecast.temp}° {run.forecast.condition}
-                    </div>
-                  )}
-                </Card>
+                <RunCard
+                  key={run.id}
+                  className={run.tint}
+                  title={run.summary}
+                  subtitle={`${run.day}, ${run.time}`}
+                  trailing={
+                    run.forecast && (
+                      <div className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                        {run.forecast.temp}° {run.forecast.condition}
+                      </div>
+                    )
+                  }
+                />
               ))}
             </div>
           </div>

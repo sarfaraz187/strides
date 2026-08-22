@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 
 import { Avatar } from "@/components/avatar";
+import { Logo } from "@/components/logo";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import {
@@ -56,15 +57,7 @@ export function Sidebar({
         )}
       >
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M4 17L9 10L13 14L20 5"
-              stroke="var(--sidebar-primary-foreground)"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <Logo strokeWidth={2.4} stroke="var(--sidebar-primary-foreground)" />
         </div>
         {!collapsed && (
           <span className="text-lg font-bold tracking-[-0.3px] text-sidebar-accent-foreground">
@@ -122,7 +115,7 @@ export function Sidebar({
           )}
         >
           <Avatar
-            user={{ name: user?.name ?? null, avatar_url: user?.avatar_url ?? null }}
+            user={user}
             size="sm"
             className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
           />

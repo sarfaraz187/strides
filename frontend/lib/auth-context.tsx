@@ -5,7 +5,7 @@ import { createContext, useContext } from "react";
 
 import { apiFetch } from "./api";
 
-type User = {
+export type User = {
   email: string;
   health_connected: boolean;
   calendar_connected: boolean;

@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 
+import { Logo } from "@/components/logo";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -15,15 +16,7 @@ export function SignInScreen() {
         <div className="lg:hidden" />
         <div className="flex flex-col items-center gap-5">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary">
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M4 17L9 10L13 14L20 5"
-                stroke="#D8DED0"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <Logo size={30} strokeWidth={2.4} />
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold tracking-[-0.5px] text-primary">{t("title")}</div>

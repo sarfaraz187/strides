@@ -32,7 +32,8 @@
   "chat": {
     "coachName": "Coach",
     "syncedStatus": "Synced with Google Health",
-    "placeholder": "Ask about your training..."
+    "placeholder": "Ask about your training...",
+    "sendFailed": "Couldn't send your message. Try again."
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -51,7 +52,8 @@
     "disconnect": "Disconnect",
     "connectFailed": "Couldn't connect to Google Health. Please try again.",
     "connectFailedCalendar": "Couldn't connect to Google Calendar. Please try again.",
-    "healthErrorAction": "Continue setup"
+    "healthErrorAction": "Continue setup",
+    "statusCheckFailed": "Couldn't check your connection status right now."
   },
   "profile": {
     "eyebrow": "Account",
