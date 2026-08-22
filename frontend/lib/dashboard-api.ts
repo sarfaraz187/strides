@@ -35,7 +35,7 @@ export type CurrentWeather = {
   wind: number;
   condition: string;
   aqi: number;
-  hourly: { time: string[]; temperature_2m: number[] };
+  hourly: { time: string; temp: number }[];
 };
 
 export type Dashboard = {

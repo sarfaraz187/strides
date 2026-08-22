@@ -5,15 +5,13 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 
 import { Avatar } from "@/components/avatar";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { usePreferences } from "@/hooks/use-preferences";
 import { usePlanRun } from "@/hooks/use-plan-run";
-import { CALENDAR_CONNECT_URL } from "@/hooks/use-calendar-connector";
 import { useAuth } from "@/lib/auth-context";
-import { cn } from "@/lib/utils";
 import type { RecentRun, UpcomingRun } from "@/lib/dashboard-api";
 
 function formatPace(paceMinPerKm: number | null): string {
@@ -44,6 +42,16 @@ function formatUpcomingRun(run: UpcomingRun, locale: string) {
   };
 }
 
+function formatHour(isoTime: string, locale: string): string {
+  return new Date(isoTime).toLocaleTimeString(locale, { hour: "numeric" });
+}
+
+function insightKey(humidity: number, aqi: number): "insightPoorAir" | "insightHumid" | "insightGood" {
+  if (aqi > 100) return "insightPoorAir";
+  if (humidity > 70) return "insightHumid";
+  return "insightGood";
+}
+
 type PlanRunModalProps = {
   onClose: () => void;
 };
@@ -66,7 +74,7 @@ function PlanRunModal({ onClose }: PlanRunModalProps) {
         duration_minutes: Number(duration),
         notes,
       },
-      { onSuccess: onClose }
+      { onSuccess: onClose },
     );
   }
 
@@ -89,13 +97,7 @@ function PlanRunModal({ onClose }: PlanRunModalProps) {
           </label>
           <label className="flex flex-col gap-1 text-xs text-muted">
             {t("planRunDuration")}
-            <Input
-              type="number"
-              min={1}
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              required
-            />
+            <Input type="number" min={1} value={duration} onChange={(e) => setDuration(e.target.value)} required />
           </label>
           <label className="flex flex-col gap-1 text-xs text-muted">
             {t("planRunNotes")}
@@ -120,7 +122,6 @@ function PlanRunModal({ onClose }: PlanRunModalProps) {
 
 export function DashboardScreen({ locale }: { locale: string }) {
   const t = useTranslations("dashboard");
-  const tConnectors = useTranslations("connectors");
   const { user } = useAuth();
   const { dashboard, isLoading } = useDashboard();
   const { preferences } = usePreferences();
@@ -135,16 +136,12 @@ export function DashboardScreen({ locale }: { locale: string }) {
   const weekStats = [
     { value: isLoading ? "–" : String(dashboard?.weekly_stats?.total_distance_km ?? 0), label: "km" },
     {
-      value: isLoading
-        ? "–"
-        : formatPace(dashboard?.weekly_stats?.avg_pace_min_per_km ?? null).replace("/km", ""),
+      value: isLoading ? "–" : formatPace(dashboard?.weekly_stats?.avg_pace_min_per_km ?? null).replace("/km", ""),
       label: "avg /km",
     },
     { value: isLoading ? "–" : String(dashboard?.weekly_stats?.run_count ?? 0), label: "runs" },
   ];
-  const weekGoalPct = dashboard?.weekly_stats
-    ? Math.min(100, Math.round((dashboard.weekly_stats.total_distance_km / weeklyGoalKm) * 100))
-    : 0;
+  const weekGoalPct = dashboard?.weekly_stats ? Math.min(100, Math.round((dashboard.weekly_stats.total_distance_km / weeklyGoalKm) * 100)) : 0;
   const recentRuns = dashboard?.recent_runs.map((run) => formatRun(run, locale)) ?? [];
   const calendarConnected = dashboard?.calendar_connected ?? false;
   const upcomingRuns = dashboard?.upcoming_runs?.map((run) => formatUpcomingRun(run, locale)) ?? [];
@@ -155,9 +152,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
       <div className="mb-[22px] flex items-center justify-between lg:mb-[26px] lg:items-end">
         <div>
           <div className="text-[13px] text-muted lg:text-sm">{today}</div>
-          <div className="text-2xl font-bold tracking-[-0.3px] text-primary lg:text-[30px]">
-            {t("thisWeek")}
-          </div>
+          <div className="text-2xl font-bold tracking-[-0.3px] text-primary lg:text-[30px]">{t("thisWeek")}</div>
         </div>
         <div className="flex items-center gap-3">
           {calendarConnected && (
@@ -166,75 +161,81 @@ export function DashboardScreen({ locale }: { locale: string }) {
             </Button>
           )}
           <Link href={`/${locale}/profile`} className="lg:hidden">
-            <Avatar
-              user={{ name: user?.name ?? null, avatar_url: user?.avatar_url ?? null }}
-              size="md"
-              className="h-[38px] w-[38px] rounded-xl"
-            />
+            <Avatar user={{ name: user?.name ?? null, avatar_url: user?.avatar_url ?? null }} size="md" className="h-[38px] w-[38px] rounded-xl" />
           </Link>
         </div>
       </div>
 
       {isPlanRunOpen && <PlanRunModal onClose={() => setIsPlanRunOpen(false)} />}
 
-      {currentWeather && (
-        <Card className="mb-5 flex flex-row items-center justify-between rounded-[16px] p-4 lg:mb-7 lg:px-5 lg:py-[18px]">
-          <div>
-            <div className="text-[13px] font-semibold uppercase text-muted">{t("weather")}</div>
-            <div className="text-sm text-primary">
-              {currentWeather.temp}°C, {currentWeather.condition}
-            </div>
-          </div>
-          <div className="text-right text-xs text-muted-light">
-            <div>Feels like {currentWeather.feels_like}°C</div>
-            <div>
-              Humidity {currentWeather.humidity}% · Wind {currentWeather.wind} km/h
-            </div>
-          </div>
-        </Card>
-      )}
-
-      <div className="lg:mb-7">
-        <div className="mb-4 flex flex-col gap-4 rounded-[20px] bg-primary p-[22px] lg:mb-0 lg:gap-[18px] lg:p-7">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-7">
+        <div className="flex flex-col gap-4 rounded-[20px] bg-primary p-[22px] lg:gap-[18px] lg:p-7">
           <div className="flex justify-between">
             {weekStats.map((stat) => (
               <div key={stat.label} className="flex flex-col gap-1">
-                <div className="font-mono text-[26px] font-bold text-primary-foreground lg:text-[32px]">
-                  {stat.value}
-                </div>
-                <div className="text-[11px] font-medium uppercase text-stat-label">
-                  {stat.label}
-                </div>
+                <div className="font-mono text-[26px] font-bold text-primary-foreground lg:text-[32px]">{stat.value}</div>
+                <div className="text-[11px] font-medium uppercase text-stat-label">{stat.label}</div>
               </div>
             ))}
           </div>
           <div className="h-px bg-primary-foreground/10" />
           <div className="flex items-center justify-between">
-            <div className="text-[13px] text-goal-label lg:text-sm">
-              {t("goal", { distance: weeklyGoalKm })}
-            </div>
-            <div className="font-mono text-[13px] font-semibold text-primary-foreground lg:text-sm">
-              {weekGoalPct}%
-            </div>
+            <div className="text-[13px] text-goal-label lg:text-sm">{t("goal", { distance: weeklyGoalKm })}</div>
+            <div className="font-mono text-[13px] font-semibold text-primary-foreground lg:text-sm">{weekGoalPct}%</div>
           </div>
           <div className="h-[6px] w-full overflow-hidden rounded-full bg-primary-foreground/[0.14]">
-            <div
-              className="h-full rounded-full bg-accent-light"
-              style={{ width: `${weekGoalPct}%` }}
-            />
+            <div className="h-full rounded-full bg-accent-light" style={{ width: `${weekGoalPct}%` }} />
           </div>
         </div>
+
+        {currentWeather && (
+          <Card className="flex flex-col gap-2 rounded-[20px] p-[22px] lg:p-7">
+            <div className="flex items-start justify-between">
+              <div className="text-[13px] font-semibold uppercase text-muted">{t("weather")}</div>
+            </div>
+            <div>
+              <div className="text-[32px] font-bold text-primary">{currentWeather.temp}°</div>
+              <div className="text-sm text-muted-light">
+                {currentWeather.condition} · {t("feelsLike", { temp: currentWeather.feels_like })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2.5">
+              <div className="rounded-[12px] bg-icon-tile p-3">
+                <div className="text-[10px] font-medium uppercase text-muted">{t("humidity")}</div>
+                <div className="text-sm font-semibold text-primary">{currentWeather.humidity}%</div>
+              </div>
+              <div className="rounded-[12px] bg-icon-tile p-3">
+                <div className="text-[10px] font-medium uppercase text-muted">{t("wind")}</div>
+                <div className="text-sm font-semibold text-primary">{currentWeather.wind} km/h</div>
+              </div>
+              <div className="rounded-[12px] bg-icon-tile p-3">
+                <div className="text-[10px] font-medium uppercase text-muted">{t("aqi")}</div>
+                <div className="text-sm font-semibold text-primary">{currentWeather.aqi}</div>
+              </div>
+            </div>
+
+            <div className="rounded-[12px] bg-icon-tile p-3 text-xs text-primary">{t(insightKey(currentWeather.humidity, currentWeather.aqi))}</div>
+
+            {currentWeather.hourly.length > 0 && (
+              <div className="flex justify-between">
+                {console.log("Current Weather Hourly Data:", currentWeather.hourly)}
+                {currentWeather.hourly.map((entry) => (
+                  <div key={entry.time} className="flex flex-col items-center gap-1 text-xs">
+                    <div className="text-muted-light">{formatHour(entry.time, locale)}</div>
+                    <div className="font-mono font-semibold text-primary">{entry.temp}°</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
       </div>
 
-      <div className="mb-2.5 mt-5 text-[13px] font-semibold uppercase text-muted lg:mt-0">
-        {t("recentRuns")}
-      </div>
+      <div className="mb-2.5 mt-5 text-[13px] font-semibold uppercase text-muted">{t("recentRuns")}</div>
       <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-3">
         {recentRuns.map((run) => (
-          <Card
-            key={`${run.day}-${run.time}`}
-            className="flex flex-row items-center justify-between rounded-[16px] p-4 lg:px-5 lg:py-[18px]"
-          >
+          <Card key={`${run.day}-${run.time}`} className="flex flex-row items-center justify-between rounded-[16px] p-4 lg:px-5 lg:py-[18px]">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-icon-tile lg:h-[38px] lg:w-[38px]">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -254,37 +255,27 @@ export function DashboardScreen({ locale }: { locale: string }) {
         ))}
       </div>
 
-      <div className="mb-2.5 mt-5 text-[13px] font-semibold uppercase text-muted lg:mt-7">
-        {t("upcomingRuns")}
-      </div>
-      {calendarConnected ? (
-        <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-3">
-          {upcomingRuns.map((run) => (
-            <Card
-              key={run.id}
-              className="flex flex-row items-center justify-between rounded-[16px] p-4 lg:px-5 lg:py-[18px]"
-            >
-              <div>
-                <div className="text-sm font-semibold text-primary">{run.summary}</div>
-                <div className="text-xs text-muted-light">
-                  {run.day}, {run.time}
+      {calendarConnected && (
+        <>
+          <div className="mb-2.5 mt-5 text-[13px] font-semibold uppercase text-muted lg:mt-7">{t("upcomingRuns")}</div>
+          <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-3">
+            {upcomingRuns.map((run) => (
+              <Card key={run.id} className="flex flex-row items-center justify-between rounded-[16px] p-4 lg:px-5 lg:py-[18px]">
+                <div>
+                  <div className="text-sm font-semibold text-primary">{run.summary}</div>
+                  <div className="text-xs text-muted-light">
+                    {run.day}, {run.time}
+                  </div>
                 </div>
-              </div>
-              {run.forecast && (
-                <div className="text-right text-xs text-muted-light">
-                  {run.forecast.temp}°C, {run.forecast.condition}
-                </div>
-              )}
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card className="rounded-[16px] p-4 text-sm text-muted lg:px-5 lg:py-[18px]">
-          {t("connectCalendarPrompt")}{" "}
-          <a href={CALENDAR_CONNECT_URL} className={cn(buttonVariants({ variant: "outline" }), "ml-2 rounded-full")}>
-            {tConnectors("connect")}
-          </a>
-        </Card>
+                {run.forecast && (
+                  <div className="rounded-full bg-badge-blue px-2.5 py-1 text-xs font-medium text-primary">
+                    {run.forecast.temp}° {run.forecast.condition}
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

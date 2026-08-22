@@ -122,15 +122,6 @@ describe("ProfileScreen location", () => {
   function mockFetch() {
     return vi.spyOn(global, "fetch").mockImplementation((url, options) => {
       const urlString = String(url);
-      if (urlString.includes("geocoding-api")) {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              results: [{ name: "Hyderabad", latitude: 17.385, longitude: 78.4867, country: "India" }],
-            })
-          )
-        );
-      }
       if (urlString.endsWith("/preferences") && options?.method === "PUT") {
         const body = JSON.parse(options.body as string);
         return Promise.resolve(
@@ -187,7 +178,7 @@ describe("ProfileScreen location", () => {
     );
   });
 
-  it("falls back to city search on geolocation failure without throwing", async () => {
+  it("shows an error message on geolocation failure without throwing", async () => {
     mockFetch();
     const getCurrentPosition = vi.fn((_success: PositionCallback, error?: PositionErrorCallback) =>
       error?.({ code: 1, message: "denied" } as GeolocationPositionError)
@@ -203,27 +194,5 @@ describe("ProfileScreen location", () => {
     (await screen.findByText(en.profile.useMyLocation)).click();
 
     await waitFor(() => expect(screen.getByText(en.profile.locationDenied)).toBeInTheDocument());
-    expect(screen.getByPlaceholderText(en.profile.citySearchPlaceholder)).toBeEnabled();
-  });
-
-  it("searches cities and saves the selected result's coordinates", async () => {
-    mockFetch();
-    renderWithProviders(<ProfileScreen locale="en" />);
-
-    const input = await screen.findByPlaceholderText(en.profile.citySearchPlaceholder);
-    await userEvent.type(input, "Hyd");
-
-    const result = await screen.findByText(/Hyderabad/);
-    result.click();
-
-    await waitFor(() =>
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/preferences"),
-        expect.objectContaining({
-          method: "PUT",
-          body: JSON.stringify({ location_lat: 17.385, location_lon: 78.4867 }),
-        })
-      )
-    );
   });
 });

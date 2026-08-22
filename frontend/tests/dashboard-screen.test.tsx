@@ -118,12 +118,12 @@ describe("DashboardScreen user display", () => {
 });
 
 describe("DashboardScreen calendar + weather", () => {
-  it("shows a connect prompt when calendar is not connected", async () => {
+  it("hides upcoming runs section when calendar is not connected", async () => {
     mockFetchResponses({ calendar_connected: false });
     renderWithProviders(<DashboardScreen locale="en" />);
 
-    await waitFor(() => expect(screen.getByText(en.dashboard.connectCalendarPrompt)).toBeInTheDocument());
-    expect(screen.queryByText(en.dashboard.planARun)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(en.dashboard.planARun)).not.toBeInTheDocument());
+    expect(screen.queryByText(en.dashboard.upcomingRuns)).not.toBeInTheDocument();
   });
 
   it("renders upcoming runs and weather when calendar is connected", async () => {
@@ -144,14 +144,27 @@ describe("DashboardScreen calendar + weather", () => {
         wind: 9,
         condition: "partly cloudy",
         aqi: 42,
-        hourly: { time: [], temperature_2m: [] },
+        hourly: [
+          { time: "2026-08-22T18:00", temp: 28 },
+          { time: "2026-08-22T19:00", temp: 27 },
+        ],
       },
     });
     renderWithProviders(<DashboardScreen locale="en" />);
 
     await waitFor(() => expect(screen.getByText("Easy 5K")).toBeInTheDocument());
     expect(screen.getByText(en.dashboard.planARun)).toBeInTheDocument();
-    expect(screen.getByText(/27°C, partly cloudy/)).toBeInTheDocument();
+    expect(screen.getAllByText("27°").length).toBeGreaterThan(0);
+    expect(screen.getByText(/partly cloudy · Feels like 30°C/)).toBeInTheDocument();
+
+    expect(screen.getByText(en.dashboard.humidity)).toBeInTheDocument();
+    expect(screen.getByText("74%")).toBeInTheDocument();
+    expect(screen.getByText(en.dashboard.wind)).toBeInTheDocument();
+    expect(screen.getByText("9 km/h")).toBeInTheDocument();
+    expect(screen.getByText(en.dashboard.aqi)).toBeInTheDocument();
+    expect(screen.getByText("42")).toBeInTheDocument();
+
+    expect(screen.getByText("22° clear")).toBeInTheDocument();
   });
 
   it("plans a run through the modal", async () => {

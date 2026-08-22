@@ -38,7 +38,7 @@ class StridesTokenVerifier(TokenVerifier):
 
 mcp = FastMCP(
     "strides-calendar",
-    host="[IP_ADDRESS]",
+    host="127.0.0.1",
     port=int(os.environ.get("PORT", 8002)),
     token_verifier=StridesTokenVerifier(),
     auth=AuthSettings(
@@ -76,7 +76,9 @@ def create_run_event(
     access_token = get_valid_access_token(user_id, provider="calendar")
     calendar_id = ensure_calendar(access_token, user_id)
 
-    return create_event(access_token, calendar_id, title, start_time, duration_minutes, notes)
+    return create_event(
+        access_token, calendar_id, title, start_time, duration_minutes, notes
+    )
 
 
 @mcp.tool()

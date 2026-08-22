@@ -71,7 +71,7 @@ def get_recent_runs(days: int = 7) -> list[dict[str, Any]]:
         params={"filter": f'exercise.interval.civil_start_time>="{timestamp}"'},
     )
 
-    logging.info(f"Response: {response}")
+    # logging.info(f"Response: {response}")
     if "error" in response:
         return response
     return parse_run(response)

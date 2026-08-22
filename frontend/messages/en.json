@@ -12,7 +12,13 @@
     "upcomingRuns": "Upcoming runs",
     "planARun": "+ Plan a run",
     "weather": "Weather",
-    "connectCalendarPrompt": "Connect Google Calendar to plan and see upcoming runs.",
+    "feelsLike": "Feels like {temp}°C",
+    "humidity": "Humidity",
+    "wind": "Wind",
+    "aqi": "AQI",
+    "insightPoorAir": "Air quality is poor — consider an indoor session.",
+    "insightHumid": "Humidity is high — start easy and carry water.",
+    "insightGood": "Conditions look good for a run.",
     "planRunTitle": "Plan a run",
     "planRunName": "Title",
     "planRunDate": "Date",
@@ -70,7 +76,6 @@
     "locationSet": "Location set",
     "editLocation": "Edit",
     "useMyLocation": "Use my location",
-    "locationDenied": "Couldn't get your location — search for a city instead.",
-    "citySearchPlaceholder": "Search for a city..."
+    "locationDenied": "Couldn't get your location. Check your browser's location permission and try again."
   }
 }

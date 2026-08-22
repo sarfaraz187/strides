@@ -12,7 +12,13 @@
     "upcomingRuns": "Geplante Läufe",
     "planARun": "+ Lauf planen",
     "weather": "Wetter",
-    "connectCalendarPrompt": "Verbinde Google Calendar, um Läufe zu planen und anzuzeigen.",
+    "feelsLike": "Gefühlt {temp}°C",
+    "humidity": "Luftfeuchtigkeit",
+    "wind": "Wind",
+    "aqi": "AQI",
+    "insightPoorAir": "Die Luftqualität ist schlecht — erwäge eine Einheit drinnen.",
+    "insightHumid": "Hohe Luftfeuchtigkeit — starte locker und nimm Wasser mit.",
+    "insightGood": "Gute Bedingungen für einen Lauf.",
     "planRunTitle": "Lauf planen",
     "planRunName": "Titel",
     "planRunDate": "Datum",
@@ -70,7 +76,6 @@
     "locationSet": "Standort festgelegt",
     "editLocation": "Bearbeiten",
     "useMyLocation": "Meinen Standort verwenden",
-    "locationDenied": "Standort konnte nicht ermittelt werden — suche stattdessen nach einer Stadt.",
-    "citySearchPlaceholder": "Nach einer Stadt suchen..."
+    "locationDenied": "Standort konnte nicht ermittelt werden. Bitte überprüfe die Standortberechtigung deines Browsers und versuche es erneut."
   }
 }

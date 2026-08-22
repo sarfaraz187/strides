@@ -23,6 +23,10 @@
   --color-danger: #B23A3A;
   --color-danger-bg: #FCEBEB;
   --color-danger-border: #E3B3B3;
+  --color-badge-pink: #F6D0EF;
+  --color-badge-periwinkle: #C1C8FF;
+  --color-badge-blue: #C3E4EE;
+  --color-badge-tan: #D8D1AF;
 }
 
 .scrollbar-none {

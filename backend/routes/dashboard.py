@@ -1,8 +1,10 @@
+import logging
+
 from fastapi import APIRouter, Depends
 
 from backend.dependencies import require_user
 from backend.services import weather_service
-from backend.services.mcp_client import CALENDAR_SERVER_URL, open_mcp_session
+from backend.services.mcp_client import open_mcp_session
 from data.db import get_oauth_token, get_preferences
 
 router = APIRouter()
@@ -39,10 +41,10 @@ async def dashboard(user_id: str = Depends(require_user)):
 
     if calendar_connected:
         try:
-            async with open_mcp_session(
-                user_id, server_url=CALENDAR_SERVER_URL
-            ) as session:
-                result = await session.call_tool("list_upcoming_runs", {"days_ahead": 7})
+            async with open_mcp_session(user_id) as session:
+                result = await session.call_tool(
+                    "list_upcoming_runs", {"days_ahead": 7}
+                )
             events = result.structuredContent or []
 
             for event in events:
@@ -58,6 +60,9 @@ async def dashboard(user_id: str = Depends(require_user)):
         except Exception:
             calendar_connected = False
 
+    print(
+        f"prefs.location_lat: {prefs.location_lat}, prefs.location_lon: {prefs.location_lon}"
+    )
     if prefs.location_lat is not None and prefs.location_lon is not None:
         try:
             conditions = await weather_service.get_current_conditions(
@@ -66,6 +71,9 @@ async def dashboard(user_id: str = Depends(require_user)):
             air_quality = await weather_service.get_air_quality(
                 prefs.location_lat, prefs.location_lon
             )
+
+            logging.info(f"Current conditions: {conditions}")
+            logging.info(f"Air quality: {air_quality}")
             current_weather = {**conditions, **air_quality}
         except Exception:
             current_weather = None

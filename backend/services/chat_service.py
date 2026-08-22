@@ -4,11 +4,7 @@ from langfuse import get_client, propagate_attributes
 
 import data.db as db
 from backend.services import weather_service
-from backend.services.mcp_client import (
-    CALENDAR_SERVER_URL,
-    get_tool_schemas,
-    open_mcp_session,
-)
+from backend.services.mcp_client import get_tool_schemas, open_mcp_session
 
 logger = logging.getLogger(__name__)
 langfuse_client = get_client()
@@ -116,7 +112,7 @@ async def process_query(user_id: str, messages: list[dict]):
 
         async with (
             open_mcp_session(user_id) as health_session,
-            open_mcp_session(user_id, server_url=CALENDAR_SERVER_URL) as calendar_session,
+            open_mcp_session(user_id) as calendar_session,
         ):
             health_tools = await get_tool_schemas(health_session)
             calendar_tools = await get_tool_schemas(calendar_session)
@@ -189,7 +185,9 @@ async def process_query(user_id: str, messages: list[dict]):
                     db.save_message(user_id, "user", tool_results)
 
 
-async def call_tools(user_id, session, content_blocks, sessions_by_tool: dict | None = None):
+async def call_tools(
+    user_id, session, content_blocks, sessions_by_tool: dict | None = None
+):
     """Execute every tool_use block and return their results as tool_result blocks."""
     sessions_by_tool = sessions_by_tool or {}
     tool_results = []

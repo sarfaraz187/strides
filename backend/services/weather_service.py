@@ -69,13 +69,23 @@ async def get_current_conditions(lat: float, lon: float) -> dict:
         data = response.json()
 
     current = data["current"]
+    hourly = data["hourly"]
+    start_index = hourly["time"].index(current["time"])
+    next_hours = [
+        {"time": time, "temp": temp}
+        for time, temp in zip(
+            hourly["time"][start_index : start_index + 6],
+            hourly["temperature_2m"][start_index : start_index + 6],
+        )
+    ]
+
     return {
         "temp": current["temperature_2m"],
         "feels_like": current["apparent_temperature"],
         "humidity": current["relative_humidity_2m"],
         "wind": current["wind_speed_10m"],
         "condition": _condition_from_code(current["weathercode"]),
-        "hourly": data["hourly"],
+        "hourly": next_hours,
     }
 
 
