@@ -33,6 +33,15 @@ function formatRun(run: RecentRun, locale: string) {
   };
 }
 
+function upcomingRunTint(summary: string): string {
+  const lower = summary.toLowerCase();
+  if (lower.includes("race")) return "bg-badge-pink";
+  if (lower.includes("interval") || lower.includes("speed") || lower.includes("tempo")) return "bg-badge-periwinkle";
+  if (lower.includes("recovery") || lower.includes("easy")) return "bg-badge-tan";
+  if (lower.includes("long")) return "bg-badge-blue";
+  return "bg-card";
+}
+
 function formatUpcomingRun(run: UpcomingRun, locale: string) {
   const date = new Date(run.start.dateTime);
   return {
@@ -41,6 +50,7 @@ function formatUpcomingRun(run: UpcomingRun, locale: string) {
     day: date.toLocaleDateString(locale, { weekday: "long", month: "short", day: "numeric" }),
     time: date.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
     forecast: run.forecast,
+    tint: upcomingRunTint(run.summary),
   };
 }
 
@@ -240,49 +250,53 @@ export function DashboardScreen({ locale }: { locale: string }) {
         )}
       </div>
 
-      <div className="mb-2.5 mt-5 text-[13px] font-semibold uppercase text-muted">{t("recentRuns")}</div>
-      <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-3">
-        {recentRuns.map((run) => (
-          <Card key={`${run.day}-${run.time}`} className="flex flex-row items-center justify-between rounded-[16px] p-4 lg:px-5 lg:py-[18px]">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-icon-tile lg:h-[38px] lg:w-[38px]">
-                <Zap size={16} fill="#5C7A5E" stroke="none" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-primary">{run.day}</div>
-                <div className="text-xs text-muted-light">{run.time}</div>
-              </div>
-            </div>
-            <div className="text-right font-mono">
-              <div className="text-sm font-semibold text-primary">{run.distance}</div>
-              <div className="text-xs text-muted-light">{run.pace}</div>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      {calendarConnected && (
-        <>
-          <div className="mb-2.5 mt-5 text-[13px] font-semibold uppercase text-muted lg:mt-7">{t("upcomingRuns")}</div>
-          <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-3">
-            {upcomingRuns.map((run) => (
-              <Card key={run.id} className="flex flex-row items-center justify-between rounded-[16px] p-4 lg:px-5 lg:py-[18px]">
-                <div>
-                  <div className="text-sm font-semibold text-primary">{run.summary}</div>
-                  <div className="text-xs text-muted-light">
-                    {run.day}, {run.time}
+      <div className="mt-5 grid grid-cols-1 gap-x-7 gap-y-5 lg:mt-7 lg:grid-cols-2">
+        <div>
+          <div className="mb-2.5 text-[13px] font-semibold uppercase text-muted">{t("recentRuns")}</div>
+          <div className="flex flex-col gap-2.5">
+            {recentRuns.map((run) => (
+              <Card key={`${run.day}-${run.time}`} className="flex flex-row items-center justify-between rounded-[16px] p-4 lg:px-5 lg:py-[18px]">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-icon-tile lg:h-[38px] lg:w-[38px]">
+                    <Zap size={16} fill="#5C7A5E" stroke="none" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-primary">{run.day}</div>
+                    <div className="text-xs text-muted-light">{run.time}</div>
                   </div>
                 </div>
-                {run.forecast && (
-                  <div className="rounded-full bg-badge-blue px-2.5 py-1 text-xs font-medium text-primary">
-                    {run.forecast.temp}° {run.forecast.condition}
-                  </div>
-                )}
+                <div className="text-right font-mono">
+                  <div className="text-sm font-semibold text-primary">{run.distance}</div>
+                  <div className="text-xs text-muted-light">{run.pace}</div>
+                </div>
               </Card>
             ))}
           </div>
-        </>
-      )}
+        </div>
+
+        {calendarConnected && (
+          <div>
+            <div className="mb-2.5 text-[13px] font-semibold uppercase text-muted">{t("upcomingRuns")}</div>
+            <div className="flex flex-col gap-2.5">
+              {upcomingRuns.map((run) => (
+                <Card key={run.id} className={`flex flex-row items-center justify-between rounded-[16px] p-4 lg:px-5 lg:py-[18px] ${run.tint}`}>
+                  <div>
+                    <div className="text-sm font-semibold text-primary">{run.summary}</div>
+                    <div className="text-xs text-muted-light">
+                      {run.day}, {run.time}
+                    </div>
+                  </div>
+                  {run.forecast && (
+                    <div className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                      {run.forecast.temp}° {run.forecast.condition}
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

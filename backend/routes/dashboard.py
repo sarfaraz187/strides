@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends
 
 from backend.dependencies import require_user
 from backend.services import weather_service
-from backend.services.mcp_client import open_mcp_session
+from backend.services.mcp_client import (
+    CALENDAR_SERVER_URL,
+    HEALTH_SERVER_URL,
+    open_mcp_session,
+)
 from data.db import get_oauth_token, get_preferences
 
 router = APIRouter()
@@ -17,7 +21,9 @@ async def dashboard(user_id: str = Depends(require_user)):
 
     if health_connected:
         try:
-            async with open_mcp_session(user_id) as session:
+            async with open_mcp_session(
+                user_id, server_url=HEALTH_SERVER_URL
+            ) as session:
                 weekly_result = await session.call_tool("get_weekly_stats", {})
                 recent_result = await session.call_tool("get_recent_runs", {"days": 7})
 
@@ -45,7 +51,9 @@ async def dashboard(user_id: str = Depends(require_user)):
 
     if calendar_connected:
         try:
-            async with open_mcp_session(user_id) as session:
+            async with open_mcp_session(
+                user_id, server_url=CALENDAR_SERVER_URL
+            ) as session:
                 result = await session.call_tool(
                     "list_upcoming_runs", {"days_ahead": 7}
                 )

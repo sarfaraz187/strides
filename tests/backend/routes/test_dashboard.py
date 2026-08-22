@@ -58,7 +58,7 @@ def _mock_session(weekly_stats: dict, recent_runs: list[dict]):
     session.call_tool.side_effect = call_tool
 
     @asynccontextmanager
-    async def open_mcp_session(user_id):
+    async def open_mcp_session(user_id, server_url):
         yield session
 
     return open_mcp_session
@@ -78,7 +78,7 @@ def _mock_session_with_error(error_dict: dict):
     session.call_tool.side_effect = call_tool
 
     @asynccontextmanager
-    async def open_mcp_session(user_id):
+    async def open_mcp_session(user_id, server_url):
         yield session
 
     return open_mcp_session

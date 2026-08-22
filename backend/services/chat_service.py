@@ -4,7 +4,12 @@ from langfuse import get_client, propagate_attributes
 
 import data.db as db
 from backend.services import weather_service
-from backend.services.mcp_client import get_tool_schemas, open_mcp_session
+from backend.services.mcp_client import (
+    CALENDAR_SERVER_URL,
+    HEALTH_SERVER_URL,
+    get_tool_schemas,
+    open_mcp_session,
+)
 
 logger = logging.getLogger(__name__)
 langfuse_client = get_client()
@@ -111,8 +116,8 @@ async def process_query(user_id: str, messages: list[dict]):
         system_prompt = _build_system_prompt(SYSTEM_PROMPT, user_id)
 
         async with (
-            open_mcp_session(user_id) as health_session,
-            open_mcp_session(user_id) as calendar_session,
+            open_mcp_session(user_id, server_url=HEALTH_SERVER_URL) as health_session,
+            open_mcp_session(user_id, server_url=CALENDAR_SERVER_URL) as calendar_session,
         ):
             health_tools = await get_tool_schemas(health_session)
             calendar_tools = await get_tool_schemas(calendar_session)

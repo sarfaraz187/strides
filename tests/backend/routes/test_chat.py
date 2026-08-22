@@ -41,7 +41,7 @@ def client(monkeypatch):
     monkeypatch.setattr(chat_route, "maybe_fold", fake_maybe_fold)
 
     @asynccontextmanager
-    async def fake_open_mcp_session(user_id):
+    async def fake_open_mcp_session(user_id, server_url):
         yield None
 
     monkeypatch.setattr(chat_route, "open_mcp_session", fake_open_mcp_session)

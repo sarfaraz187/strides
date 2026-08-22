@@ -8,14 +8,14 @@ from mcp.client.streamable_http import streamable_http_client
 
 from backend.jwt_issuer import mint_token
 
-SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://127.0.0.1:8001/mcp")
+HEALTH_SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://127.0.0.1:8001/mcp")
 CALENDAR_SERVER_URL = os.environ.get(
     "CALENDAR_MCP_SERVER_URL", "http://127.0.0.1:8002/mcp"
 )
 
 
 @asynccontextmanager
-async def open_mcp_session(user_id: str, server_url: str = SERVER_URL):
+async def open_mcp_session(user_id: str, server_url: str):
     """Open a fresh, per-caller MCP session authenticated as user_id.
 
     Short-lived by design, matching the 5-minute JWT it mints — a cached,

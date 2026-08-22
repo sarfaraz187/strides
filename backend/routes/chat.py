@@ -11,7 +11,11 @@ from backend.services.chat_service import (
     _build_system_prompt,
     process_query,
 )
-from backend.services.mcp_client import get_tool_schemas, open_mcp_session
+from backend.services.mcp_client import (
+    HEALTH_SERVER_URL,
+    get_tool_schemas,
+    open_mcp_session,
+)
 from backend.services.summarization_service import maybe_fold
 
 router = APIRouter()
@@ -33,7 +37,7 @@ async def chat(request: ChatRequest, user_id: str = Depends(require_user)):
 
     system_prompt = _build_system_prompt(SYSTEM_PROMPT, user_id)
 
-    async with open_mcp_session(user_id) as session:
+    async with open_mcp_session(user_id, server_url=HEALTH_SERVER_URL) as session:
         tools = await get_tool_schemas(session) + LOCAL_TOOL_SCHEMAS
 
     rows = await maybe_fold(user_id, system_prompt, rows, tools)
