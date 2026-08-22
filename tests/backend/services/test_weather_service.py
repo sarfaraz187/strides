@@ -9,7 +9,7 @@ def test_get_current_conditions_returns_next_six_hourly_entries():
     mock_response.raise_for_status = lambda: None
     mock_response.json = lambda: {
         "current": {
-            "time": "2026-08-22T14:00",
+            "time": "2026-08-22T13:45",
             "temperature_2m": 27.0,
             "apparent_temperature": 30.0,
             "relative_humidity_2m": 74,

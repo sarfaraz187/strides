@@ -1,3 +1,5 @@
+import logging
+
 import httpx
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
@@ -70,7 +72,10 @@ async def get_current_conditions(lat: float, lon: float) -> dict:
 
     current = data["current"]
     hourly = data["hourly"]
-    start_index = hourly["time"].index(current["time"])
+    start_index = next(
+        (i for i, time in enumerate(hourly["time"]) if time >= current["time"]),
+        0,
+    )
     next_hours = [
         {"time": time, "temp": temp}
         for time, temp in zip(
@@ -79,6 +84,7 @@ async def get_current_conditions(lat: float, lon: float) -> dict:
         )
     ]
 
+    logging.info(f"Current weather data: {current}")
     return {
         "temp": current["temperature_2m"],
         "feels_like": current["apparent_temperature"],

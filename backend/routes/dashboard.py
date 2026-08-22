@@ -39,6 +39,10 @@ async def dashboard(user_id: str = Depends(require_user)):
     current_weather = None
     prefs = get_preferences(user_id)
 
+    logging.info("----------------------------")
+    logging.info(f"User preferences: {prefs}")
+    logging.info("----------------------------")
+
     if calendar_connected:
         try:
             async with open_mcp_session(user_id) as session:
@@ -60,11 +64,11 @@ async def dashboard(user_id: str = Depends(require_user)):
         except Exception:
             calendar_connected = False
 
-    print(
-        f"prefs.location_lat: {prefs.location_lat}, prefs.location_lon: {prefs.location_lon}"
-    )
     if prefs.location_lat is not None and prefs.location_lon is not None:
         try:
+            logging.info(
+                f"Fetching current conditions for lat: {prefs.location_lat}, lon: {prefs.location_lon}"
+            )
             conditions = await weather_service.get_current_conditions(
                 prefs.location_lat, prefs.location_lon
             )
@@ -78,6 +82,18 @@ async def dashboard(user_id: str = Depends(require_user)):
         except Exception:
             current_weather = None
 
+    logging.info("----------------------------")
+    print(
+        {
+            "weekly_stats": weekly_stats,
+            "recent_runs": recent_runs,
+            "health_connected": health_connected,
+            "health_error": health_error,
+            "calendar_connected": calendar_connected,
+            "upcoming_runs": upcoming_runs,
+            "current_weather": current_weather,
+        }
+    )
     return {
         "weekly_stats": weekly_stats,
         "recent_runs": recent_runs,

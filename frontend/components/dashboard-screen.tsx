@@ -218,7 +218,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
             <div className="rounded-[12px] bg-icon-tile p-3 text-xs text-primary">{t(insightKey(currentWeather.humidity, currentWeather.aqi))}</div>
 
             {currentWeather.hourly.length > 0 && (
-              <div className="flex justify-between">
+              <div className="flex justify-between px-2">
                 {console.log("Current Weather Hourly Data:", currentWeather.hourly)}
                 {currentWeather.hourly.map((entry) => (
                   <div key={entry.time} className="flex flex-col items-center gap-1 text-xs">
