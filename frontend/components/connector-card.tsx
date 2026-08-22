@@ -34,7 +34,7 @@ export function ConnectorCard({ name, iconSrc, isConnected, connectUrl, onDiscon
         <div className="min-w-0">
           <div className="text-base font-semibold text-primary lg:text-lg">{name}</div>
           <div
-            className="text-sm lg:text-sm"
+            className="text-sm"
             style={{
               color: isConnected ? "var(--color-status-connected)" : "var(--color-status-disconnected)",
             }}
@@ -42,7 +42,7 @@ export function ConnectorCard({ name, iconSrc, isConnected, connectUrl, onDiscon
             {isConnected ? t("connected") : t("notConnected")}
           </div>
           {isConnected && errorDetail && (
-            <div className="mt-1 text-xs lg:text-[13px]">
+            <div className="mt-1 text-xs lg:text-sm">
               {errorDetail.message}
               {errorDetail.actionHref && (
                 <>

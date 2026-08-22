@@ -46,7 +46,7 @@ function PreferenceRow({ label, subtitle, children }: { label: string; subtitle:
   return (
     <div className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
       <div>
-        <div className="text-sm font-semibold text-primary lg:text-[15px]">{label}</div>
+        <div className="text-sm font-semibold text-primary lg:text-base">{label}</div>
         <div className="text-xs text-muted-light">{subtitle}</div>
       </div>
       {children}
@@ -143,7 +143,7 @@ export function ProfileScreen({ locale }: { locale: string }) {
 
   if (isLoading || !preferences) {
     return (
-      <div className="flex-1 overflow-y-auto px-[22px] py-5 lg:mx-auto lg:w-full lg:max-w-[960px] lg:px-0 lg:pt-6 lg:pb-9">
+      <div className="flex-1 overflow-y-auto px-6 py-5 lg:mx-auto lg:w-full lg:max-w-[960px] lg:px-0 lg:pt-6 lg:pb-9">
         <div className="text-sm text-muted">{t("weeklyGoal")}</div>
       </div>
     );
@@ -181,14 +181,14 @@ export function ProfileScreen({ locale }: { locale: string }) {
   return (
     <div className="flex-1 overflow-y-auto px-4 lg:mx-auto lg:w-full lg:max-w-[960px] lg:px-0 lg:pb-9">
       <div className="mb-3">
-        <div className="text-[13px] font-semibold uppercase text-muted">{t("eyebrow")}</div>
-        <div className="text-2xl font-bold tracking-[-0.3px] text-primary lg:text-[30px]">{t("title")}</div>
+        <div className="text-sm font-semibold uppercase text-muted">{t("eyebrow")}</div>
+        <div className="text-2xl font-bold tracking-[-0.3px] text-primary lg:text-3xl">{t("title")}</div>
       </div>
 
-      {uploadError && <div className="mb-4 rounded-xl bg-danger/10 p-3 text-[13px] text-danger">{uploadError}</div>}
-      {error && <div className="mb-4 rounded-xl bg-danger/10 p-3 text-[13px] text-danger">{t("saveFailed")}</div>}
+      {uploadError && <div className="mb-4 rounded-xl bg-danger/10 p-3 text-sm text-danger">{uploadError}</div>}
+      {error && <div className="mb-4 rounded-xl bg-danger/10 p-3 text-sm text-danger">{t("saveFailed")}</div>}
 
-      <div className="mb-3 flex flex-col gap-4 rounded-xl bg-primary p-[22px] lg:mb-4 lg:gap-[18px] lg:p-7">
+      <div className="mb-3 flex flex-col gap-4 rounded-xl bg-primary p-6 lg:mb-4 lg:gap-5 lg:p-7">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3.5 lg:gap-4">
             <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadAvatar.isPending} className="group relative flex-none rounded-full disabled:cursor-not-allowed">
@@ -199,13 +199,13 @@ export function ProfileScreen({ locale }: { locale: string }) {
             </button>
             <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" aria-label={t("changeAvatar")} className="hidden" onChange={onAvatarFileChosen} />
             <div>
-              <div className="text-lg font-bold text-primary-foreground lg:text-[22px]">{displayName}</div>
-              <div className="text-[13px] text-goal-label lg:text-sm">{user?.email ?? ""}</div>
+              <div className="text-lg font-bold text-primary-foreground lg:text-2xl">{displayName}</div>
+              <div className="text-sm text-goal-label lg:text-sm">{user?.email ?? ""}</div>
             </div>
           </div>
           <button
             onClick={() => setIsEditingProfile((editing) => !editing)}
-            className="h-[30px] flex-none cursor-pointer rounded-full border border-primary-foreground/25 bg-primary-foreground/10 px-3.5 text-xs font-semibold text-primary-foreground lg:h-[34px] lg:px-4 lg:text-[13px]"
+            className="h-8 flex-none cursor-pointer rounded-full border border-primary-foreground/25 bg-primary-foreground/10 px-3.5 text-xs font-semibold text-primary-foreground lg:h-9 lg:px-4 lg:text-sm"
           >
             {isEditingProfile ? t("doneEditing") : t("editProfile")}
           </button>
@@ -215,24 +215,24 @@ export function ProfileScreen({ locale }: { locale: string }) {
 
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1.5">
-            <div className="text-[11px] font-medium uppercase text-stat-label">{t("location")}</div>
+            <div className="text-xs font-medium uppercase text-stat-label">{t("location")}</div>
             {showLocationEditor ? (
               <LocationEditor onUseMyLocation={useMyLocation} geoError={geoError} />
             ) : (
-              <div className="text-sm font-semibold text-primary-foreground lg:text-[15px]">{locationName ?? t("locationSet")}</div>
+              <div className="text-sm font-semibold text-primary-foreground lg:text-base">{locationName ?? t("locationSet")}</div>
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <div className="text-[11px] font-medium uppercase text-stat-label">{t("memberSince")}</div>
-            <div className="text-sm font-semibold text-primary-foreground lg:text-[15px]">{memberSince}</div>
+            <div className="text-xs font-medium uppercase text-stat-label">{t("memberSince")}</div>
+            <div className="text-sm font-semibold text-primary-foreground lg:text-base">{memberSince}</div>
           </div>
         </div>
       </div>
 
-      <Card className="mb-3 gap-3.5 rounded-xl px-4 py-3.5 lg:mb-4 lg:px-[22px] lg:py-[18px]">
+      <Card className="mb-3 gap-3.5 rounded-xl px-4 py-3.5 lg:mb-4 lg:px-6 lg:py-5">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm font-semibold text-primary lg:text-[15px]">{t("weeklyGoal")}</div>
+            <div className="text-sm font-semibold text-primary lg:text-base">{t("weeklyGoal")}</div>
             <div className="text-xs text-muted-light">
               {t("weeklyGoalSubtitle")} · {t("goalPercentComplete", { percent: goalPct })}
             </div>
@@ -241,18 +241,18 @@ export function ProfileScreen({ locale }: { locale: string }) {
             <button
               onClick={() => adjustGoal(-GOAL_STEP_KM)}
               aria-label={t("decreaseGoal")}
-              className="h-7 w-7 cursor-pointer rounded-full bg-card text-[15px] font-semibold text-primary shadow-sm lg:h-8 lg:w-8 lg:text-base"
+              className="h-7 w-7 cursor-pointer rounded-full bg-card text-base font-semibold text-primary shadow-sm lg:h-8 lg:w-8"
             >
               –
             </button>
-            <div className="flex min-w-[52px] items-baseline justify-center gap-1 text-sm font-semibold text-primary lg:min-w-[60px] lg:text-[15px]">
+            <div className="flex min-w-13 items-baseline justify-center gap-1 text-sm font-semibold text-primary lg:min-w-15 lg:text-base">
               <span className="font-mono">{weeklyGoalValue}</span>
               <span>{weeklyGoalUnit}</span>
             </div>
             <button
               onClick={() => adjustGoal(GOAL_STEP_KM)}
               aria-label={t("increaseGoal")}
-              className="h-7 w-7 cursor-pointer rounded-full bg-primary text-[15px] font-semibold text-primary-foreground lg:h-8 lg:w-8 lg:text-base"
+              className="h-7 w-7 cursor-pointer rounded-full bg-primary text-base font-semibold text-primary-foreground lg:h-8 lg:w-8"
             >
               +
             </button>
@@ -265,14 +265,14 @@ export function ProfileScreen({ locale }: { locale: string }) {
         </div>
       </Card>
 
-      <Card className="mb-3 gap-0 rounded-xl p-4 lg:mb-4 lg:px-[22px]">
-        <div className="text-[13px] font-semibold uppercase text-muted">{t("preferences")}</div>
+      <Card className="mb-3 gap-0 rounded-xl p-4 lg:mb-4 lg:px-6">
+        <div className="text-sm font-semibold uppercase text-muted">{t("preferences")}</div>
         <div className="divide-y divide-border">
           <PreferenceRow label={t("units")} subtitle={t("unitsSubtitle")}>
             <div className="flex rounded-full border border-border bg-surface p-0.5">
               <button
                 onClick={() => updateNow({ units: "km" })}
-                className={`h-7 cursor-pointer rounded-full px-3 text-xs font-semibold lg:h-[30px] lg:px-3.5 lg:text-[13px] ${
+                className={`h-7 cursor-pointer rounded-full px-3 text-xs font-semibold lg:h-8 lg:px-3.5 lg:text-sm ${
                   preferences.units === "km" ? "bg-card text-primary shadow-sm" : "text-muted-light"
                 }`}
               >
@@ -280,7 +280,7 @@ export function ProfileScreen({ locale }: { locale: string }) {
               </button>
               <button
                 onClick={() => updateNow({ units: "mi" })}
-                className={`h-7 cursor-pointer rounded-full px-3 text-xs font-semibold lg:h-[30px] lg:px-3.5 lg:text-[13px] ${
+                className={`h-7 cursor-pointer rounded-full px-3 text-xs font-semibold lg:h-8 lg:px-3.5 lg:text-sm ${
                   preferences.units === "mi" ? "bg-card text-primary shadow-sm" : "text-muted-light"
                 }`}
               >
@@ -291,7 +291,7 @@ export function ProfileScreen({ locale }: { locale: string }) {
 
           <PreferenceRow label={t("language")} subtitle={t("languageSubtitle")}>
             <Select items={{ en: t("english"), de: t("german") }} value={preferences.language} onValueChange={onLanguageChange}>
-              <SelectTrigger className="h-[30px] w-auto rounded-full border border-border bg-surface px-3.5 text-xs font-semibold text-primary lg:h-[34px] lg:px-4 lg:text-[13px]">
+              <SelectTrigger className="h-8 w-auto rounded-full border border-border bg-surface px-3.5 text-xs font-semibold text-primary lg:h-9 lg:px-4 lg:text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -306,31 +306,32 @@ export function ProfileScreen({ locale }: { locale: string }) {
               onClick={() => updateNow({ notifications_enabled: !preferences.notifications_enabled })}
               aria-pressed={preferences.notifications_enabled}
               aria-label={t("notifications")}
-              className="relative h-[27px] w-[46px] flex-none cursor-pointer rounded-full"
+              className="relative h-6 w-11 flex-none cursor-pointer rounded-full"
               style={{
                 background: preferences.notifications_enabled ? "var(--color-accent)" : "var(--color-border)",
               }}
             >
               <span
-                className="absolute top-[3px] h-[21px] w-[21px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-[left]"
-                style={{ left: preferences.notifications_enabled ? "22px" : "3px" }}
+                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform ${
+                  preferences.notifications_enabled ? "translate-x-5" : "translate-x-0"
+                }`}
               />
             </button>
           </PreferenceRow>
         </div>
       </Card>
 
-      <Card className="gap-0 rounded-xl px-4 py-1 lg:px-[22px]">
-        <div className="pt-3 text-[13px] font-semibold uppercase text-muted">{t("account")}</div>
+      <Card className="gap-0 rounded-xl px-4 py-1 lg:px-6">
+        <div className="pt-3 text-sm font-semibold uppercase text-muted">{t("account")}</div>
         <div className="flex items-center justify-between gap-3 py-3.5">
           <div>
-            <div className="text-sm font-semibold text-primary lg:text-[15px]">{t("signOut")}</div>
+            <div className="text-sm font-semibold text-primary lg:text-base">{t("signOut")}</div>
             <div className="text-xs text-muted-light">{t("signOutSubtitle")}</div>
           </div>
           <button
             onClick={() => logOut.mutate()}
             disabled={logOut.isPending}
-            className="h-[34px] cursor-pointer rounded-full border border-danger-border bg-danger-bg px-4 text-xs font-semibold text-danger disabled:cursor-not-allowed disabled:opacity-60 lg:h-9 lg:text-[13px]"
+            className="h-9 cursor-pointer rounded-full border border-danger-border bg-danger-bg px-4 text-xs font-semibold text-danger disabled:cursor-not-allowed disabled:opacity-60 lg:text-sm"
           >
             {t("logOut")}
           </button>

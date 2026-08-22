@@ -8,7 +8,7 @@ export function initialsFromName(name: string | null): string {
 
 const SIZE_CLASSES = {
   sm: "h-8 w-8 text-xs",
-  md: "h-9 w-9 text-[13px]",
+  md: "h-9 w-9 text-sm",
   lg: "h-14 w-14 text-lg lg:h-16 lg:w-16 lg:text-xl",
 };
 

@@ -161,11 +161,11 @@ export function DashboardScreen({ locale }: { locale: string }) {
   const locationName = useLocationName(preferences?.location_lat, preferences?.location_lon);
 
   return (
-    <div className="flex-1 overflow-y-auto px-[22px] py-5 lg:px-[44px] lg:py-9">
-      <div className="mb-[22px] flex items-center justify-between lg:mb-[26px] lg:items-end">
+    <div className="flex-1 overflow-y-auto px-6 py-5 lg:px-11 lg:py-9">
+      <div className="mb-6 flex items-center justify-between lg:mb-7 lg:items-end">
         <div>
-          <div className="text-[13px] text-muted lg:text-sm">{today}</div>
-          <div className="text-2xl font-bold tracking-[-0.3px] text-primary lg:text-[30px]">{t("thisWeek")}</div>
+          <div className="text-sm text-muted">{today}</div>
+          <div className="text-2xl font-bold tracking-[-0.3px] text-primary lg:text-3xl">{t("thisWeek")}</div>
         </div>
         <div className="flex items-center gap-3">
           {calendarConnected && (
@@ -174,7 +174,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
             </Button>
           )}
           <Link href={`/${locale}/profile`} className="lg:hidden">
-            <Avatar user={{ name: user?.name ?? null, avatar_url: user?.avatar_url ?? null }} size="md" className="h-[38px] w-[38px] rounded-xl" />
+            <Avatar user={{ name: user?.name ?? null, avatar_url: user?.avatar_url ?? null }} size="md" className="h-10 w-10 rounded-xl" />
           </Link>
         </div>
       </div>
@@ -182,29 +182,29 @@ export function DashboardScreen({ locale }: { locale: string }) {
       {isPlanRunOpen && <PlanRunModal onClose={() => setIsPlanRunOpen(false)} />}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-7">
-        <div className="flex flex-col gap-4 rounded-[20px] bg-primary p-[22px] lg:gap-[18px] lg:p-7">
+        <div className="flex flex-col gap-4 rounded-2xl bg-primary p-6 lg:gap-5 lg:p-7">
           <div className="flex justify-between">
             {weekStats.map((stat) => (
               <div key={stat.label} className="flex flex-col gap-1">
-                <div className="font-mono text-[26px] font-bold text-primary-foreground lg:text-[32px]">{stat.value}</div>
-                <div className="text-[11px] font-medium uppercase text-stat-label">{stat.label}</div>
+                <div className="font-mono text-2xl font-bold text-primary-foreground lg:text-3xl">{stat.value}</div>
+                <div className="text-xs font-medium uppercase text-stat-label">{stat.label}</div>
               </div>
             ))}
           </div>
           <div className="h-px bg-primary-foreground/10" />
           <div className="flex items-center justify-between">
-            <div className="text-[13px] text-goal-label lg:text-sm">{t("goal", { distance: weeklyGoalKm })}</div>
-            <div className="font-mono text-[13px] font-semibold text-primary-foreground lg:text-sm">{weekGoalPct}%</div>
+            <div className="text-sm text-goal-label">{t("goal", { distance: weeklyGoalKm })}</div>
+            <div className="font-mono text-sm font-semibold text-primary-foreground">{weekGoalPct}%</div>
           </div>
-          <div className="h-[6px] w-full overflow-hidden rounded-full bg-primary-foreground/[0.14]">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-primary-foreground/[0.14]">
             <div className="h-full rounded-full bg-accent-light" style={{ width: `${weekGoalPct}%` }} />
           </div>
         </div>
 
         {currentWeather && (
-          <Card className="flex flex-col gap-2 rounded-[20px] p-[22px] lg:p-7">
+          <Card className="flex flex-col gap-2 rounded-2xl p-6 lg:p-7">
             <div className="flex items-start justify-between">
-              <div className="text-[13px] font-semibold uppercase text-muted">{t("weather")}</div>
+              <div className="text-sm font-semibold uppercase text-muted">{t("weather")}</div>
               {locationName && (
                 <div className="flex items-center gap-1 text-xs text-muted-light">
                   <MapPin size={16} />
@@ -213,28 +213,28 @@ export function DashboardScreen({ locale }: { locale: string }) {
               )}
             </div>
             <div>
-              <div className="text-[32px] font-bold text-primary">{currentWeather.temp}°</div>
+              <div className="text-3xl font-bold text-primary">{currentWeather.temp}°</div>
               <div className="text-sm text-muted-light">
                 {currentWeather.condition} · {t("feelsLike", { temp: currentWeather.feels_like })}
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2.5">
-              <div className="rounded-[12px] bg-icon-tile p-3">
-                <div className="text-[10px] font-medium uppercase text-muted">{t("humidity")}</div>
+              <div className="rounded-xl bg-icon-tile p-3">
+                <div className="text-xs font-medium uppercase text-muted">{t("humidity")}</div>
                 <div className="text-sm font-semibold text-primary">{currentWeather.humidity}%</div>
               </div>
-              <div className="rounded-[12px] bg-icon-tile p-3">
-                <div className="text-[10px] font-medium uppercase text-muted">{t("wind")}</div>
+              <div className="rounded-xl bg-icon-tile p-3">
+                <div className="text-xs font-medium uppercase text-muted">{t("wind")}</div>
                 <div className="text-sm font-semibold text-primary">{currentWeather.wind} km/h</div>
               </div>
-              <div className="rounded-[12px] bg-icon-tile p-3">
-                <div className="text-[10px] font-medium uppercase text-muted">{t("aqi")}</div>
+              <div className="rounded-xl bg-icon-tile p-3">
+                <div className="text-xs font-medium uppercase text-muted">{t("aqi")}</div>
                 <div className="text-sm font-semibold text-primary">{currentWeather.aqi}</div>
               </div>
             </div>
 
-            <div className="rounded-[12px] bg-icon-tile p-3 text-xs text-primary">{t(insightKey(currentWeather.humidity, currentWeather.aqi))}</div>
+            <div className="rounded-xl bg-icon-tile p-3 text-xs text-primary">{t(insightKey(currentWeather.humidity, currentWeather.aqi))}</div>
 
             {currentWeather.hourly.length > 0 && (
               <div className="flex justify-between px-2">
@@ -252,12 +252,12 @@ export function DashboardScreen({ locale }: { locale: string }) {
 
       <div className="mt-5 grid grid-cols-1 gap-x-7 gap-y-5 lg:mt-7 lg:grid-cols-2">
         <div>
-          <div className="mb-2.5 text-[13px] font-semibold uppercase text-muted">{t("recentRuns")}</div>
+          <div className="mb-2.5 text-sm font-semibold uppercase text-muted">{t("recentRuns")}</div>
           <div className="flex flex-col gap-2.5">
             {recentRuns.map((run) => (
-              <Card key={`${run.day}-${run.time}`} className="flex flex-row items-center justify-between rounded-[16px] p-4 lg:px-5 lg:py-[18px]">
+              <Card key={`${run.day}-${run.time}`} className="flex flex-row items-center justify-between rounded-2xl p-4 lg:px-5 lg:py-5">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-icon-tile lg:h-[38px] lg:w-[38px]">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-icon-tile lg:h-10 lg:w-10">
                     <Zap size={16} fill="#5C7A5E" stroke="none" />
                   </div>
                   <div>
@@ -276,10 +276,10 @@ export function DashboardScreen({ locale }: { locale: string }) {
 
         {calendarConnected && (
           <div>
-            <div className="mb-2.5 text-[13px] font-semibold uppercase text-muted">{t("upcomingRuns")}</div>
+            <div className="mb-2.5 text-sm font-semibold uppercase text-muted">{t("upcomingRuns")}</div>
             <div className="flex flex-col gap-2.5">
               {upcomingRuns.map((run) => (
-                <Card key={run.id} className={`flex flex-row items-center justify-between rounded-[16px] p-4 lg:px-5 lg:py-[18px] ${run.tint}`}>
+                <Card key={run.id} className={`flex flex-row items-center justify-between rounded-2xl p-4 lg:px-5 lg:py-5 ${run.tint}`}>
                   <div>
                     <div className="text-sm font-semibold text-primary">{run.summary}</div>
                     <div className="text-xs text-muted-light">
