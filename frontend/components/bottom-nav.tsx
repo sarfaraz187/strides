@@ -1,5 +1,6 @@
 "use client";
 
+import { LayoutGrid, Lock, MessageSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 
@@ -29,12 +30,7 @@ export function BottomNav({
           active === "dashboard" ? "text-primary" : "text-muted-nav"
         }`}
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
-          <rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
-          <rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
-          <rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
-        </svg>
+        <LayoutGrid size={22} strokeWidth={1.8} />
         <span className="text-[10px] font-semibold">{t("dashboard")}</span>
       </Link>
       <Link
@@ -43,9 +39,7 @@ export function BottomNav({
           active === "coach" ? "text-primary" : "text-muted-nav"
         }`}
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path d="M4 5h16v11H8l-4 4V5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        </svg>
+        <MessageSquare size={22} strokeWidth={1.8} />
         <span className="text-[10px] font-semibold">{t("coach")}</span>
       </Link>
       <Link
@@ -54,14 +48,7 @@ export function BottomNav({
           active === "connectors" ? "text-primary" : "text-muted-nav"
         }`}
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M6 10h12v4a6 6 0 01-6 6 6 6 0 01-6-6v-4z"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <Lock size={22} strokeWidth={1.8} />
         <span className="text-[10px] font-semibold">{t("connectors")}</span>
       </Link>
     </div>

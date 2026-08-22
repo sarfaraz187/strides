@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-
 import { BottomNav } from "@/components/bottom-nav";
 import { Sidebar } from "@/components/sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -11,21 +10,9 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 // AppShell (or a full page) as one tree would see duplicate accessible
 // names ("Dashboard"/"Coach") for getByRole queries — no such test exists
 // today; BottomNav and Sidebar are each tested standalone.
-export function AppShell({
-  children,
-  locale,
-}: {
-  children: React.ReactNode;
-  locale: string;
-}) {
+export function AppShell({ children, locale }: { children: React.ReactNode; locale: string }) {
   const pathname = usePathname();
-  const active = pathname.endsWith("/chat")
-    ? "coach"
-    : pathname.endsWith("/connectors")
-      ? "connectors"
-      : pathname.endsWith("/profile")
-        ? "profile"
-        : "dashboard";
+  const active = pathname.endsWith("/chat") ? "coach" : pathname.endsWith("/connectors") ? "connectors" : pathname.endsWith("/profile") ? "profile" : "dashboard";
 
   return (
     <SidebarProvider className="h-screen w-full flex-col overflow-hidden bg-background lg:flex-row">

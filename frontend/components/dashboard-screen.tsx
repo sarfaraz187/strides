@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MapPin, Zap } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useDashboard } from "@/hooks/use-dashboard";
+import { useLocationName } from "@/hooks/use-location-name";
 import { usePreferences } from "@/hooks/use-preferences";
 import { usePlanRun } from "@/hooks/use-plan-run";
 import { useAuth } from "@/lib/auth-context";
@@ -146,6 +148,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
   const calendarConnected = dashboard?.calendar_connected ?? false;
   const upcomingRuns = dashboard?.upcoming_runs?.map((run) => formatUpcomingRun(run, locale)) ?? [];
   const currentWeather = dashboard?.current_weather ?? null;
+  const locationName = useLocationName(preferences?.location_lat, preferences?.location_lon);
 
   return (
     <div className="flex-1 overflow-y-auto px-[22px] py-5 lg:px-[44px] lg:py-9">
@@ -192,6 +195,12 @@ export function DashboardScreen({ locale }: { locale: string }) {
           <Card className="flex flex-col gap-2 rounded-[20px] p-[22px] lg:p-7">
             <div className="flex items-start justify-between">
               <div className="text-[13px] font-semibold uppercase text-muted">{t("weather")}</div>
+              {locationName && (
+                <div className="flex items-center gap-1 text-xs text-muted-light">
+                  <MapPin size={16} />
+                  <span>{locationName}</span>
+                </div>
+              )}
             </div>
             <div>
               <div className="text-[32px] font-bold text-primary">{currentWeather.temp}°</div>
@@ -219,7 +228,6 @@ export function DashboardScreen({ locale }: { locale: string }) {
 
             {currentWeather.hourly.length > 0 && (
               <div className="flex justify-between px-2">
-                {console.log("Current Weather Hourly Data:", currentWeather.hourly)}
                 {currentWeather.hourly.map((entry) => (
                   <div key={entry.time} className="flex flex-col items-center gap-1 text-xs">
                     <div className="text-muted-light">{formatHour(entry.time, locale)}</div>
@@ -238,9 +246,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
           <Card key={`${run.day}-${run.time}`} className="flex flex-row items-center justify-between rounded-[16px] p-4 lg:px-5 lg:py-[18px]">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-icon-tile lg:h-[38px] lg:w-[38px]">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M13 3L4 14h7l-1 7 9-11h-7l1-7z" fill="#5C7A5E" />
-                </svg>
+                <Zap size={16} fill="#5C7A5E" stroke="none" />
               </div>
               <div>
                 <div className="text-sm font-semibold text-primary">{run.day}</div>

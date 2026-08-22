@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/avatar";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useLocationName } from "@/hooks/use-location-name";
 import { usePreferences } from "@/hooks/use-preferences";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -18,12 +19,15 @@ const MIN_GOAL_KM = 5;
 const KM_TO_MI = 0.621;
 
 type LocationFieldProps = {
-  locationSet: boolean;
+  locationLat: number | null;
+  locationLon: number | null;
   onUpdate: (lat: number, lon: number) => void;
 };
 
-function LocationField({ locationSet, onUpdate }: LocationFieldProps) {
+function LocationField({ locationLat, locationLon, onUpdate }: LocationFieldProps) {
   const t = useTranslations("profile");
+  const locationSet = locationLat !== null && locationLon !== null;
+  const locationName = useLocationName(locationLat, locationLon);
   const [isEditing, setIsEditing] = useState(!locationSet);
   const [geoError, setGeoError] = useState<string | null>(null);
 
@@ -52,7 +56,7 @@ function LocationField({ locationSet, onUpdate }: LocationFieldProps) {
         <div className="text-sm font-semibold text-primary lg:text-[15px]">{t("location")}</div>
         {!isEditing && (
           <div className="flex items-center gap-3">
-            <div className="text-[13px] text-muted-light">{locationSet ? t("locationSet") : t("locationNotSet")}</div>
+            <div className="text-[13px] text-muted-light">{locationSet ? (locationName ?? t("locationSet")) : t("locationNotSet")}</div>
             <button
               onClick={() => setIsEditing(true)}
               className="h-[30px] cursor-pointer rounded-full border border-border bg-surface px-3.5 text-xs font-semibold text-primary lg:h-[34px] lg:px-4 lg:text-[13px]"
@@ -253,7 +257,7 @@ export function ProfileScreen({ locale }: { locale: string }) {
           </Select>
         </Card>
 
-        <LocationField locationSet={preferences.location_lat !== null && preferences.location_lon !== null} onUpdate={(lat, lon) => updateNow({ location_lat: lat, location_lon: lon })} />
+        <LocationField locationLat={preferences.location_lat} locationLon={preferences.location_lon} onUpdate={(lat, lon) => updateNow({ location_lat: lat, location_lon: lon })} />
 
         <Card className="flex-row items-center justify-between rounded-2xl px-4 py-3.5 lg:px-[22px] lg:py-[18px]">
           <div className="text-sm font-semibold text-primary lg:text-[15px]">{t("memberSince")}</div>

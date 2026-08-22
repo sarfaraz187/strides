@@ -2,6 +2,7 @@
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -171,9 +172,7 @@ export function ChatScreen({ locale }: { locale: string }) {
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
         />
         <Button aria-label="send" onClick={handleSend} className="h-11 w-11 rounded-full bg-primary p-0 lg:h-[46px] lg:w-[46px]">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-            <path d="M4 12h15m0 0l-6-6m6 6l-6 6" stroke="#F6F4EF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <ArrowRight size={17} color="#F6F4EF" strokeWidth={2} />
         </Button>
       </div>
     </div>
