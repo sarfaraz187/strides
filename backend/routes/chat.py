@@ -29,8 +29,12 @@ class ChatRequest(BaseModel):
 
 
 def _unrestricted_emails() -> set[str]:
+    # Semicolon-separated, not comma: this value is injected into gcloud's
+    # `--set-env-vars`, which itself uses commas to delimit KEY=VALUE pairs —
+    # a comma inside the value breaks that syntax (see deploy failure from
+    # the first attempt at this).
     raw = os.environ.get("UNRESTRICTED_EMAILS", "")
-    return {e.strip() for e in raw.split(",") if e.strip()}
+    return {e.strip() for e in raw.split(";") if e.strip()}
 
 
 def _token_budget_limit() -> int:
