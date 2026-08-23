@@ -21,6 +21,10 @@ function jsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), { status: 200 });
 }
 
+function errorResponse(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), { status });
+}
+
 function sseResponse(chunks: string[]) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -200,5 +204,65 @@ describe("ChatScreen", () => {
     expect(screen.queryByTestId("thinking-indicator")).not.toBeInTheDocument();
 
     vi.useRealTimers();
+  });
+
+  it("renders the budget-exceeded message as a normal coach bubble and disables input", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.example.com";
+    vi.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = input.toString();
+      if (url.includes("/chat/history")) {
+        return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
+      }
+      return Promise.resolve(errorResponse(403, { detail: { error: "budget_exceeded" } }));
+    });
+
+    renderWithProviders(<ChatScreen locale="en" />);
+
+    const input = screen.getByPlaceholderText(en.chat.placeholder);
+    fireEvent.change(input, { target: { value: "another training plan please" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(screen.getByText(en.chat.budgetExceeded)).toBeInTheDocument());
+
+    expect(screen.getByPlaceholderText(en.chat.placeholder)).toBeDisabled();
+    expect(screen.getByRole("button", { name: /send/i })).toBeDisabled();
+  });
+
+  it("shows the existing send-failed error line when the message is too long, input stays enabled", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.example.com";
+    vi.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = input.toString();
+      if (url.includes("/chat/history")) {
+        return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
+      }
+      return Promise.resolve(errorResponse(400, { detail: { error: "message_too_long" } }));
+    });
+
+    renderWithProviders(<ChatScreen locale="en" />);
+
+    const input = screen.getByPlaceholderText(en.chat.placeholder);
+    fireEvent.change(input, { target: { value: "x".repeat(501) } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(screen.getByText(en.chat.sendFailed)).toBeInTheDocument());
+
+    expect(screen.getByPlaceholderText(en.chat.placeholder)).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: /send/i })).not.toBeDisabled();
+  });
+
+  it("caps the input field at 500 characters", () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.example.com";
+    vi.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = input.toString();
+      if (url.includes("/chat/history")) {
+        return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
+      }
+      return Promise.resolve(sseResponse(["unused"]));
+    });
+
+    renderWithProviders(<ChatScreen locale="en" />);
+
+    const input = screen.getByPlaceholderText(en.chat.placeholder) as HTMLInputElement;
+    expect(input.maxLength).toBe(500);
   });
 });

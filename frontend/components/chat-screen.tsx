@@ -10,7 +10,7 @@ import ReactMarkdown from "react-markdown";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { apiFetch, apiStream } from "@/lib/api";
+import { ApiError, apiFetch, apiStream } from "@/lib/api";
 
 const THINKING_TIMEOUT_MS = 600;
 
@@ -38,6 +38,7 @@ export function ChatScreen({ locale }: { locale: string }) {
   const [isSending, setIsSending] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [sendError, setSendError] = useState(false);
+  const [budgetExceeded, setBudgetExceeded] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
   const lastChunkAtRef = useRef(Date.now());
@@ -101,9 +102,24 @@ export function ChatScreen({ locale }: { locale: string }) {
           return next;
         });
       });
-    } catch {
-      setSendError(true);
-      setMessages((prev) => prev.filter((m) => m.id !== coachMessageId));
+    } catch (err) {
+      const detail =
+        err instanceof ApiError && err.body && typeof err.body === "object" && "detail" in err.body
+          ? (err.body as { detail?: { error?: string } }).detail
+          : null;
+      const code = detail?.error ?? null;
+
+      if (code === "budget_exceeded") {
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = { ...next[next.length - 1], text: t("budgetExceeded") };
+          return next;
+        });
+        setBudgetExceeded(true);
+      } else {
+        setSendError(true);
+        setMessages((prev) => prev.filter((m) => m.id !== coachMessageId));
+      }
     } finally {
       clearInterval(thinkingTimer);
       setIsThinking(false);
@@ -185,10 +201,12 @@ export function ChatScreen({ locale }: { locale: string }) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={t("placeholder")}
+          maxLength={500}
+          disabled={budgetExceeded}
           className="h-11 rounded-2xl border-border bg-card px-5 text-primary placeholder:text-muted-light lg:h-12"
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
         />
-        <Button aria-label="send" onClick={handleSend} className="h-11 w-11 rounded-full bg-primary p-0 lg:h-12 lg:w-12">
+        <Button aria-label="send" onClick={handleSend} disabled={isSending || budgetExceeded} className="h-11 w-11 rounded-full bg-primary p-0 lg:h-12 lg:w-12">
           <ArrowRight size={17} color="#F6F4EF" strokeWidth={2} />
         </Button>
       </div>

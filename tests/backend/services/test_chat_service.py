@@ -522,6 +522,62 @@ def test_process_query_injects_conversation_summary_into_system_prompt():
         assert "User is training for a fall marathon." in system_blocks[1]["text"]
 
 
+def test_process_query_accumulates_usage_across_tool_loop():
+    from backend.services.chat_service import process_query
+
+    open_mcp_session, mock_session = _mock_session(["get_weekly_stats"])
+    mock_session.call_tool.side_effect = lambda name, args: "42km this week"
+
+    tool_use_block = MagicMock(type="tool_use", id="call-1")
+    tool_use_block.name = "get_weekly_stats"
+    tool_use_block.input = {}
+    tool_use_block.model_dump.return_value = {
+        "type": "tool_use",
+        "id": "call-1",
+        "name": "get_weekly_stats",
+        "input": {},
+    }
+    tool_call_response = MagicMock(stop_reason="tool_use", content=[tool_use_block])
+    tool_call_response.usage.input_tokens = 100
+    tool_call_response.usage.output_tokens = 20
+
+    text_block = MagicMock(type="text", text="done")
+    text_block.model_dump.return_value = {"type": "text", "text": "done"}
+    final_response = MagicMock(stop_reason="end_turn", content=[text_block])
+    final_response.usage.input_tokens = 150
+    final_response.usage.output_tokens = 40
+
+    with (
+        patch("backend.services.chat_service.open_mcp_session", open_mcp_session),
+        patch("backend.services.chat_service.db.get_memories", return_value=[]),
+        patch(
+            "backend.services.chat_service.db.get_conversation_summary",
+            return_value=None,
+        ),
+        patch("backend.services.chat_service.db.save_message"),
+        patch("backend.agent.client") as mock_client,
+    ):
+        mock_client.messages.stream = MagicMock(
+            side_effect=[
+                _mock_stream(tool_call_response, []),
+                _mock_stream(final_response, ["done"]),
+            ]
+        )
+
+        usage = {}
+
+        async def drain():
+            async for _ in process_query(
+                "user-123", [{"role": "user", "content": "hi"}], usage=usage
+            ):
+                pass
+
+        asyncio.run(drain())
+
+    assert usage["input_tokens"] == 250
+    assert usage["output_tokens"] == 60
+
+
 def test_process_query_omits_summary_section_when_none_exists():
     from backend.services.chat_service import process_query
 

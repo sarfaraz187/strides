@@ -1,6 +1,7 @@
 import json
+import os
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -20,14 +21,34 @@ from backend.services.summarization_service import maybe_fold
 
 router = APIRouter()
 
+MAX_MESSAGE_CHARS = 500
+
 
 class ChatRequest(BaseModel):
     message: str
 
 
+def _unrestricted_emails() -> set[str]:
+    raw = os.environ.get("UNRESTRICTED_EMAILS", "")
+    return {e.strip() for e in raw.split(",") if e.strip()}
+
+
+def _token_budget_limit() -> int:
+    return int(os.environ.get("TOKEN_BUDGET_LIMIT", "50000"))
+
+
 @router.post("/chat")
 async def chat(request: ChatRequest, user_id: str = Depends(require_user)):
     from backend.agent import SYSTEM_PROMPT
+
+    email, _, _, _ = db.get_user(user_id)
+    is_unrestricted = email in _unrestricted_emails()
+
+    if not is_unrestricted and len(request.message) > MAX_MESSAGE_CHARS:
+        raise HTTPException(status_code=400, detail={"error": "message_too_long"})
+
+    if not is_unrestricted and db.get_tokens_used(user_id) >= _token_budget_limit():
+        raise HTTPException(status_code=403, detail={"error": "budget_exceeded"})
 
     db.save_message(user_id, "user", request.message)
 
@@ -44,12 +65,17 @@ async def chat(request: ChatRequest, user_id: str = Depends(require_user)):
 
     messages = [{"role": r["role"], "content": r["content"]} for r in rows]
 
+    usage: dict = {}
+
     async def event_stream():
         full_reply = ""
-        async for chunk in process_query(user_id, messages):
+        async for chunk in process_query(user_id, messages, usage=usage):
             full_reply += chunk
             yield f"data: {json.dumps({'text': chunk})}\n\n"
         db.save_message(user_id, "assistant", full_reply)
+        if not is_unrestricted:
+            total = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+            db.increment_tokens_used(user_id, total)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 

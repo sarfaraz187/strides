@@ -33,7 +33,8 @@
     "coachName": "Coach",
     "syncedStatus": "Mit Google Health synchronisiert",
     "placeholder": "Frag etwas zu deinem Training...",
-    "sendFailed": "Nachricht konnte nicht gesendet werden. Versuch es erneut."
+    "sendFailed": "Nachricht konnte nicht gesendet werden. Versuch es erneut.",
+    "budgetExceeded": "Du hast dein Nutzungslimit für diese App erreicht."
   },
   "nav": {
     "dashboard": "Übersicht",

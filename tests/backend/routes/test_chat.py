@@ -29,7 +29,7 @@ def client(monkeypatch):
     from backend.agent import app
     from backend.routes import chat as chat_route
 
-    async def fake_process_query(user_id, messages):
+    async def fake_process_query(user_id, messages, usage=None):
         for chunk in ["mocked ", "reply"]:
             yield chunk
 
@@ -126,3 +126,71 @@ def test_get_chat_history_paginates(client):
         f"/chat/history?before_id={oldest_id_on_first_page}&limit=2", cookies=cookies
     ).json()
     assert second_page["has_more"] is True
+
+
+def test_post_chat_rejects_message_over_500_chars(client):
+    cookies = _session_cookie_for_new_user(client)
+    response = client.post("/chat", json={"message": "x" * 501}, cookies=cookies)
+    assert response.status_code == 400
+    assert response.json()["detail"]["error"] == "message_too_long"
+
+
+def test_post_chat_rejects_when_budget_exceeded(client, monkeypatch):
+    monkeypatch.setenv("TOKEN_BUDGET_LIMIT", "1000")
+    cookies = _session_cookie_for_new_user(client)
+
+    from data.db import get_connection
+
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE users SET tokens_used = 1000 WHERE email = %s",
+            ("runner@example.com",),
+        )
+        conn.commit()
+
+    response = client.post("/chat", json={"message": "hi"}, cookies=cookies)
+    assert response.status_code == 403
+    assert response.json()["detail"]["error"] == "budget_exceeded"
+
+
+def test_post_chat_allowlisted_email_bypasses_budget_and_length(client, monkeypatch):
+    monkeypatch.setenv("TOKEN_BUDGET_LIMIT", "1000")
+    monkeypatch.setenv("UNRESTRICTED_EMAILS", "runner@example.com")
+    cookies = _session_cookie_for_new_user(client)
+
+    from data.db import get_connection
+
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE users SET tokens_used = 999999 WHERE email = %s",
+            ("runner@example.com",),
+        )
+        conn.commit()
+
+    response = client.post("/chat", json={"message": "x" * 501}, cookies=cookies)
+    assert response.status_code == 200
+
+
+def test_post_chat_increments_tokens_used_after_reply(client, monkeypatch):
+    from backend.routes import chat as chat_route
+
+    async def fake_process_query(user_id, messages, usage=None):
+        if usage is not None:
+            usage["input_tokens"] = 100
+            usage["output_tokens"] = 50
+        for chunk in ["mocked ", "reply"]:
+            yield chunk
+
+    monkeypatch.setattr(chat_route, "process_query", fake_process_query)
+    cookies = _session_cookie_for_new_user(client)
+
+    response = client.post("/chat", json={"message": "hi"}, cookies=cookies)
+    assert response.status_code == 200
+
+    from data.db import get_connection
+
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT tokens_used FROM users WHERE email = %s", ("runner@example.com",)
+        ).fetchone()
+    assert row[0] == 150
