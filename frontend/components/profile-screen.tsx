@@ -150,7 +150,7 @@ export function ProfileScreen({ locale }: { locale: string }) {
 
   return (
     <div className="flex-1 overflow-y-auto px-4 lg:mx-auto lg:w-full lg:max-w-[960px] lg:px-0 lg:pb-9">
-      <div className="mb-3">
+      <div className="mb-3 mt-4 lg:mt-1">
         <SectionLabel>{t("eyebrow")}</SectionLabel>
         <div className="text-2xl font-bold tracking-[-0.3px] text-primary lg:text-3xl">{t("title")}</div>
       </div>
@@ -159,24 +159,18 @@ export function ProfileScreen({ locale }: { locale: string }) {
       {error && <div className="mb-4 rounded-xl bg-danger/10 p-3 text-sm text-danger">{t("saveFailed")}</div>}
 
       <div className="mb-3 flex flex-col gap-4 rounded-xl bg-primary p-6 lg:mb-4 lg:gap-5 lg:p-7">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3.5 lg:gap-4">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={triggerUpload}
-              disabled={isUploading}
-              className="group relative h-auto flex-none rounded-xl p-0 hover:bg-transparent"
-            >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3.5 lg:gap-4">
+            <Button type="button" variant="ghost" onClick={triggerUpload} disabled={isUploading} className="group relative h-auto flex-none rounded-xl p-0 hover:bg-transparent">
               <Avatar user={user} size="lg" />
               <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                 {isUploading ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Camera size={18} className="text-white" />}
               </div>
             </Button>
             <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" aria-label={t("changeAvatar")} className="hidden" onChange={onFileChosen} />
-            <div>
-              <div className="text-lg font-bold text-primary-foreground lg:text-2xl">{displayName}</div>
-              <div className="text-sm text-goal-label lg:text-sm">{user?.email ?? ""}</div>
+            <div className="min-w-0">
+              <div className="truncate text-lg font-bold text-primary-foreground lg:text-2xl">{displayName}</div>
+              <div className="truncate text-sm text-goal-label lg:text-sm">{user?.email ?? ""}</div>
             </div>
           </div>
           <Button
@@ -289,7 +283,7 @@ export function ProfileScreen({ locale }: { locale: string }) {
         </div>
       </Card>
 
-      <Card className="gap-0 rounded-xl px-4 py-1 lg:px-6">
+      <Card className="mt-3 gap-0 rounded-xl px-4 py-1 lg:mt-4 lg:px-6">
         <SectionLabel className="pt-3">{t("account")}</SectionLabel>
         <div className="flex items-center justify-between gap-3 py-3.5">
           <div>
