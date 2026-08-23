@@ -21,7 +21,9 @@ from data.db import (
     get_oauth_token,
     get_preferences,
     get_session_user_id,
+    get_tokens_used,
     get_user,
+    increment_tokens_used,
     init_db,
     save_memory,
     save_message,
@@ -60,7 +62,15 @@ def test_init_db_creates_users_table():
             "WHERE table_name = 'users' AND table_schema = 'public'"
         ).fetchall()
     columns = {row[0] for row in result}
-    assert columns == {"id", "email", "google_sub", "name", "created_at", "avatar_path"}
+    assert columns == {
+        "id",
+        "email",
+        "google_sub",
+        "name",
+        "created_at",
+        "avatar_path",
+        "tokens_used",
+    }
 
 
 def test_init_db_creates_preferences_table():
@@ -624,3 +634,19 @@ def test_upsert_conversation_summary_overwrites_existing():
 
     summary = db.get_conversation_summary(user_id)
     assert summary == {"summary_text": "Second summary.", "through_message_id": 25}
+
+
+def test_get_tokens_used_defaults_to_zero():
+    user_id = find_or_create_user(
+        "[EMAIL]", "google-sub-tokens", "Tokens Test"
+    )
+    assert get_tokens_used(user_id) == 0
+
+
+def test_increment_tokens_used_accumulates():
+    user_id = find_or_create_user(
+        "[EMAIL]", "google-sub-tokens2", "Tokens Test 2"
+    )
+    increment_tokens_used(user_id, 1200)
+    increment_tokens_used(user_id, 300)
+    assert get_tokens_used(user_id) == 1500

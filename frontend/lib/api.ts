@@ -1,3 +1,22 @@
+export class ApiError extends Error {
+  status: number;
+  body: unknown;
+
+  constructor(status: number, body: unknown) {
+    super(`Request failed: ${status}`);
+    this.status = status;
+    this.body = body;
+  }
+}
+
+async function parseErrorBody(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
   const response = await fetch(`${baseUrl}${path}`, {
@@ -10,7 +29,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   });
 
   if (!response.ok) {
-    throw new Error(`Request to ${path} failed: ${response.status}`);
+    throw new ApiError(response.status, await parseErrorBody(response));
   }
 
   return response.json() as Promise<T>;
@@ -32,7 +51,7 @@ export async function apiStream(
   });
 
   if (!response.ok || !response.body) {
-    throw new Error(`Request to ${path} failed: ${response.status}`);
+    throw new ApiError(response.status, await parseErrorBody(response));
   }
 
   const reader = response.body.getReader();

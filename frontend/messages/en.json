@@ -33,7 +33,8 @@
     "coachName": "Coach",
     "syncedStatus": "Synced with Google Health",
     "placeholder": "Ask about your training...",
-    "sendFailed": "Couldn't send your message. Try again."
+    "sendFailed": "Couldn't send your message. Try again.",
+    "budgetExceeded": "You've reached your usage limit for this app."
   },
   "nav": {
     "dashboard": "Dashboard",

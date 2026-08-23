@@ -103,6 +103,9 @@ def init_db() -> None:
         conn.execute(
             "ALTER TABLE preferences ADD COLUMN IF NOT EXISTS location_lon DOUBLE PRECISION"
         )
+        conn.execute(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS tokens_used INTEGER NOT NULL DEFAULT 0"
+        )
         conn.commit()
 
 
@@ -141,6 +144,23 @@ def get_user(user_id: str) -> tuple[str, str, datetime, str | None] | None:
 def update_avatar_path(user_id: str, path: str | None) -> None:
     with get_connection() as conn:
         conn.execute("UPDATE users SET avatar_path = %s WHERE id = %s", (path, user_id))
+        conn.commit()
+
+
+def get_tokens_used(user_id: str) -> int:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT tokens_used FROM users WHERE id = %s", (user_id,)
+        ).fetchone()
+    return row[0] if row is not None else 0
+
+
+def increment_tokens_used(user_id: str, amount: int) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE users SET tokens_used = tokens_used + %s WHERE id = %s",
+            (amount, user_id),
+        )
         conn.commit()
 
 

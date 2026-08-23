@@ -114,11 +114,15 @@ def _build_system_prompt(base_prompt: str, user_id: str) -> list[dict]:
     ]
 
 
-async def process_query(user_id: str, messages: list[dict]):
+async def process_query(user_id: str, messages: list[dict], usage: dict | None = None):
     """Call Claude, executing any requested tools, until it gives a final answer.
 
     Yields text chunks as they stream in. The final assistant text is the
     concatenation of every chunk yielded across the whole call.
+
+    When `usage` is provided, it is mutated in place, accumulating
+    `input_tokens` and `output_tokens` across every API call made during the
+    tool-use loop.
     """
     from backend.agent import SYSTEM_PROMPT, client, model
 
@@ -183,6 +187,14 @@ async def process_query(user_id: str, messages: list[dict]):
                                     response.usage.cache_read_input_tokens
                                 ),
                             },
+                        )
+
+                    if usage is not None:
+                        usage["input_tokens"] = (
+                            usage.get("input_tokens", 0) + response.usage.input_tokens
+                        )
+                        usage["output_tokens"] = (
+                            usage.get("output_tokens", 0) + response.usage.output_tokens
                         )
 
                     content_dicts = [
