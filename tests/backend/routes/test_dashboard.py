@@ -145,30 +145,45 @@ def test_dashboard_connected_but_account_not_linked_returns_health_error(client)
 
 
 def test_dashboard_returns_weekly_stats_and_recent_runs(client):
+    """weekly_stats is now derived from recent_runs client-side (not a separate
+    MCP call) — a run from last week must be excluded from the weekly totals
+    even though it's still returned in recent_runs."""
     cookies = _session_cookie(client)
     user_id = find_or_create_user(
         "dashboard-route@example.com", "dashboard-route-sub", "Dashboard Route"
     )
     save_oauth_token(user_id, "health", "access-token", "refresh-token", 9999999999)
-    weekly_stats = {
-        "run_count": 4,
-        "total_distance_km": 21.9,
-        "total_duration_min": 121.0,
-        "avg_pace_min_per_km": 5.53,
+
+    now = datetime.now(timezone.utc)
+    this_monday = now - timedelta(days=now.weekday())
+    this_week_run = {
+        "date": (this_monday + timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%S"),
+        "distance_km": 6.1,
+        "duration_min": 33.4,
+        "pace_min_per_km": 5.47,
     }
-    recent_runs = [
-        {"date": "2026-08-03T06:42:00", "distance_km": 6.1, "duration_min": 33.4, "pace_min_per_km": 5.47},
-    ]
+    last_week_run = {
+        "date": (this_monday - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S"),
+        "distance_km": 10.0,
+        "duration_min": 60.0,
+        "pace_min_per_km": 6.0,
+    }
+    recent_runs = [this_week_run, last_week_run]
 
     with patch(
         "backend.routes.dashboard.open_mcp_session",
-        _mock_session(weekly_stats, recent_runs),
+        _mock_session({}, recent_runs),
     ):
         response = client.get("/dashboard", cookies=cookies)
 
     assert response.status_code == 200
     body = response.json()
-    assert body["weekly_stats"] == weekly_stats
+    assert body["weekly_stats"] == {
+        "run_count": 1,
+        "total_distance_km": 6.1,
+        "total_duration_min": 33.4,
+        "avg_pace_min_per_km": round(33.4 / 6.1, 2),
+    }
     assert body["recent_runs"] == recent_runs
     assert body["health_connected"] is True
 
