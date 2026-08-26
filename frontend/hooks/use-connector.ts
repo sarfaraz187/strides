@@ -17,6 +17,7 @@ export function useConnectorDisconnect(disconnectPath: string) {
     try {
       await apiFetch(disconnectPath, { method: "POST" });
       await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Disconnect failed"));
     } finally {
