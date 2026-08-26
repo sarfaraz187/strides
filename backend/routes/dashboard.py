@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import time
 
 from fastapi import APIRouter, Depends
 
@@ -19,11 +21,18 @@ async def _fetch_health(user_id: str, health_connected: bool) -> dict:
 
     if health_connected:
         try:
+            t0 = time.monotonic()
             async with open_mcp_session(
                 user_id, server_url=HEALTH_SERVER_URL
             ) as session:
+                t1 = time.monotonic()
                 weekly_result = await session.call_tool("get_weekly_stats", {})
+                t2 = time.monotonic()
                 recent_result = await session.call_tool("get_recent_runs", {"days": 7})
+                t3 = time.monotonic()
+            logging.info(
+                f"[dashboard timing] health handshake={t1 - t0:.2f}s weekly={t2 - t1:.2f}s recent={t3 - t2:.2f}s"
+            )
 
             weekly_content = weekly_result.structuredContent
             recent_content = recent_result.structuredContent
@@ -51,12 +60,18 @@ async def _fetch_calendar(user_id: str, calendar_connected: bool, prefs: Prefere
 
     if calendar_connected:
         try:
+            t0 = time.monotonic()
             async with open_mcp_session(
                 user_id, server_url=CALENDAR_SERVER_URL
             ) as session:
+                t1 = time.monotonic()
                 result = await session.call_tool(
                     "list_upcoming_runs", {"days_ahead": 7}
                 )
+                t2 = time.monotonic()
+            logging.info(
+                f"[dashboard timing] calendar handshake={t1 - t0:.2f}s list_upcoming_runs={t2 - t1:.2f}s"
+            )
             events = (result.structuredContent or {}).get("result", [])
 
             async def forecast_for(event: dict):
