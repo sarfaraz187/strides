@@ -1,4 +1,4 @@
-import logging
+import asyncio
 
 from fastapi import APIRouter, Depends
 
@@ -9,14 +9,12 @@ from backend.services.mcp_client import (
     HEALTH_SERVER_URL,
     open_mcp_session,
 )
-from data.db import get_oauth_token, get_preferences
+from data.db import Preferences, get_oauth_token, get_preferences
 
 router = APIRouter()
 
 
-@router.get("/dashboard")
-async def dashboard(user_id: str = Depends(require_user)):
-    health_connected = get_oauth_token(user_id, "health") is not None
+async def _fetch_health(user_id: str, health_connected: bool) -> dict:
     weekly_stats, recent_runs, health_error = None, [], None
 
     if health_connected:
@@ -40,14 +38,16 @@ async def dashboard(user_id: str = Depends(require_user)):
         except Exception:
             health_connected = False
 
-    calendar_connected = get_oauth_token(user_id, "calendar") is not None
-    upcoming_runs = []
-    current_weather = None
-    prefs = get_preferences(user_id)
+    return {
+        "weekly_stats": weekly_stats,
+        "recent_runs": recent_runs,
+        "health_connected": health_connected,
+        "health_error": health_error,
+    }
 
-    logging.info("----------------------------")
-    logging.info(f"User preferences: {prefs}")
-    logging.info("----------------------------")
+
+async def _fetch_calendar(user_id: str, calendar_connected: bool, prefs: Preferences) -> dict:
+    upcoming_runs = []
 
     if calendar_connected:
         try:
@@ -59,55 +59,51 @@ async def dashboard(user_id: str = Depends(require_user)):
                 )
             events = (result.structuredContent or {}).get("result", [])
 
-            for event in events:
-                forecast = None
-                if prefs.location_lat is not None and prefs.location_lon is not None:
-                    start = event.get("start", {}).get("dateTime", "")
-                    date = start[:10] if start else None
-                    if date:
-                        forecast = await weather_service.get_forecast(
-                            prefs.location_lat, prefs.location_lon, date
-                        )
-                upcoming_runs.append({**event, "forecast": forecast})
+            async def forecast_for(event: dict):
+                if prefs.location_lat is None or prefs.location_lon is None:
+                    return None
+                start = event.get("start", {}).get("dateTime", "")
+                date = start[:10] if start else None
+                if not date:
+                    return None
+                return await weather_service.get_forecast(
+                    prefs.location_lat, prefs.location_lon, date
+                )
+
+            forecasts = await asyncio.gather(*(forecast_for(event) for event in events))
+            upcoming_runs = [
+                {**event, "forecast": forecast} for event, forecast in zip(events, forecasts)
+            ]
         except Exception:
             calendar_connected = False
 
-    if prefs.location_lat is not None and prefs.location_lon is not None:
-        try:
-            logging.info(
-                f"Fetching current conditions for lat: {prefs.location_lat}, lon: {prefs.location_lon}"
-            )
-            conditions = await weather_service.get_current_conditions(
-                prefs.location_lat, prefs.location_lon
-            )
-            air_quality = await weather_service.get_air_quality(
-                prefs.location_lat, prefs.location_lon
-            )
+    return {"calendar_connected": calendar_connected, "upcoming_runs": upcoming_runs}
 
-            logging.info(f"Current conditions: {conditions}")
-            logging.info(f"Air quality: {air_quality}")
-            current_weather = {**conditions, **air_quality}
-        except Exception:
-            current_weather = None
 
-    logging.info("----------------------------")
-    print(
-        {
-            "weekly_stats": weekly_stats,
-            "recent_runs": recent_runs,
-            "health_connected": health_connected,
-            "health_error": health_error,
-            "calendar_connected": calendar_connected,
-            "upcoming_runs": upcoming_runs,
-            "current_weather": current_weather,
-        }
+async def _fetch_current_weather(prefs: Preferences) -> dict:
+    if prefs.location_lat is None or prefs.location_lon is None:
+        return {"current_weather": None}
+
+    try:
+        conditions, air_quality = await asyncio.gather(
+            weather_service.get_current_conditions(prefs.location_lat, prefs.location_lon),
+            weather_service.get_air_quality(prefs.location_lat, prefs.location_lon),
+        )
+        return {"current_weather": {**conditions, **air_quality}}
+    except Exception:
+        return {"current_weather": None}
+
+
+@router.get("/dashboard")
+async def dashboard(user_id: str = Depends(require_user)):
+    health_connected = get_oauth_token(user_id, "health") is not None
+    calendar_connected = get_oauth_token(user_id, "calendar") is not None
+    prefs = get_preferences(user_id)
+
+    health_result, calendar_result, weather_result = await asyncio.gather(
+        _fetch_health(user_id, health_connected),
+        _fetch_calendar(user_id, calendar_connected, prefs),
+        _fetch_current_weather(prefs),
     )
-    return {
-        "weekly_stats": weekly_stats,
-        "recent_runs": recent_runs,
-        "health_connected": health_connected,
-        "health_error": health_error,
-        "calendar_connected": calendar_connected,
-        "upcoming_runs": upcoming_runs,
-        "current_weather": current_weather,
-    }
+
+    return {**health_result, **calendar_result, **weather_result}

@@ -1,5 +1,7 @@
+import asyncio
 import base64
 import os
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
@@ -7,7 +9,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from data.db import create_session, find_or_create_user, get_connection, init_db, save_oauth_token
+from data.db import (
+    create_session,
+    find_or_create_user,
+    get_connection,
+    init_db,
+    save_oauth_token,
+    upsert_preferences,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -187,3 +196,71 @@ def test_dashboard_connected_but_mcp_call_fails_returns_flag(client):
     assert body["health_connected"] is False
     assert body["weekly_stats"] is None
     assert body["recent_runs"] == []
+
+
+def _delayed_session(weekly_stats: dict, recent_runs: list[dict], upcoming_runs: list[dict], delay: float):
+    session = AsyncMock()
+
+    async def call_tool(name, args):
+        await asyncio.sleep(delay)
+        result = AsyncMock()
+        if name == "get_weekly_stats":
+            result.structuredContent = weekly_stats
+        elif name == "get_recent_runs":
+            result.structuredContent = {"result": recent_runs}
+        elif name == "list_upcoming_runs":
+            result.structuredContent = {"result": upcoming_runs}
+        return result
+
+    session.call_tool.side_effect = call_tool
+
+    @asynccontextmanager
+    async def open_mcp_session(user_id, server_url):
+        await asyncio.sleep(delay)
+        yield session
+
+    return open_mcp_session
+
+
+def test_dashboard_fetches_health_calendar_and_weather_concurrently(client):
+    """Health, calendar, and weather are independent — the endpoint should fire them
+    concurrently rather than awaiting each in turn. Each mocked branch sleeps 0.3s;
+    two calls per MCP session means a fully sequential health block alone takes 0.6s,
+    plus 0.3s+0.3s sequential weather calls, plus the calendar session — comfortably
+    over 1s if nothing runs in parallel. A concurrent implementation should finish
+    in roughly one branch's worth of latency (~0.6s)."""
+    cookies = _session_cookie(client)
+    user_id = find_or_create_user(
+        "dashboard-route@example.com", "dashboard-route-sub", "Dashboard Route"
+    )
+    save_oauth_token(user_id, "health", "access-token", "refresh-token", 9999999999)
+    save_oauth_token(user_id, "calendar", "access-token", "refresh-token", 9999999999)
+    upsert_preferences(user_id, location_lat=12.9716, location_lon=77.5946)
+
+    weekly_stats = {"run_count": 1, "total_distance_km": 5.0, "total_duration_min": 30.0, "avg_pace_min_per_km": 6.0}
+    delay = 0.3
+
+    async def delayed_conditions(lat, lon):
+        await asyncio.sleep(delay)
+        return {"temp": 20, "feels_like": 19, "humidity": 50, "wind": 10, "condition": "clear", "hourly": []}
+
+    async def delayed_air_quality(lat, lon):
+        await asyncio.sleep(delay)
+        return {"aqi": 42}
+
+    with (
+        patch(
+            "backend.routes.dashboard.open_mcp_session",
+            _delayed_session(weekly_stats, [], [], delay),
+        ),
+        patch("backend.services.weather_service.get_current_conditions", delayed_conditions),
+        patch("backend.services.weather_service.get_air_quality", delayed_air_quality),
+    ):
+        start = time.monotonic()
+        response = client.get("/dashboard", cookies=cookies)
+        elapsed = time.monotonic() - start
+
+    assert response.status_code == 200
+    assert elapsed < 1.0, (
+        f"dashboard took {elapsed:.2f}s — branches appear to be running sequentially, not concurrently"
+    )

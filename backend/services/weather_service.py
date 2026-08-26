@@ -5,6 +5,8 @@ import httpx
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
+_client = httpx.AsyncClient()
+
 _WEATHER_CODES = {
     0: "clear",
     1: "partly cloudy",
@@ -29,20 +31,19 @@ def _condition_from_code(code: int) -> str:
 
 
 async def get_forecast(lat: float, lon: float, date: str) -> dict | None:
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            FORECAST_URL,
-            params={
-                "latitude": lat,
-                "longitude": lon,
-                "daily": "temperature_2m_max,weathercode",
-                "start_date": date,
-                "end_date": date,
-                "timezone": "auto",
-            },
-        )
-        response.raise_for_status()
-        data = response.json()
+    response = await _client.get(
+        FORECAST_URL,
+        params={
+            "latitude": lat,
+            "longitude": lon,
+            "daily": "temperature_2m_max,weathercode",
+            "start_date": date,
+            "end_date": date,
+            "timezone": "auto",
+        },
+    )
+    response.raise_for_status()
+    data = response.json()
 
     times = data["daily"]["time"]
     if date not in times:
@@ -56,19 +57,18 @@ async def get_forecast(lat: float, lon: float, date: str) -> dict | None:
 
 
 async def get_current_conditions(lat: float, lon: float) -> dict:
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            FORECAST_URL,
-            params={
-                "latitude": lat,
-                "longitude": lon,
-                "current": "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weathercode",
-                "hourly": "temperature_2m",
-                "timezone": "auto",
-            },
-        )
-        response.raise_for_status()
-        data = response.json()
+    response = await _client.get(
+        FORECAST_URL,
+        params={
+            "latitude": lat,
+            "longitude": lon,
+            "current": "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weathercode",
+            "hourly": "temperature_2m",
+            "timezone": "auto",
+        },
+    )
+    response.raise_for_status()
+    data = response.json()
 
     current = data["current"]
     hourly = data["hourly"]
@@ -96,12 +96,11 @@ async def get_current_conditions(lat: float, lon: float) -> dict:
 
 
 async def get_air_quality(lat: float, lon: float) -> dict:
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            AIR_QUALITY_URL,
-            params={"latitude": lat, "longitude": lon, "current": "us_aqi"},
-        )
-        response.raise_for_status()
-        data = response.json()
+    response = await _client.get(
+        AIR_QUALITY_URL,
+        params={"latitude": lat, "longitude": lon, "current": "us_aqi"},
+    )
+    response.raise_for_status()
+    data = response.json()
 
     return {"aqi": data["current"]["us_aqi"]}
