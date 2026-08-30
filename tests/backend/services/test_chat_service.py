@@ -41,6 +41,8 @@ def _mock_stream(final_response, text_chunks: list[str]):
 
 def _mock_session(tool_names: list[str]):
     session = AsyncMock()
+    http_client = MagicMock()
+    http_client.headers = {}
 
     async def call_tool(name, args):
         result = AsyncMock()
@@ -59,16 +61,16 @@ def _mock_session(tool_names: list[str]):
     session.list_tools = AsyncMock(return_value=tools_response)
 
     @asynccontextmanager
-    async def open_mcp_session(user_id, **kwargs):
-        yield session
+    async def open_mcp_session_with_client(user_id, **kwargs):
+        yield session, http_client
 
-    return open_mcp_session, session
+    return open_mcp_session_with_client, session
 
 
 def test_call_tools_still_routes_unknown_tool_names_to_mcp_session():
     from backend.services.chat_service import call_tools
 
-    open_mcp_session, mock_session = _mock_session([])
+    open_mcp_session_with_client, mock_session = _mock_session([])
 
     block = MagicMock(type="tool_use", id="call-2")
     block.name = "get_weekly_stats"
@@ -183,7 +185,7 @@ def test_get_weather_tool_is_registered_locally():
 def test_process_query_merges_local_tool_schemas_with_mcp_tools():
     from backend.services.chat_service import LOCAL_TOOL_SCHEMAS, process_query
 
-    open_mcp_session, mock_session = _mock_session(["get_weekly_stats"])
+    open_mcp_session_with_client, mock_session = _mock_session(["get_weekly_stats"])
 
     fake_response = MagicMock()
     fake_response.stop_reason = "end_turn"
@@ -192,7 +194,7 @@ def test_process_query_merges_local_tool_schemas_with_mcp_tools():
     fake_response.content = [text_block]
 
     with (
-        patch("backend.services.chat_service.open_mcp_session", open_mcp_session),
+        patch("backend.services.chat_service.open_mcp_session_with_client", open_mcp_session_with_client),
         patch("backend.services.chat_service.db.get_memories", return_value=[]),
         patch(
             "backend.services.chat_service.db.get_conversation_summary",
@@ -248,7 +250,7 @@ def test_save_memory_tool_writes_to_db():
 def test_process_query_injects_memories_into_system_prompt():
     from backend.services.chat_service import process_query
 
-    open_mcp_session, mock_session = _mock_session([])
+    open_mcp_session_with_client, mock_session = _mock_session([])
 
     fake_response = MagicMock()
     fake_response.stop_reason = "end_turn"
@@ -259,7 +261,7 @@ def test_process_query_injects_memories_into_system_prompt():
     fake_memories = [{"fact": "Left knee sore, avoid speed work", "category": "injury"}]
 
     with (
-        patch("backend.services.chat_service.open_mcp_session", open_mcp_session),
+        patch("backend.services.chat_service.open_mcp_session_with_client", open_mcp_session_with_client),
         patch(
             "backend.services.chat_service.db.get_memories", return_value=fake_memories
         ),
@@ -289,7 +291,7 @@ def test_process_query_sets_cache_control_on_system_and_tools():
     from backend.agent import SYSTEM_PROMPT
     from backend.services.chat_service import process_query
 
-    open_mcp_session, mock_session = _mock_session(["get_weekly_stats"])
+    open_mcp_session_with_client, mock_session = _mock_session(["get_weekly_stats"])
 
     fake_response = MagicMock()
     fake_response.stop_reason = "end_turn"
@@ -298,7 +300,7 @@ def test_process_query_sets_cache_control_on_system_and_tools():
     fake_response.content = [text_block]
 
     with (
-        patch("backend.services.chat_service.open_mcp_session", open_mcp_session),
+        patch("backend.services.chat_service.open_mcp_session_with_client", open_mcp_session_with_client),
         patch("backend.services.chat_service.db.get_memories", return_value=[]),
         patch(
             "backend.services.chat_service.db.get_conversation_summary",
@@ -335,7 +337,7 @@ def test_process_query_sets_cache_control_on_system_and_tools():
 def test_process_query_reports_cache_usage_to_langfuse():
     from backend.services.chat_service import process_query
 
-    open_mcp_session, mock_session = _mock_session([])
+    open_mcp_session_with_client, mock_session = _mock_session([])
 
     fake_response = MagicMock()
     fake_response.stop_reason = "end_turn"
@@ -363,7 +365,7 @@ def test_process_query_reports_cache_usage_to_langfuse():
     ]
 
     with (
-        patch("backend.services.chat_service.open_mcp_session", open_mcp_session),
+        patch("backend.services.chat_service.open_mcp_session_with_client", open_mcp_session_with_client),
         patch("backend.services.chat_service.db.get_memories", return_value=[]),
         patch(
             "backend.services.chat_service.db.get_conversation_summary",
@@ -392,7 +394,7 @@ def test_process_query_reports_cache_usage_to_langfuse():
 def test_call_tools_truncates_large_tool_results():
     from backend.services.chat_service import MAX_TOOL_RESULT_CHARS, call_tools
 
-    open_mcp_session, mock_session = _mock_session([])
+    open_mcp_session_with_client, mock_session = _mock_session([])
     mock_session.call_tool.side_effect = lambda name, args: "x" * 10_000
 
     block = MagicMock(type="tool_use", id="call-1")
@@ -407,7 +409,7 @@ def test_call_tools_truncates_large_tool_results():
 def test_call_tools_leaves_small_tool_results_untouched():
     from backend.services.chat_service import call_tools
 
-    open_mcp_session, mock_session = _mock_session([])
+    open_mcp_session_with_client, mock_session = _mock_session([])
     mock_session.call_tool.side_effect = lambda name, args: "short result"
 
     block = MagicMock(type="tool_use", id="call-1")
@@ -422,7 +424,7 @@ def test_call_tools_leaves_small_tool_results_untouched():
 def test_process_query_persists_intermediate_tool_turns():
     from backend.services.chat_service import process_query
 
-    open_mcp_session, mock_session = _mock_session(["get_weekly_stats"])
+    open_mcp_session_with_client, mock_session = _mock_session(["get_weekly_stats"])
     mock_session.call_tool.side_effect = lambda name, args: "42km this week"
 
     tool_use_block = MagicMock(type="tool_use", id="call-1")
@@ -441,7 +443,7 @@ def test_process_query_persists_intermediate_tool_turns():
     final_response = MagicMock(stop_reason="end_turn", content=[text_block])
 
     with (
-        patch("backend.services.chat_service.open_mcp_session", open_mcp_session),
+        patch("backend.services.chat_service.open_mcp_session_with_client", open_mcp_session_with_client),
         patch("backend.services.chat_service.db.get_memories", return_value=[]),
         patch(
             "backend.services.chat_service.db.get_conversation_summary",
@@ -484,7 +486,7 @@ def test_process_query_persists_intermediate_tool_turns():
 def test_process_query_injects_conversation_summary_into_system_prompt():
     from backend.services.chat_service import process_query
 
-    open_mcp_session, mock_session = _mock_session([])
+    open_mcp_session_with_client, mock_session = _mock_session([])
 
     fake_response = MagicMock()
     fake_response.stop_reason = "end_turn"
@@ -498,7 +500,7 @@ def test_process_query_injects_conversation_summary_into_system_prompt():
     }
 
     with (
-        patch("backend.services.chat_service.open_mcp_session", open_mcp_session),
+        patch("backend.services.chat_service.open_mcp_session_with_client", open_mcp_session_with_client),
         patch("backend.services.chat_service.db.get_memories", return_value=[]),
         patch(
             "backend.services.chat_service.db.get_conversation_summary",
@@ -525,7 +527,7 @@ def test_process_query_injects_conversation_summary_into_system_prompt():
 def test_process_query_accumulates_usage_across_tool_loop():
     from backend.services.chat_service import process_query
 
-    open_mcp_session, mock_session = _mock_session(["get_weekly_stats"])
+    open_mcp_session_with_client, mock_session = _mock_session(["get_weekly_stats"])
     mock_session.call_tool.side_effect = lambda name, args: "42km this week"
 
     tool_use_block = MagicMock(type="tool_use", id="call-1")
@@ -548,7 +550,7 @@ def test_process_query_accumulates_usage_across_tool_loop():
     final_response.usage.output_tokens = 40
 
     with (
-        patch("backend.services.chat_service.open_mcp_session", open_mcp_session),
+        patch("backend.services.chat_service.open_mcp_session_with_client", open_mcp_session_with_client),
         patch("backend.services.chat_service.db.get_memories", return_value=[]),
         patch(
             "backend.services.chat_service.db.get_conversation_summary",
@@ -581,7 +583,7 @@ def test_process_query_accumulates_usage_across_tool_loop():
 def test_process_query_omits_summary_section_when_none_exists():
     from backend.services.chat_service import process_query
 
-    open_mcp_session, mock_session = _mock_session([])
+    open_mcp_session_with_client, mock_session = _mock_session([])
 
     fake_response = MagicMock()
     fake_response.stop_reason = "end_turn"
@@ -590,7 +592,7 @@ def test_process_query_omits_summary_section_when_none_exists():
     fake_response.content = [text_block]
 
     with (
-        patch("backend.services.chat_service.open_mcp_session", open_mcp_session),
+        patch("backend.services.chat_service.open_mcp_session_with_client", open_mcp_session_with_client),
         patch("backend.services.chat_service.db.get_memories", return_value=[]),
         patch(
             "backend.services.chat_service.db.get_conversation_summary",

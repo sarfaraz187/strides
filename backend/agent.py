@@ -8,11 +8,22 @@ load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from anthropic import AsyncAnthropic
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
 
-from data.db import init_db, pool
 from logging_config import setup_logging
+from observability.otel_setup import setup_tracing
 
 setup_logging()
+
+# Must run before `from data.db import pool` below — that import opens a real
+# DB connection eagerly (ConnectionPool(..., open=True)), and PsycopgInstrumentor
+# only wraps *future* calls to psycopg.connect(). Instrumenting after that
+# import would leave the pool's initial connection untraced.
+setup_tracing("strides-backend")
+PsycopgInstrumentor().instrument()
+
+from data.db import init_db, pool
 
 client = AsyncAnthropic()
 model = "claude-haiku-4-5-20251001"
@@ -90,6 +101,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+FastAPIInstrumentor.instrument_app(app)
 
 app.add_middleware(
     CORSMiddleware,
