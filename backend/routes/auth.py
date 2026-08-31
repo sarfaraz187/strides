@@ -16,6 +16,7 @@ from data.db import (
     get_oauth_token,
     get_session_user_id,
     get_user,
+    resolve_notification,
     save_oauth_token,
 )
 
@@ -101,6 +102,7 @@ def health_callback(
         tokens["refresh_token"],
         expires_at,
     )
+    resolve_notification(user_id, "health_reauth_required")
     return RedirectResponse(FRONTEND_URL)
 
 
@@ -140,6 +142,7 @@ def calendar_callback(
         tokens["refresh_token"],
         expires_at,
     )
+    resolve_notification(user_id, "calendar_reauth_required")
     return RedirectResponse(FRONTEND_URL)
 
 

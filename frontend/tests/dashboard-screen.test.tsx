@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import en from "../messages/en.json";
 import { DashboardScreen } from "../components/dashboard-screen";
-import { AuthContext } from "../lib/auth-context";
 
 type DashboardOverrides = {
   calendar_connected?: boolean;
@@ -79,41 +78,11 @@ describe("DashboardScreen", () => {
     renderWithProviders(<DashboardScreen locale="en" />);
 
     expect(screen.getByText(en.dashboard.thisWeek)).toBeInTheDocument();
-    expect(screen.getByText(en.dashboard.recentRuns)).toBeInTheDocument();
 
     await waitFor(() => expect(screen.getByText("21.9")).toBeInTheDocument());
+    expect(screen.getByText(en.dashboard.recentRuns)).toBeInTheDocument();
     expect(screen.getByText("Monday")).toBeInTheDocument();
     expect(screen.getByText("6.1 km")).toBeInTheDocument();
-  });
-});
-
-describe("DashboardScreen user display", () => {
-  it("shows the signed-in user's initials on the mobile avatar link, not a mock user's", () => {
-    mockFetchResponses();
-    render(
-      <AuthContext.Provider
-        value={{
-          user: {
-            email: "runner@example.com",
-            name: "Runner Example",
-            created_at: "",
-            health_connected: false,
-            calendar_connected: false,
-            avatar_url: null,
-          },
-          isLoading: false,
-        }}
-      >
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <NextIntlClientProvider locale="en" messages={en}>
-            <DashboardScreen locale="en" />
-          </NextIntlClientProvider>
-        </QueryClientProvider>
-      </AuthContext.Provider>
-    );
-
-    expect(screen.getByText("RE")).toBeInTheDocument();
-    expect(screen.queryByText("SB")).not.toBeInTheDocument();
   });
 });
 

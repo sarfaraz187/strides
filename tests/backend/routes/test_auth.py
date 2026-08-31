@@ -7,7 +7,7 @@ import pytest
 import requests
 from fastapi.testclient import TestClient
 
-from data.db import init_db
+from data.db import create_notification, init_db, list_notifications
 
 
 @pytest.fixture(autouse=True)
@@ -237,3 +237,32 @@ def test_me_reports_health_connected_false_after_disconnect(client):
 
     assert response.status_code == 200
     assert response.json()["health_connected"] is False
+
+
+def test_health_callback_resolves_existing_reauth_notification(client):
+    with patch("backend.services.auth_service.exchange_code_for_identity_tokens") as mock_exchange:
+        mock_exchange.return_value = {
+            "email": "[EMAIL]",
+            "google_sub": "google-sub-123",
+            "name": "Runner Example",
+        }
+        login_response = client.get("/auth/callback?code=fake-code", follow_redirects=False)
+    session_cookie = login_response.cookies["session"]
+
+    from data.db import find_or_create_user
+    user_id = find_or_create_user("[EMAIL]", "google-sub-123", "Runner Example")
+    create_notification(user_id, "health_reauth_required", "/connectors")
+
+    with patch("backend.services.auth_service.exchange_code_for_health_tokens") as mock_exchange:
+        mock_exchange.return_value = {
+            "access_token": "new-access",
+            "refresh_token": "new-refresh",
+            "expires_in": 3600,
+        }
+        client.get(
+            "/auth/health/callback?code=fake-code",
+            cookies={"session": session_cookie},
+            follow_redirects=False,
+        )
+
+    assert list_notifications(user_id) == []

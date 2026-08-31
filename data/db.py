@@ -88,6 +88,28 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_memories_user_id ON memories (user_id)"
         )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS notifications (
+                id SERIAL PRIMARY KEY,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                type TEXT NOT NULL,
+                action_href TEXT,
+                status TEXT NOT NULL DEFAULT 'unread',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                resolved_at TIMESTAMPTZ
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications (user_id)"
+        )
+        # Partial unique index, not a plain UNIQUE constraint: a *resolved*
+        # notification of a given (user, type) must not block a fresh one
+        # from being created later if the same problem recurs.
+        conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_unresolved_dedup
+            ON notifications (user_id, type)
+            WHERE status != 'resolved'
+        """)
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT")
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_path TEXT")
         conn.execute("ALTER TABLE users DROP COLUMN IF EXISTS avatar_url")
@@ -370,6 +392,80 @@ def save_calendar_id(user_id: str, calendar_id: str) -> None:
 
 
 @dataclass
+class Notification:
+    id: int
+    user_id: str
+    type: str
+    action_href: str | None
+    status: str
+    created_at: datetime
+
+
+def create_notification(
+    user_id: str, type_: str, action_href: str | None = None
+) -> None:
+    # No message text here on purpose: display text is derived from `type`
+    # client-side via next-intl (`notifications.types.<type>`), so it's
+    # correctly localized instead of being frozen in whatever language the
+    # backend happened to write at insert time.
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO notifications (user_id, type, action_href)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (user_id, type) WHERE status != 'resolved' DO NOTHING
+            """,
+            (user_id, type_, action_href),
+        )
+        conn.commit()
+
+
+def resolve_notification(user_id: str, type_: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE notifications SET status = 'resolved', resolved_at = now()
+            WHERE user_id = %s AND type = %s AND status != 'resolved'
+            """,
+            (user_id, type_),
+        )
+        conn.commit()
+
+
+def list_notifications(user_id: str) -> list[Notification]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, user_id, type, action_href, status, created_at
+            FROM notifications
+            WHERE user_id = %s AND status != 'resolved'
+            ORDER BY created_at DESC
+            """,
+            (user_id,),
+        ).fetchall()
+    return [
+        Notification(
+            id=row[0],
+            user_id=str(row[1]),
+            type=row[2],
+            action_href=row[3],
+            status=row[4],
+            created_at=row[5],
+        )
+        for row in rows
+    ]
+
+
+def mark_all_read(user_id: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE notifications SET status = 'read' WHERE user_id = %s AND status = 'unread'",
+            (user_id,),
+        )
+        conn.commit()
+
+
+@dataclass
 class Preferences:
     weekly_goal_km: float
     units: str
@@ -421,7 +517,15 @@ def upsert_preferences(
                 location_lat = excluded.location_lat,
                 location_lon = excluded.location_lon
             """,
-            (user_id, weekly_goal_km, units, notifications_enabled, language, location_lat, location_lon),
+            (
+                user_id,
+                weekly_goal_km,
+                units,
+                notifications_enabled,
+                language,
+                location_lat,
+                location_lon,
+            ),
         )
         conn.commit()
     return Preferences(

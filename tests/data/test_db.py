@@ -8,7 +8,9 @@ import pytest
 
 import data.db as db
 from data.db import (
+    Notification,
     Preferences,
+    create_notification,
     create_session,
     delete_oauth_token,
     delete_session,
@@ -25,6 +27,9 @@ from data.db import (
     get_user,
     increment_tokens_used,
     init_db,
+    list_notifications,
+    mark_all_read,
+    resolve_notification,
     save_memory,
     save_message,
     save_oauth_token,
@@ -49,6 +54,7 @@ def clean_schema():
         conn.execute("DROP TABLE IF EXISTS memories CASCADE")
         conn.execute("DROP TABLE IF EXISTS messages CASCADE")
         conn.execute("DROP TABLE IF EXISTS preferences CASCADE")
+        conn.execute("DROP TABLE IF EXISTS notifications CASCADE")
         conn.execute("DROP TABLE IF EXISTS oauth_tokens CASCADE")
         conn.execute("DROP TABLE IF EXISTS sessions CASCADE")
         conn.execute("DROP TABLE IF EXISTS users CASCADE")
@@ -650,3 +656,54 @@ def test_increment_tokens_used_accumulates():
     increment_tokens_used(user_id, 1200)
     increment_tokens_used(user_id, 300)
     assert get_tokens_used(user_id) == 1500
+
+
+def test_create_notification_is_visible_in_list():
+    user_id = find_or_create_user("[EMAIL]", "google-sub-123", "Runner Example")
+
+    create_notification(user_id, "health_reauth_required", "/connectors")
+
+    notifications = list_notifications(user_id)
+    assert len(notifications) == 1
+    assert notifications[0].type == "health_reauth_required"
+    assert notifications[0].action_href == "/connectors"
+    assert notifications[0].status == "unread"
+
+
+def test_create_notification_dedupes_unresolved_same_type():
+    user_id = find_or_create_user("[EMAIL]", "google-sub-123", "Runner Example")
+
+    create_notification(user_id, "health_reauth_required", "/connectors")
+    create_notification(user_id, "health_reauth_required", "/connectors")
+
+    notifications = list_notifications(user_id)
+    assert len(notifications) == 1
+
+
+def test_resolve_notification_allows_a_fresh_one_of_the_same_type():
+    user_id = find_or_create_user("[EMAIL]", "google-sub-123", "Runner Example")
+    create_notification(user_id, "health_reauth_required", "/connectors")
+
+    resolve_notification(user_id, "health_reauth_required")
+    assert list_notifications(user_id) == []
+
+    create_notification(user_id, "health_reauth_required", "/connectors")
+    notifications = list_notifications(user_id)
+    assert len(notifications) == 1
+
+
+def test_resolve_notification_is_a_noop_when_none_exists():
+    user_id = find_or_create_user("[EMAIL]", "google-sub-123", "Runner Example")
+    resolve_notification(user_id, "health_reauth_required")  # must not raise
+    assert list_notifications(user_id) == []
+
+
+def test_mark_all_read_flips_unread_to_read_but_not_resolved():
+    user_id = find_or_create_user("[EMAIL]", "google-sub-123", "Runner Example")
+    create_notification(user_id, "health_reauth_required", "/connectors")
+
+    mark_all_read(user_id)
+
+    notifications = list_notifications(user_id)
+    assert len(notifications) == 1
+    assert notifications[0].status == "read"

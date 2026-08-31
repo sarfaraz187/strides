@@ -1,12 +1,14 @@
 "use client";
 
-import { LayoutGrid, Lock, MessageSquare } from "lucide-react";
+import { Bell, LayoutGrid, Lock, MessageSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import Link from "next/link";
 
 import { Avatar } from "@/components/avatar";
+import { NotificationBadge } from "@/components/notification-badge";
 import { useAuth } from "@/lib/auth-context";
+import { useNotifications } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
 import {
   Sidebar as SidebarPrimitive,
@@ -31,7 +33,7 @@ export function Sidebar({
   locale,
   className,
 }: {
-  active: "dashboard" | "coach" | "connectors" | "profile";
+  active: "dashboard" | "coach" | "connectors" | "notifications" | "profile";
   locale: string;
   className?: string;
 }) {
@@ -40,6 +42,7 @@ export function Sidebar({
   const collapsed = state === "collapsed";
   const { user } = useAuth();
   const displayName = user?.name ?? user?.email ?? "";
+  const { unreadCount } = useNotifications();
 
   return (
     <SidebarPrimitive
@@ -101,6 +104,21 @@ export function Sidebar({
             >
               <Lock size={18} strokeWidth={1.8} />
               {!collapsed && t("connectors")}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={<Link href={`/${locale}/notifications`} />}
+              isActive={active === "notifications"}
+              tooltip={collapsed ? t("notifications") : undefined}
+              className={cn(getMenuButtonClassName(collapsed), "relative")}
+            >
+              <span className="relative">
+                <Bell size={18} strokeWidth={1.8} />
+                <NotificationBadge count={unreadCount} />
+              </span>
+              {!collapsed && t("notifications")}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

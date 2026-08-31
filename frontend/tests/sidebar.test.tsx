@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import en from "../messages/en.json";
 import { Sidebar } from "../components/sidebar";
@@ -8,36 +9,48 @@ import { SidebarProvider } from "../components/ui/sidebar";
 import { AuthContext } from "../lib/auth-context";
 
 function renderWithUser(name: string | null, ui: React.ReactElement) {
+  const queryClient = new QueryClient();
   return render(
-    <AuthContext.Provider
-      value={{
-        user: {
-          email: "runner@example.com",
-          name,
-          created_at: "",
-          health_connected: false,
-          calendar_connected: false,
-          avatar_url: null,
-        },
-        isLoading: false,
-      }}
-    >
+    <QueryClientProvider client={queryClient}>
+      <AuthContext.Provider
+        value={{
+          user: {
+            email: "runner@example.com",
+            name,
+            created_at: "",
+            health_connected: false,
+            calendar_connected: false,
+            avatar_url: null,
+          },
+          isLoading: false,
+        }}
+      >
+        <NextIntlClientProvider locale="en" messages={en}>
+          <SidebarProvider>{ui}</SidebarProvider>
+        </NextIntlClientProvider>
+      </AuthContext.Provider>
+    </QueryClientProvider>
+  );
+}
+
+function renderPlain(ui: React.ReactElement) {
+  const queryClient = new QueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>
       <NextIntlClientProvider locale="en" messages={en}>
         <SidebarProvider>{ui}</SidebarProvider>
       </NextIntlClientProvider>
-    </AuthContext.Provider>
+    </QueryClientProvider>
   );
 }
 
 describe("Sidebar", () => {
+  beforeEach(() => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+  });
+
   it("links to dashboard and chat for the given locale", () => {
-    render(
-      <NextIntlClientProvider locale="en" messages={en}>
-        <SidebarProvider>
-          <Sidebar active="dashboard" locale="en" />
-        </SidebarProvider>
-      </NextIntlClientProvider>
-    );
+    renderPlain(<Sidebar active="dashboard" locale="en" />);
 
     expect(screen.getByRole("link", { name: en.nav.dashboard })).toHaveAttribute(
       "href",
@@ -49,14 +62,17 @@ describe("Sidebar", () => {
     );
   });
 
-  it("marks the active nav item", () => {
-    render(
-      <NextIntlClientProvider locale="en" messages={en}>
-        <SidebarProvider>
-          <Sidebar active="dashboard" locale="en" />
-        </SidebarProvider>
-      </NextIntlClientProvider>
+  it("links to a dedicated notifications page", () => {
+    renderPlain(<Sidebar active="dashboard" locale="en" />);
+
+    expect(screen.getByRole("link", { name: en.nav.notifications })).toHaveAttribute(
+      "href",
+      "/en/notifications"
     );
+  });
+
+  it("marks the active nav item", () => {
+    renderPlain(<Sidebar active="dashboard" locale="en" />);
 
     expect(screen.getByRole("link", { name: en.nav.dashboard })).toHaveAttribute("data-active");
     expect(screen.getByRole("link", { name: en.nav.coach })).not.toHaveAttribute("data-active");
