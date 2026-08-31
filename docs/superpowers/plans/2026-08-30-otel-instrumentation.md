@@ -159,7 +159,7 @@ def extract_context(headers: dict[str, str]) -> Context:
 Run: `pytest tests/observability/test_otel_setup.py -v`
 Expected: PASS (2 tests)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add pyproject.toml uv.lock observability/__init__.py observability/otel_setup.py tests/observability/test_otel_setup.py
@@ -240,7 +240,7 @@ PsycopgInstrumentor().instrument()
 Run: `pytest tests/backend/test_otel_backend.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/agent.py tests/backend/test_otel_backend.py
@@ -361,7 +361,7 @@ Note: changing `open_mcp_session`'s yield shape from `session` to `(session, htt
 Run: `pytest tests/backend -v`
 Expected: all PASS (once Task 4 is also applied)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/services/mcp_client.py tests/backend/services/test_mcp_client_otel.py
@@ -505,7 +505,7 @@ Expected: PASS
 Run: `pytest tests/backend -v`
 Expected: all PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/services/chat_service.py tests/backend/services/test_chat_service_otel.py
@@ -631,7 +631,7 @@ Expected: PASS
 Run: `pytest tests/mcp_servers/fit_server -v`
 Expected: all PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add mcp_servers/fit_server/server.py tests/mcp_servers/fit_server/test_otel_fit_server.py
@@ -711,7 +711,7 @@ Expected: PASS
 Run: `pytest tests/mcp_servers/calendar_server -v`
 Expected: all PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add mcp_servers/calendar_server/server.py tests/mcp_servers/calendar_server/test_otel_calendar_server.py
@@ -728,7 +728,7 @@ git commit -m "feat: add manual OTel spans to calendar_server MCP tools, joined 
 
 **Interfaces:** None — configuration only, no new code interfaces.
 
-- [ ] **Step 1: Document local env vars in `.env.example`**
+- [x] **Step 1: Document local env vars in `.env.example`**
 
 Add:
 
@@ -739,7 +739,7 @@ OTEL_EXPORTER_OTLP_HEADERS=
 
 (Value for `OTEL_EXPORTER_OTLP_HEADERS` is `Authorization=Basic <base64(instance_id:api_token)>` — Grafana Cloud's OTLP gateway convention. Fill in from your existing Grafana Cloud account/token per your earlier answer that this is already provisioned.)
 
-- [ ] **Step 2: Add two GitHub Actions repo secrets**
+- [x] **Step 2: Add two GitHub Actions repo secrets**
 
 In GitHub repo settings → Secrets and variables → Actions, add:
 - `OTEL_EXPORTER_OTLP_ENDPOINT` (Grafana Cloud OTLP gateway URL)
@@ -747,7 +747,7 @@ In GitHub repo settings → Secrets and variables → Actions, add:
 
 This is a manual step in the GitHub UI — no command to run.
 
-- [ ] **Step 3: Add `OTEL_SERVICE_NAME`/`OTEL_EXPORTER_OTLP_*` to each `gcloud run deploy` command in `.github/workflows/deploy.yml`**
+- [x] **Step 3: Add `OTEL_SERVICE_NAME`/`OTEL_EXPORTER_OTLP_*` to each `gcloud run deploy` command in `.github/workflows/deploy.yml`**
 
 For `deploy-backend` (`.github/workflows/deploy.yml`, the `--set-env-vars=` line under `deploy-backend`), append to the existing comma-separated value:
 
@@ -759,7 +759,7 @@ For `deploy-mcp-server` and `deploy-calendar-server`, append the same two variab
 
 (`OTEL_SERVICE_NAME` is not set via env var here — each service already sets its service name explicitly in code via `setup_tracing("strides-backend")` / `setup_tracing("strides-fit-server")` / `setup_tracing("strides-calendar-server")`, so there's nothing to configure per-deployment for that part.)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .env.example .github/workflows/deploy.yml
