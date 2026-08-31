@@ -18,9 +18,7 @@ router = APIRouter()
 def _compute_weekly_stats(recent_runs: list[dict]) -> dict:
     """Derive this week's (Monday-through-today) stats from a 7-day run list.
 
-    A 7-day lookback always covers Monday-of-this-week (weekday offset is at
-    most 6), so this avoids a second Google Health API round trip that
-    get_weekly_stats would otherwise make for largely the same data."""
+    A 7-day look back always covers Monday-of-this-week (weekday offset is at most 6), so this avoids a second Google Health API round trip that get_weekly_stats would otherwise make for largely the same data."""
     now = datetime.now(timezone.utc)
     monday = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%dT00:00:00")
     week_runs = [run for run in recent_runs if run["date"] >= monday]
@@ -46,9 +44,7 @@ async def _fetch_health(user_id: str, health_connected: bool) -> dict:
             async with open_mcp_session(
                 user_id, server_url=HEALTH_SERVER_URL
             ) as session:
-                recent_result = await session.call_tool(
-                    "get_recent_runs", {"days": 7}
-                )
+                recent_result = await session.call_tool("get_recent_runs", {"days": 7})
 
             recent_content = recent_result.structuredContent
 

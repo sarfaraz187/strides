@@ -57,7 +57,32 @@ def get_valid_access_token(user_id: str, provider: str = "health") -> str:
         if expires_at > time.time():
             return decrypt(access_token)
 
-        response = refresh_access_token(decrypt(refresh_token))
+        try:
+            response = refresh_access_token(decrypt(refresh_token))
+        except requests.HTTPError as exc:
+            body = exc.response.text if exc.response is not None else ""
+            if exc.response is not None and exc.response.status_code == 400 and "invalid_grant" in body:
+                # Deliberately NOT calling data.db's delete_oauth_token /
+                # create_notification here — those open their own pooled
+                # connection, which would block trying to touch this same
+                # row while this connection's FOR UPDATE lock is still held
+                # (only released when this `with` block exits). Do both
+                # writes on `conn` instead, in the same transaction.
+                conn.execute(
+                    "DELETE FROM oauth_tokens WHERE user_id = %s AND provider = %s",
+                    (user_id, provider),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO notifications (user_id, type, action_href)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (user_id, type) WHERE status != 'resolved' DO NOTHING
+                    """,
+                    (user_id, f"{provider}_reauth_required", "/connectors"),
+                )
+                conn.commit()
+            raise
+
         new_expires_at = int(time.time()) + response["expires_in"]
 
         conn.execute(

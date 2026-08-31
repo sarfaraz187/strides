@@ -3,9 +3,7 @@
 import { useState } from "react";
 import { MapPin, Zap } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Link from "next/link";
 
-import { Avatar } from "@/components/avatar";
 import { PlanRunModal } from "@/components/plan-run-modal";
 import { RunCard } from "@/components/run-card";
 import { SectionLabel } from "@/components/section-label";
@@ -14,7 +12,6 @@ import { Card } from "@/components/ui/card";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { useLocationName } from "@/hooks/use-location-name";
 import { usePreferences } from "@/hooks/use-preferences";
-import { useAuth } from "@/lib/auth-context";
 import type { RecentRun, UpcomingRun } from "@/lib/dashboard-api";
 import { computeGoalProgress } from "@/lib/goal-progress";
 
@@ -69,7 +66,6 @@ function insightKey(humidity: number, aqi: number): "insightPoorAir" | "insightH
 
 export function DashboardScreen({ locale }: { locale: string }) {
   const t = useTranslations("dashboard");
-  const { user } = useAuth();
   const { dashboard, isLoading } = useDashboard();
   const { preferences } = usePreferences();
   const [isPlanRunOpen, setIsPlanRunOpen] = useState(false);
@@ -108,9 +104,6 @@ export function DashboardScreen({ locale }: { locale: string }) {
               {t("planARun")}
             </Button>
           )}
-          <Link href={`/${locale}/profile`} className="lg:hidden">
-            <Avatar user={user} size="md" className="h-10 w-10 rounded-xl" />
-          </Link>
         </div>
       </div>
 
@@ -186,31 +179,33 @@ export function DashboardScreen({ locale }: { locale: string }) {
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-x-7 gap-y-5 lg:mt-7 lg:grid-cols-2">
-        <div>
-          <SectionLabel className="mb-2.5">{t("recentRuns")}</SectionLabel>
-          <div className="flex flex-col gap-2.5">
-            {recentRuns.map((run) => (
-              <RunCard
-                key={run.id}
-                title={run.day}
-                subtitle={run.time}
-                leading={
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-icon-tile lg:h-10 lg:w-10">
-                    <Zap size={16} fill="#5C7A5E" stroke="none" />
-                  </div>
-                }
-                trailing={
-                  <div className="text-right font-mono">
-                    <div className="text-sm font-semibold text-primary">{run.distance}</div>
-                    <div className="text-xs text-muted-light">{run.pace}</div>
-                  </div>
-                }
-              />
-            ))}
+        {recentRuns.length > 0 && (
+          <div>
+            <SectionLabel className="mb-2.5">{t("recentRuns")}</SectionLabel>
+            <div className="flex flex-col gap-2.5">
+              {recentRuns.map((run) => (
+                <RunCard
+                  key={run.id}
+                  title={run.day}
+                  subtitle={run.time}
+                  leading={
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-icon-tile lg:h-10 lg:w-10">
+                      <Zap size={16} fill="#5C7A5E" stroke="none" />
+                    </div>
+                  }
+                  trailing={
+                    <div className="text-right font-mono">
+                      <div className="text-sm font-semibold text-primary">{run.distance}</div>
+                      <div className="text-xs text-muted-light">{run.pace}</div>
+                    </div>
+                  }
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {calendarConnected && (
+        {calendarConnected && upcomingRuns.length > 0 && (
           <div>
             <SectionLabel className="mb-2.5">{t("upcomingRuns")}</SectionLabel>
             <div className="flex flex-col gap-2.5">

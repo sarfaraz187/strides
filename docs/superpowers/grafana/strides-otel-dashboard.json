@@ -1,0 +1,205 @@
+{
+  "title": "Strides - OTel Traces",
+  "uid": "strides-otel-traces",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "tempo",
+        "current": {},
+        "label": "Tempo data source"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "HTTP requests (backend routes)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Request rate by route",
+      "datasource": { "type": "tempo", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ kind = server } | rate() by (span.http.route)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "p95 request duration by route",
+      "datasource": { "type": "tempo", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "unit": "s" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ kind = server } | quantile_over_time(duration, 0.95) by (span.http.route)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "5xx error rate by route",
+      "datasource": { "type": "tempo", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 1 },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ kind = server && span.http.status_code >= 500 } | rate() by (span.http.route)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "DB queries (psycopg)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "DB query rate",
+      "datasource": { "type": "tempo", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ span.db.system = \"postgresql\" } | rate()",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "p95 DB query duration",
+      "datasource": { "type": "tempo", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "fieldConfig": {
+        "defaults": { "unit": "s" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ span.db.system = \"postgresql\" } | quantile_over_time(duration, 0.95)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Overall span volume & latency (by service)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Span rate by service",
+      "datasource": { "type": "tempo", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 19 },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ } | rate() by (resource.service.name)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "p95 span duration by service",
+      "datasource": { "type": "tempo", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 19 },
+      "fieldConfig": {
+        "defaults": { "unit": "s" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ } | quantile_over_time(duration, 0.95) by (resource.service.name)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "Business-logic spans (chat + MCP tools)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "chat.tool_call.* rate by tool",
+      "datasource": { "type": "tempo", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ name =~ \"chat.tool_call.*\" } | rate() by (name)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "mcp.tool.* rate by tool",
+      "datasource": { "type": "tempo", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ name =~ \"mcp.tool.*\" } | rate() by (name)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "Recent traces",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 }
+    },
+    {
+      "id": 15,
+      "type": "traces",
+      "title": "Root spans (strides-backend)",
+      "datasource": { "type": "tempo", "uid": "${datasource}" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 37 },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"strides-backend\" && nestedSetParent < 0 }",
+          "limit": 20,
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

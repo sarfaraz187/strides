@@ -39,7 +39,9 @@
   "nav": {
     "dashboard": "Dashboard",
     "coach": "Coach",
-    "connectors": "Connectors"
+    "connectors": "Connectors",
+    "notifications": "Notifications",
+    "profile": "Profile"
   },
   "connectors": {
     "title": "Connectors",
@@ -93,5 +95,13 @@
     "locationSet": "Location set",
     "useMyLocation": "Use my location",
     "locationDenied": "Couldn't get your location. Check your browser's location permission and try again."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "You're all caught up.",
+    "types": {
+      "health_reauth_required": "Your Google Health connection expired. Please reconnect.",
+      "calendar_reauth_required": "Your Google Calendar connection expired. Please reconnect."
+    }
   }
 }

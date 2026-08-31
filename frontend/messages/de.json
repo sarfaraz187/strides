@@ -39,7 +39,9 @@
   "nav": {
     "dashboard": "Übersicht",
     "coach": "Coach",
-    "connectors": "Verbindungen"
+    "connectors": "Verbindungen",
+    "notifications": "Mitteilungen",
+    "profile": "Profil"
   },
   "connectors": {
     "title": "Verbindungen",
@@ -93,5 +95,13 @@
     "locationSet": "Standort festgelegt",
     "useMyLocation": "Meinen Standort verwenden",
     "locationDenied": "Standort konnte nicht ermittelt werden. Bitte überprüfe die Standortberechtigung deines Browsers und versuche es erneut."
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "empty": "Du bist auf dem neuesten Stand.",
+    "types": {
+      "health_reauth_required": "Deine Google Health-Verbindung ist abgelaufen. Bitte neu verbinden.",
+      "calendar_reauth_required": "Deine Google Calendar-Verbindung ist abgelaufen. Bitte neu verbinden."
+    }
   }
 }
