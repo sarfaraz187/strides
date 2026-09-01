@@ -7,7 +7,13 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from data.db import create_session, find_or_create_user, get_connection, get_user, init_db
+from data.db import (
+    create_session,
+    find_or_create_user,
+    get_connection,
+    get_user,
+    init_db,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -22,7 +28,9 @@ def env(monkeypatch):
     init_db()
     yield
     with get_connection() as conn:
-        conn.execute("DELETE FROM users WHERE email = %s", ("avatar-route@example.com",))
+        conn.execute(
+            "DELETE FROM users WHERE email = %s", ("avatar-route@example.com",)
+        )
         conn.commit()
 
 
@@ -39,7 +47,9 @@ def client():
 
 
 def _session_cookie(client) -> tuple[dict[str, str], str]:
-    user_id = find_or_create_user("avatar-route@example.com", "avatar-route-sub", "Avatar Route")
+    user_id = find_or_create_user(
+        "avatar-route@example.com", "avatar-route-sub", "Avatar Route"
+    )
     token = create_session(user_id, datetime.now(timezone.utc) + timedelta(days=7))
     return {"session": token}, user_id
 
@@ -75,13 +85,12 @@ def test_upload_avatar_rejects_oversized_file(client):
 def test_upload_avatar_stores_path_and_returns_signed_url(client):
     cookies, user_id = _session_cookie(client)
 
-    with patch("backend.routes.profile.upload_avatar") as mock_upload, patch(
-        "backend.routes.profile.create_signed_url"
-    ) as mock_sign:
+    with (
+        patch("backend.routes.profile.upload_avatar") as mock_upload,
+        patch("backend.routes.profile.create_signed_url") as mock_sign,
+    ):
         mock_upload.return_value = f"{user_id}.jpg"
-        mock_sign.return_value = (
-            "https://project-ref.supabase.co/storage/v1/object/sign/avatars/x.jpg?token=abc"
-        )
+        mock_sign.return_value = "https://project-ref.supabase.co/storage/v1/object/sign/avatars/x.jpg?token=abc"
         response = client.post(
             "/profile/avatar",
             files={"file": ("pic.jpg", b"fake-bytes", "image/jpeg")},
@@ -99,9 +108,11 @@ def test_upload_avatar_stores_path_and_returns_signed_url(client):
 def test_upload_avatar_deletes_prior_file_when_replacing(client):
     cookies, user_id = _session_cookie(client)
 
-    with patch("backend.routes.profile.upload_avatar") as mock_upload, patch(
-        "backend.routes.profile.create_signed_url"
-    ), patch("backend.routes.profile.delete_avatar") as mock_delete:
+    with (
+        patch("backend.routes.profile.upload_avatar") as mock_upload,
+        patch("backend.routes.profile.create_signed_url"),
+        patch("backend.routes.profile.delete_avatar") as mock_delete,
+    ):
         mock_upload.return_value = "first.jpg"
         client.post(
             "/profile/avatar",

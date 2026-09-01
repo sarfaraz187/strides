@@ -6,17 +6,17 @@ _EXTENSION_BY_CONTENT_TYPE = {"image/jpeg": "jpg", "image/png": "png"}
 
 
 def _bucket_object_url(path: str) -> str:
-    base_url = os.environ["SUPABASE_URL"]
+    base_url = os.environ["SUPABASE_STORAGE_URL"]
     return f"{base_url}/storage/v1/object/avatars/{path}"
 
 
 def _bucket_sign_url(path: str) -> str:
-    base_url = os.environ["SUPABASE_URL"]
+    base_url = os.environ["SUPABASE_STORAGE_URL"]
     return f"{base_url}/storage/v1/object/sign/avatars/{path}"
 
 
 def _auth_headers() -> dict[str, str]:
-    key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    key = os.environ["SUPABASE_STORAGE_SERVICE_ROLE_KEY"]
     return {"Authorization": f"Bearer {key}", "apikey": key}
 
 
@@ -43,7 +43,7 @@ def create_signed_url(path: str, expires_in: int = 3600) -> str:
     )
     response.raise_for_status()
     signed_url = response.json()["signedURL"]
-    base_url = os.environ["SUPABASE_URL"]
+    base_url = os.environ["SUPABASE_STORAGE_URL"]
     return f"{base_url}/storage/v1{signed_url}"
 
 

@@ -11,9 +11,7 @@ _MAX_SIZE_BYTES = 5 * 1024 * 1024
 
 
 @router.post("/avatar")
-async def upload_avatar_route(
-    file: UploadFile, user_id: str = Depends(require_user)
-):
+async def upload_avatar_route(file: UploadFile, user_id: str = Depends(require_user)):
     if file.content_type not in _ALLOWED_CONTENT_TYPES:
         raise HTTPException(status_code=400, detail="Must be a JPEG or PNG image")
 

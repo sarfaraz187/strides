@@ -43,13 +43,37 @@ jobs:
           docker push ${{ env.REPO }}/backend:${{ github.sha }}
 
       - run: |
+          ENV_VARS="DATABASE_URL=${{ secrets.DATABASE_URL }}"
+          ENV_VARS="$ENV_VARS,ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}"
+          ENV_VARS="$ENV_VARS,TOKEN_ENCRYPTION_KEY=${{ secrets.TOKEN_ENCRYPTION_KEY }}"
+          ENV_VARS="$ENV_VARS,GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          ENV_VARS="$ENV_VARS,SUPABASE_STORAGE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_STORAGE_SERVICE_ROLE_KEY }}"
+          ENV_VARS="$ENV_VARS,LANGFUSE_SECRET_KEY=${{ secrets.LANGFUSE_SECRET_KEY }}"
+          ENV_VARS="$ENV_VARS,LANGFUSE_PUBLIC_KEY=${{ secrets.LANGFUSE_PUBLIC_KEY }}"
+          ENV_VARS="$ENV_VARS,PRIVATE_KEY_B64=${{ secrets.PRIVATE_KEY_B64 }}"
+          ENV_VARS="$ENV_VARS,PUBLIC_KEY_B64=${{ secrets.PUBLIC_KEY_B64 }}"
+          ENV_VARS="$ENV_VARS,UNRESTRICTED_EMAILS=${{ secrets.UNRESTRICTED_EMAILS }}"
+          ENV_VARS="$ENV_VARS,OTEL_EXPORTER_OTLP_HEADERS=${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}"
+          ENV_VARS="$ENV_VARS,GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}"
+          ENV_VARS="$ENV_VARS,FRONTEND_URL=${{ vars.FRONTEND_URL }}"
+          ENV_VARS="$ENV_VARS,MCP_SERVER_URL=${{ vars.MCP_SERVER_URL }}"
+          ENV_VARS="$ENV_VARS,CALENDAR_MCP_SERVER_URL=${{ vars.CALENDAR_MCP_SERVER_URL }}"
+          ENV_VARS="$ENV_VARS,SUPABASE_STORAGE_URL=${{ vars.SUPABASE_STORAGE_URL }}"
+          ENV_VARS="$ENV_VARS,LANGFUSE_BASE_URL=${{ vars.LANGFUSE_BASE_URL }}"
+          ENV_VARS="$ENV_VARS,OTEL_EXPORTER_OTLP_ENDPOINT=${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}"
+          ENV_VARS="$ENV_VARS,LANGFUSE_TRACING_ENVIRONMENT=production"
+          ENV_VARS="$ENV_VARS,TOKEN_BUDGET_LIMIT=50000"
+          ENV_VARS="$ENV_VARS,GOOGLE_LOGIN_CALLBACK_URL=https://backend-991288124020.us-central1.run.app/auth/callback"
+          ENV_VARS="$ENV_VARS,GOOGLE_HEALTH_CALLBACK_URL=https://backend-991288124020.us-central1.run.app/auth/health/callback"
+          ENV_VARS="$ENV_VARS,GOOGLE_CALENDAR_CALLBACK_URL=https://backend-991288124020.us-central1.run.app/auth/calendar/callback"
+
           gcloud run deploy backend \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --image=${{ env.REPO }}/backend:${{ github.sha }} \
             --allow-unauthenticated \
             --min-instances=0 --max-instances=3 \
-            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},TOKEN_ENCRYPTION_KEY=${{ secrets.TOKEN_ENCRYPTION_KEY }},GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},FRONTEND_URL=${{ secrets.FRONTEND_URL }},MCP_SERVER_URL=${{ secrets.MCP_SERVER_URL }},CALENDAR_MCP_SERVER_URL=${{ secrets.CALENDAR_MCP_SERVER_URL }},LANGFUSE_SECRET_KEY=${{ secrets.LANGFUSE_SECRET_KEY }},LANGFUSE_PUBLIC_KEY=${{ secrets.LANGFUSE_PUBLIC_KEY }},LANGFUSE_BASE_URL=${{ secrets.LANGFUSE_BASE_URL }},LANGFUSE_TRACING_ENVIRONMENT=production,PRIVATE_KEY_B64=${{ secrets.PRIVATE_KEY_B64 }},PUBLIC_KEY_B64=${{ secrets.PUBLIC_KEY_B64 }},GOOGLE_LOGIN_CALLBACK_URL=https://backend-991288124020.us-central1.run.app/auth/callback,GOOGLE_HEALTH_CALLBACK_URL=https://backend-991288124020.us-central1.run.app/auth/health/callback,GOOGLE_CALENDAR_CALLBACK_URL=https://backend-991288124020.us-central1.run.app/auth/calendar/callback,TOKEN_BUDGET_LIMIT=50000,UNRESTRICTED_EMAILS=${{ secrets.UNRESTRICTED_EMAILS }},OTEL_EXPORTER_OTLP_ENDPOINT=${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }},OTEL_EXPORTER_OTLP_HEADERS=${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}"
+            --set-env-vars="$ENV_VARS"
 
   deploy-mcp-server:
     runs-on: ubuntu-latest
@@ -71,13 +95,21 @@ jobs:
           docker push ${{ env.REPO }}/mcp-server:${{ github.sha }}
 
       - run: |
+          ENV_VARS="DATABASE_URL=${{ secrets.DATABASE_URL }}"
+          ENV_VARS="$ENV_VARS,TOKEN_ENCRYPTION_KEY=${{ secrets.TOKEN_ENCRYPTION_KEY }}"
+          ENV_VARS="$ENV_VARS,GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          ENV_VARS="$ENV_VARS,OTEL_EXPORTER_OTLP_HEADERS=${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}"
+          ENV_VARS="$ENV_VARS,GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}"
+          ENV_VARS="$ENV_VARS,STRIDES_JWKS_URL=${{ vars.STRIDES_JWKS_URL }}"
+          ENV_VARS="$ENV_VARS,OTEL_EXPORTER_OTLP_ENDPOINT=${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}"
+
           gcloud run deploy mcp-server \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --image=${{ env.REPO }}/mcp-server:${{ github.sha }} \
             --allow-unauthenticated \
             --min-instances=0 --max-instances=3 \
-            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},TOKEN_ENCRYPTION_KEY=${{ secrets.TOKEN_ENCRYPTION_KEY }},GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},STRIDES_JWKS_URL=${{ secrets.STRIDES_JWKS_URL }},OTEL_EXPORTER_OTLP_ENDPOINT=${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }},OTEL_EXPORTER_OTLP_HEADERS=${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}"
+            --set-env-vars="$ENV_VARS"
 
   deploy-calendar-server:
     runs-on: ubuntu-latest
@@ -99,10 +131,18 @@ jobs:
           docker push ${{ env.REPO }}/calendar-server:${{ github.sha }}
 
       - run: |
+          ENV_VARS="DATABASE_URL=${{ secrets.DATABASE_URL }}"
+          ENV_VARS="$ENV_VARS,TOKEN_ENCRYPTION_KEY=${{ secrets.TOKEN_ENCRYPTION_KEY }}"
+          ENV_VARS="$ENV_VARS,GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          ENV_VARS="$ENV_VARS,OTEL_EXPORTER_OTLP_HEADERS=${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}"
+          ENV_VARS="$ENV_VARS,GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}"
+          ENV_VARS="$ENV_VARS,STRIDES_JWKS_URL=${{ vars.STRIDES_JWKS_URL }}"
+          ENV_VARS="$ENV_VARS,OTEL_EXPORTER_OTLP_ENDPOINT=${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}"
+
           gcloud run deploy calendar-server \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --image=${{ env.REPO }}/calendar-server:${{ github.sha }} \
             --allow-unauthenticated \
             --min-instances=0 --max-instances=3 \
-            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},TOKEN_ENCRYPTION_KEY=${{ secrets.TOKEN_ENCRYPTION_KEY }},GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},STRIDES_JWKS_URL=${{ secrets.STRIDES_JWKS_URL }},OTEL_EXPORTER_OTLP_ENDPOINT=${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }},OTEL_EXPORTER_OTLP_HEADERS=${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}"
+            --set-env-vars="$ENV_VARS"
