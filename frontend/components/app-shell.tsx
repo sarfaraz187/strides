@@ -32,7 +32,7 @@ export function AppShell({ children, locale }: { children: React.ReactNode; loca
         here instead of in each screen, and let `bg-background` (the design's
         "outer canvas" color) show on the sides.
       */}
-      <div className="mx-auto flex w-full max-w-[480px] flex-1 flex-col overflow-hidden bg-surface lg:mx-0 lg:max-w-none lg:flex-1 lg:bg-transparent">
+      <div className="mx-auto flex w-full max-w-[480px] flex-1 flex-col overflow-hidden bg-surface lg:mx-0 lg:max-w-none lg:flex-1 lg:flex-row lg:bg-transparent">
         <SidebarTrigger className="m-3 hidden self-start lg:flex" />
         <main className="flex flex-1 flex-col overflow-y-auto">{children}</main>
         <BottomNav active={active} locale={locale} className="lg:hidden" />

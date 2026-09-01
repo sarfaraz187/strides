@@ -42,7 +42,7 @@ export function ConnectorsScreen() {
   ];
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-5 lg:mx-auto lg:w-full lg:max-w-[720px] lg:px-0 lg:py-9">
+    <div className="flex-1 overflow-y-auto px-6 py-5 lg:mx-auto lg:w-full lg:max-w-200 lg:px-0 lg:py-9">
       <div className="mb-5 lg:mb-7">
         <div className="text-2xl font-bold tracking-[-0.3px] text-primary lg:text-3xl">{t("title")}</div>
         <div className="mt-1 text-sm text-muted lg:mt-1.5">{t("subtitle")}</div>

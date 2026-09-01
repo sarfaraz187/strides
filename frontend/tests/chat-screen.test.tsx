@@ -76,8 +76,8 @@ describe("ChatScreen", () => {
         return Promise.resolve(
           jsonResponse({
             messages: [
-              { id: 2, role: "assistant", content: "Second reply", created_at: "" },
-              { id: 1, role: "user", content: "First message", created_at: "" },
+              { id: 2, role: "assistant", content: "Second reply", created_at: "2026-08-14T12:11:00Z" },
+              { id: 1, role: "user", content: "First message", created_at: "2026-08-14T12:11:00Z" },
             ],
             has_more: false,
           })
@@ -90,7 +90,7 @@ describe("ChatScreen", () => {
 
     await waitFor(() => expect(screen.getByText("Second reply")).toBeInTheDocument());
 
-    const rendered = screen.getAllByText(/First message|Second reply/).map((el) => el.textContent);
+    const rendered = screen.getAllByText(/^First message$|^Second reply$/).map((el) => el.textContent);
     expect(rendered).toEqual(["First message", "Second reply"]);
   });
 
@@ -101,7 +101,7 @@ describe("ChatScreen", () => {
       if (url.includes("before_id=5")) {
         return Promise.resolve(
           jsonResponse({
-            messages: [{ id: 4, role: "user", content: "Older message", created_at: "" }],
+            messages: [{ id: 4, role: "user", content: "Older message", created_at: "2026-08-14T12:11:00Z" }],
             has_more: false,
           })
         );
@@ -109,7 +109,7 @@ describe("ChatScreen", () => {
       if (url.includes("/chat/history")) {
         return Promise.resolve(
           jsonResponse({
-            messages: [{ id: 5, role: "user", content: "Newest message", created_at: "" }],
+            messages: [{ id: 5, role: "user", content: "Newest message", created_at: "2026-08-14T12:11:00Z" }],
             has_more: true,
           })
         );
