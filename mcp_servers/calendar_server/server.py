@@ -138,7 +138,7 @@ def create_run_event(
 
 @mcp.tool()
 def update_run_event(
-    event_id: str, ctx: Context = None, **fields: Any
+    event_id: str, fields: dict[str, Any], ctx: Context = None
 ) -> dict[str, Any]:
     """Update a planned run (e.g. reschedule) on the user's dedicated Calendar.
     fields are any Google Calendar event fields to patch, e.g. summary, start, end."""

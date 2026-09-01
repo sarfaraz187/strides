@@ -26,20 +26,11 @@ function formatRun(run: RecentRun, locale: string) {
   const date = new Date(run.date);
   return {
     id: run.date,
-    day: date.toLocaleDateString(locale, { weekday: "long" }),
+    day: date.toLocaleDateString(locale, { weekday: "long", month: "short", day: "numeric" }),
     time: date.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
     distance: `${run.distance_km} km`,
     pace: formatPace(run.pace_min_per_km),
   };
-}
-
-function upcomingRunTint(summary: string): string {
-  const lower = summary.toLowerCase();
-  if (lower.includes("race")) return "bg-badge-pink";
-  if (lower.includes("interval") || lower.includes("speed") || lower.includes("tempo")) return "bg-badge-periwinkle";
-  if (lower.includes("recovery") || lower.includes("easy")) return "bg-badge-tan";
-  if (lower.includes("long")) return "bg-badge-blue";
-  return "bg-card";
 }
 
 function formatUpcomingRun(run: UpcomingRun, locale: string) {
@@ -50,7 +41,6 @@ function formatUpcomingRun(run: UpcomingRun, locale: string) {
     day: date.toLocaleDateString(locale, { weekday: "long", month: "short", day: "numeric" }),
     time: date.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
     forecast: run.forecast,
-    tint: upcomingRunTint(run.summary),
   };
 }
 
@@ -212,7 +202,6 @@ export function DashboardScreen({ locale }: { locale: string }) {
               {upcomingRuns.map((run) => (
                 <RunCard
                   key={run.id}
-                  className={run.tint}
                   title={run.summary}
                   subtitle={`${run.day}, ${run.time}`}
                   trailing={
