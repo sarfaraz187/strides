@@ -37,6 +37,21 @@ def get_account_timezone(access_token: str) -> str:
     return response.json()["value"]
 
 
+def find_existing_calendar(access_token: str) -> str | None:
+    """Look up the user's Google account directly for a calendar named
+    'Strides', in case the local cache is stale (e.g. wiped by a reauth
+    cycle) while the calendar itself still exists."""
+    response = requests.get(
+        f"{BASE_URL}/users/me/calendarList",
+        headers=_headers(access_token),
+    )
+    _raise_for_status(response)
+    for item in response.json().get("items", []):
+        if item.get("summary") == "Strides":
+            return item["id"]
+    return None
+
+
 def ensure_calendar(access_token: str, user_id: str) -> str:
     """Return the user's dedicated 'Strides' calendar ID, creating it on
     first use. A newly created calendar is stamped with the account's own
@@ -45,14 +60,17 @@ def ensure_calendar(access_token: str, user_id: str) -> str:
     if existing is not None:
         return existing
 
-    time_zone = get_account_timezone(access_token)
-    response = requests.post(
-        f"{BASE_URL}/calendars",
-        headers=_headers(access_token),
-        json={"summary": "Strides", "timeZone": time_zone},
-    )
-    _raise_for_status(response)
-    calendar_id = response.json()["id"]
+    calendar_id = find_existing_calendar(access_token)
+    if calendar_id is None:
+        time_zone = get_account_timezone(access_token)
+        response = requests.post(
+            f"{BASE_URL}/calendars",
+            headers=_headers(access_token),
+            json={"summary": "Strides", "timeZone": time_zone},
+        )
+        _raise_for_status(response)
+        calendar_id = response.json()["id"]
+
     save_calendar_id(user_id, calendar_id)
     return calendar_id
 
