@@ -8,13 +8,17 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
+import { Avatar } from "@/components/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/lib/auth-context";
 import { ApiError, apiFetch, apiStream } from "@/lib/api";
+import { formatMessageTime } from "@/lib/format-time";
 
 const THINKING_TIMEOUT_MS = 600;
+const COACH_AVATAR = { name: "Coach", avatar_url: "/coach-avatar.png" };
 
-type Message = { id: string; from: "user" | "coach"; text: string };
+type Message = { id: string; from: "user" | "coach"; text: string; createdAt: string };
 
 type ApiMessage = {
   id: number;
@@ -33,6 +37,7 @@ const CHAT_HISTORY_QUERY_KEY = ["chat-history"];
 
 export function ChatScreen({ locale }: { locale: string }) {
   const t = useTranslations("chat");
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -73,6 +78,7 @@ export function ChatScreen({ locale }: { locale: string }) {
           id: `history-${m.id}`,
           from: m.role === "assistant" ? ("coach" as const) : ("user" as const),
           text: m.content,
+          createdAt: m.created_at,
         })),
       );
   }, [history.data]);
@@ -84,7 +90,8 @@ export function ChatScreen({ locale }: { locale: string }) {
     setIsSending(true);
     setSendError(false);
     const coachMessageId = nextLocalId();
-    setMessages((prev) => [...prev, { id: nextLocalId(), from: "user", text: trimmed }, { id: coachMessageId, from: "coach", text: "" }]);
+    const sentAt = new Date().toISOString();
+    setMessages((prev) => [...prev, { id: nextLocalId(), from: "user", text: trimmed, createdAt: sentAt }, { id: coachMessageId, from: "coach", text: "", createdAt: sentAt }]);
 
     lastChunkAtRef.current = Date.now();
     const thinkingTimer = setInterval(() => {
@@ -103,10 +110,7 @@ export function ChatScreen({ locale }: { locale: string }) {
         });
       });
     } catch (err) {
-      const detail =
-        err instanceof ApiError && err.body && typeof err.body === "object" && "detail" in err.body
-          ? (err.body as { detail?: { error?: string } }).detail
-          : null;
+      const detail = err instanceof ApiError && err.body && typeof err.body === "object" && "detail" in err.body ? (err.body as { detail?: { error?: string } }).detail : null;
       const code = detail?.error ?? null;
 
       if (code === "budget_exceeded") {
@@ -148,8 +152,8 @@ export function ChatScreen({ locale }: { locale: string }) {
   }, [allMessages.length, lastMessage?.text]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-[780px]">
-      <div className="flex items-center gap-2.5 border-b border-border px-6 py-4 lg:px-0 lg:py-2">
+    <div className="flex min-h-0 flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-200">
+      <div className="flex items-center gap-2.5 border-b border-border px-6 py-4 lg:px-0 lg:py-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl">
           <Image src="/icon-512.png" alt="Strides" width={40} height={40} className="h-full w-full object-cover" />
         </div>
@@ -167,9 +171,15 @@ export function ChatScreen({ locale }: { locale: string }) {
         )}
         <AnimatePresence initial={false}>
           {allMessages.map((msg, i) => (
-            <motion.div key={msg.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`mb-2.5 flex lg:mb-3 ${msg.from === "user" ? "justify-end" : "justify-start"}`}>
+            <motion.div
+              key={msg.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`mb-2.5 flex items-end gap-2 lg:mb-3 ${msg.from === "user" ? "flex-row-reverse" : "flex-row"}`}
+            >
+              <Avatar user={msg.from === "user" ? user : COACH_AVATAR} size="md" />
               <div
-                className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-normal lg:max-w-[65%] lg:text-base ${
+                className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-normal lg:max-w-[65%] ${
                   msg.from === "user"
                     ? "rounded-br bg-primary text-primary-foreground"
                     : "rounded-bl border border-border bg-card text-primary [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5"
@@ -185,9 +195,13 @@ export function ChatScreen({ locale }: { locale: string }) {
                         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-light" />
                       </span>
                     )}
+                    {msg.text && <div className="text-right text-xs text-muted-light">{formatMessageTime(msg.createdAt)}</div>}
                   </>
                 ) : (
-                  msg.text
+                  <>
+                    {msg.text && <span className="float-right ml-2 mt-1 text-xs text-primary-foreground/70">{formatMessageTime(msg.createdAt)}</span>}
+                    <span>{msg.text}</span>
+                  </>
                 )}
               </div>
             </motion.div>
@@ -196,7 +210,7 @@ export function ChatScreen({ locale }: { locale: string }) {
       </div>
 
       {sendError && <div className="px-4 pt-2 text-xs text-danger lg:px-0">{t("sendFailed")}</div>}
-      <div className="flex items-center gap-2.5 border-t border-border px-4 py-3 lg:px-0 lg:py-4">
+      <div className="flex items-center gap-2.5 border-t border-border px-2 py-2 lg:px-0 lg:py-2">
         <Input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
