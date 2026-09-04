@@ -82,7 +82,7 @@ export function DashboardScreen({ locale }: { locale: string }) {
   const locationName = useLocationName(preferences?.location_lat, preferences?.location_lon);
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-5 lg:px-11 lg:py-9">
+    <div className="flex-1 overflow-y-auto px-3 py-5 lg:px-11 lg:py-9">
       <div className="mb-6 flex items-center justify-between lg:mb-7 lg:items-end">
         <div>
           <div className="text-sm text-muted">{today}</div>

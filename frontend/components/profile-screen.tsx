@@ -149,7 +149,7 @@ export function ProfileScreen({ locale }: { locale: string }) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 lg:mx-auto lg:w-full lg:max-w-[960px] lg:px-0 lg:pb-9">
+    <div className="flex-1 overflow-y-auto px-3 lg:mx-auto lg:w-full lg:max-w-[960px] lg:px-0 lg:pb-9">
       <div className="mb-3 mt-4 lg:mt-4">
         <SectionLabel>{t("eyebrow")}</SectionLabel>
         <div className="text-2xl font-bold tracking-[-0.3px] text-primary lg:text-3xl">{t("title")}</div>

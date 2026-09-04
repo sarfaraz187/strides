@@ -163,7 +163,7 @@ export function ChatScreen({ locale }: { locale: string }) {
         </div>
       </div>
 
-      <div ref={scrollContainerRef} data-testid="chat-scroll-container" onScroll={handleScroll} className="scrollbar-none flex-1 overflow-y-auto px-5 py-2 lg:px-0 lg:py-2">
+      <div ref={scrollContainerRef} data-testid="chat-scroll-container" onScroll={handleScroll} className="scrollbar-none flex-1 overflow-y-auto px-2 py-2 lg:px-0 lg:py-2">
         {history.isFetchingNextPage && (
           <div className="flex justify-center py-2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-primary" />
