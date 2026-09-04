@@ -46,12 +46,13 @@ def client():
     return TestClient(app)
 
 
-def _session_cookie(client) -> tuple[dict[str, str], str]:
+def _session_cookie(client) -> str:
     user_id = find_or_create_user(
         "avatar-route@example.com", "avatar-route-sub", "Avatar Route"
     )
     token = create_session(user_id, datetime.now(timezone.utc) + timedelta(days=7))
-    return {"session": token}, user_id
+    client.cookies.set("session", token)
+    return user_id
 
 
 def test_upload_avatar_requires_auth(client):
@@ -62,28 +63,26 @@ def test_upload_avatar_requires_auth(client):
 
 
 def test_upload_avatar_rejects_wrong_content_type(client):
-    cookies, _ = _session_cookie(client)
+    _session_cookie(client)
     response = client.post(
         "/profile/avatar",
         files={"file": ("pic.gif", b"fake-bytes", "image/gif")},
-        cookies=cookies,
     )
     assert response.status_code == 400
 
 
 def test_upload_avatar_rejects_oversized_file(client):
-    cookies, _ = _session_cookie(client)
+    _session_cookie(client)
     oversized = b"x" * (5 * 1024 * 1024 + 1)
     response = client.post(
         "/profile/avatar",
         files={"file": ("pic.jpg", oversized, "image/jpeg")},
-        cookies=cookies,
     )
     assert response.status_code == 400
 
 
 def test_upload_avatar_stores_path_and_returns_signed_url(client):
-    cookies, user_id = _session_cookie(client)
+    user_id = _session_cookie(client)
 
     with (
         patch("backend.routes.profile.upload_avatar") as mock_upload,
@@ -94,7 +93,6 @@ def test_upload_avatar_stores_path_and_returns_signed_url(client):
         response = client.post(
             "/profile/avatar",
             files={"file": ("pic.jpg", b"fake-bytes", "image/jpeg")},
-            cookies=cookies,
         )
 
     assert response.status_code == 200
@@ -106,7 +104,7 @@ def test_upload_avatar_stores_path_and_returns_signed_url(client):
 
 
 def test_upload_avatar_deletes_prior_file_when_replacing(client):
-    cookies, user_id = _session_cookie(client)
+    _session_cookie(client)
 
     with (
         patch("backend.routes.profile.upload_avatar") as mock_upload,
@@ -117,14 +115,12 @@ def test_upload_avatar_deletes_prior_file_when_replacing(client):
         client.post(
             "/profile/avatar",
             files={"file": ("pic.jpg", b"first-bytes", "image/jpeg")},
-            cookies=cookies,
         )
 
         mock_upload.return_value = "second.jpg"
         client.post(
             "/profile/avatar",
             files={"file": ("pic.jpg", b"second-bytes", "image/jpeg")},
-            cookies=cookies,
         )
 
     mock_delete.assert_called_once_with("first.jpg")

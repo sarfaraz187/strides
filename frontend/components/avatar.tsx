@@ -17,40 +17,16 @@ const SIZE_CLASSES = {
 // shifting content once it decodes.
 const SIZE_PX = { sm: 32, md: 36, lg: 56 };
 
-export function Avatar({
-  user,
-  size,
-  className,
-}: {
-  user: { name: string | null; avatar_url: string | null } | null;
-  size: "sm" | "md" | "lg";
-  className?: string;
-}) {
+export function Avatar({ user, size, className }: { user: { name: string | null; avatar_url: string | null } | null; size: "sm" | "md" | "lg"; className?: string }) {
   const name = user?.name ?? null;
   const avatarUrl = user?.avatar_url ?? null;
 
   if (avatarUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={avatarUrl}
-        alt={name ?? "Profile picture"}
-        width={SIZE_PX[size]}
-        height={SIZE_PX[size]}
-        className={cn("flex-none rounded-full object-cover", SIZE_CLASSES[size], className)}
-      />
+      <img src={avatarUrl} alt={name ?? "Profile picture"} width={SIZE_PX[size]} height={SIZE_PX[size]} className={cn("flex-none rounded-full object-cover", SIZE_CLASSES[size], className)} />
     );
   }
 
-  return (
-    <div
-      className={cn(
-        "flex flex-none items-center justify-center rounded-full bg-avatar-bg font-semibold text-primary",
-        SIZE_CLASSES[size],
-        className
-      )}
-    >
-      {initialsFromName(name)}
-    </div>
-  );
+  return <div className={cn("flex flex-none items-center justify-center rounded-full bg-avatar-bg font-semibold text-primary", SIZE_CLASSES[size], className)}>{initialsFromName(name)}</div>;
 }

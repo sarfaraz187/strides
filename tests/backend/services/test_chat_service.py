@@ -16,6 +16,13 @@ def env(monkeypatch):
     )
 
 
+@pytest.fixture(autouse=True)
+def mock_langfuse(monkeypatch):
+    fake = MagicMock()
+    fake.start_as_current_observation.return_value.__enter__.return_value = MagicMock()
+    monkeypatch.setattr("backend.services.chat_service.langfuse_client", fake)
+
+
 def _mock_stream(final_response, text_chunks: list[str]):
     """Build a fake client.messages.stream(...) async context manager."""
 

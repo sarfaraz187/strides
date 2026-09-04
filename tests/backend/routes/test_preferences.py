@@ -34,14 +34,14 @@ def client():
     return TestClient(app)
 
 
-def _session_cookie_for_new_user(client) -> dict[str, str]:
+def _session_cookie_for_new_user(client) -> None:
     from datetime import datetime, timedelta, timezone
 
     from data.db import create_session
 
     user_id = find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
     token = create_session(user_id, datetime.now(timezone.utc) + timedelta(days=7))
-    return {"session": token}
+    client.cookies.set("session", token)
 
 
 def test_get_preferences_requires_auth(client):
@@ -50,9 +50,9 @@ def test_get_preferences_requires_auth(client):
 
 
 def test_get_preferences_returns_defaults_for_new_user(client):
-    cookies = _session_cookie_for_new_user(client)
+    _session_cookie_for_new_user(client)
 
-    response = client.get("/preferences", cookies=cookies)
+    response = client.get("/preferences")
 
     assert response.status_code == 200
     assert response.json() == {
@@ -71,30 +71,29 @@ def test_put_preferences_requires_auth(client):
 
 
 def test_put_preferences_partial_update_round_trips_through_get(client):
-    cookies = _session_cookie_for_new_user(client)
+    _session_cookie_for_new_user(client)
 
-    put_response = client.put("/preferences", json={"language": "de"}, cookies=cookies)
+    put_response = client.put("/preferences", json={"language": "de"})
     assert put_response.status_code == 200
     assert put_response.json()["language"] == "de"
     assert put_response.json()["units"] == "km"
 
-    get_response = client.get("/preferences", cookies=cookies)
+    get_response = client.get("/preferences")
     assert get_response.json()["language"] == "de"
 
 
 def test_put_preferences_accepts_location(client):
-    cookies = _session_cookie_for_new_user(client)
+    _session_cookie_for_new_user(client)
 
     response = client.put(
         "/preferences",
         json={"location_lat": 17.385, "location_lon": 78.4867},
-        cookies=cookies,
     )
 
     assert response.status_code == 200
     assert response.json()["location_lat"] == 17.385
     assert response.json()["location_lon"] == 78.4867
 
-    get_response = client.get("/preferences", cookies=cookies)
+    get_response = client.get("/preferences")
     assert get_response.json()["location_lat"] == 17.385
     assert get_response.json()["location_lon"] == 78.4867

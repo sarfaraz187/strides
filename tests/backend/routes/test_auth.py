@@ -69,14 +69,13 @@ def test_logout_deletes_session_cookie(client):
         )
     session_cookie = login_response.cookies["session"]
 
-    logout_response = client.post(
-        "/auth/logout", cookies={"session": session_cookie}
-    )
+    client.cookies.set("session", session_cookie)
+    logout_response = client.post("/auth/logout")
 
     assert logout_response.status_code == 200
 
 
-def _login(client) -> str:
+def _login(client) -> None:
     with patch("backend.services.auth_service.exchange_code_for_identity_tokens") as mock_exchange:
         mock_exchange.return_value = {
             "email": "runner@example.com",
@@ -84,7 +83,7 @@ def _login(client) -> str:
             "name": "Runner Example",
         }
         response = client.get("/auth/callback?code=fake-code", follow_redirects=False)
-    return response.cookies["session"]
+    client.cookies.set("session", response.cookies["session"])
 
 
 def test_health_connect_requires_session(client):
@@ -93,20 +92,16 @@ def test_health_connect_requires_session(client):
 
 
 def test_health_connect_redirects_with_health_scope(client):
-    session_cookie = _login(client)
+    _login(client)
 
-    response = client.get(
-        "/auth/health/connect",
-        cookies={"session": session_cookie},
-        follow_redirects=False,
-    )
+    response = client.get("/auth/health/connect", follow_redirects=False)
 
     assert response.status_code == 307
     assert "googlehealth" in response.headers["location"]
 
 
 def test_health_callback_stores_encrypted_token(client):
-    session_cookie = _login(client)
+    _login(client)
 
     with patch("backend.services.auth_service.exchange_code_for_health_tokens") as mock_exchange:
         mock_exchange.return_value = {
@@ -116,7 +111,6 @@ def test_health_callback_stores_encrypted_token(client):
         }
         response = client.get(
             "/auth/health/callback?code=fake-code",
-            cookies={"session": session_cookie},
             follow_redirects=False,
         )
 
@@ -124,7 +118,7 @@ def test_health_callback_stores_encrypted_token(client):
 
 
 def test_health_disconnect_removes_token(client):
-    session_cookie = _login(client)
+    _login(client)
     with patch("backend.services.auth_service.exchange_code_for_health_tokens") as mock_exchange:
         mock_exchange.return_value = {
             "access_token": "health-access",
@@ -133,13 +127,10 @@ def test_health_disconnect_removes_token(client):
         }
         client.get(
             "/auth/health/callback?code=fake-code",
-            cookies={"session": session_cookie},
             follow_redirects=False,
         )
 
-    response = client.post(
-        "/auth/health/disconnect", cookies={"session": session_cookie}
-    )
+    response = client.post("/auth/health/disconnect")
 
     assert response.status_code == 200
 
@@ -150,9 +141,9 @@ def test_me_requires_session(client):
 
 
 def test_me_returns_email_and_name_for_valid_session(client):
-    session_cookie = _login(client)
+    _login(client)
 
-    response = client.get("/auth/me", cookies={"session": session_cookie})
+    response = client.get("/auth/me")
 
     assert response.status_code == 200
     body = response.json()
@@ -162,22 +153,21 @@ def test_me_returns_email_and_name_for_valid_session(client):
 
 
 def test_me_reports_health_connected_false_when_not_connected(client):
-    session_cookie = _login(client)
+    _login(client)
 
-    response = client.get("/auth/me", cookies={"session": session_cookie})
+    response = client.get("/auth/me")
 
     assert response.status_code == 200
     assert response.json()["health_connected"] is False
 
 
 def test_health_callback_redirects_with_error_param_on_exchange_failure(client):
-    session_cookie = _login(client)
+    _login(client)
 
     with patch("backend.services.auth_service.exchange_code_for_health_tokens") as mock_exchange:
         mock_exchange.side_effect = requests.HTTPError("token exchange failed")
         response = client.get(
             "/auth/health/callback?code=bad-code",
-            cookies={"session": session_cookie},
             follow_redirects=False,
         )
 
@@ -186,11 +176,10 @@ def test_health_callback_redirects_with_error_param_on_exchange_failure(client):
 
 
 def test_health_callback_redirects_with_error_param_on_consent_denied(client):
-    session_cookie = _login(client)
+    _login(client)
 
     response = client.get(
         "/auth/health/callback?error=access_denied",
-        cookies={"session": session_cookie},
         follow_redirects=False,
     )
 
@@ -199,7 +188,7 @@ def test_health_callback_redirects_with_error_param_on_consent_denied(client):
 
 
 def test_me_reports_health_connected_true_after_health_callback(client):
-    session_cookie = _login(client)
+    _login(client)
     with patch("backend.services.auth_service.exchange_code_for_health_tokens") as mock_exchange:
         mock_exchange.return_value = {
             "access_token": "health-access",
@@ -208,18 +197,17 @@ def test_me_reports_health_connected_true_after_health_callback(client):
         }
         client.get(
             "/auth/health/callback?code=fake-code",
-            cookies={"session": session_cookie},
             follow_redirects=False,
         )
 
-    response = client.get("/auth/me", cookies={"session": session_cookie})
+    response = client.get("/auth/me")
 
     assert response.status_code == 200
     assert response.json()["health_connected"] is True
 
 
 def test_me_reports_health_connected_false_after_disconnect(client):
-    session_cookie = _login(client)
+    _login(client)
     with patch("backend.services.auth_service.exchange_code_for_health_tokens") as mock_exchange:
         mock_exchange.return_value = {
             "access_token": "health-access",
@@ -228,12 +216,11 @@ def test_me_reports_health_connected_false_after_disconnect(client):
         }
         client.get(
             "/auth/health/callback?code=fake-code",
-            cookies={"session": session_cookie},
             follow_redirects=False,
         )
-    client.post("/auth/health/disconnect", cookies={"session": session_cookie})
+    client.post("/auth/health/disconnect")
 
-    response = client.get("/auth/me", cookies={"session": session_cookie})
+    response = client.get("/auth/me")
 
     assert response.status_code == 200
     assert response.json()["health_connected"] is False
@@ -247,7 +234,7 @@ def test_health_callback_resolves_existing_reauth_notification(client):
             "name": "Runner Example",
         }
         login_response = client.get("/auth/callback?code=fake-code", follow_redirects=False)
-    session_cookie = login_response.cookies["session"]
+    client.cookies.set("session", login_response.cookies["session"])
 
     from data.db import find_or_create_user
     user_id = find_or_create_user("[EMAIL]", "google-sub-123", "Runner Example")
@@ -261,7 +248,6 @@ def test_health_callback_resolves_existing_reauth_notification(client):
         }
         client.get(
             "/auth/health/callback?code=fake-code",
-            cookies={"session": session_cookie},
             follow_redirects=False,
         )
 

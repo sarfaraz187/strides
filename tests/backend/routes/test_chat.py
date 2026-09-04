@@ -55,14 +55,14 @@ def client(monkeypatch):
     return TestClient(app)
 
 
-def _session_cookie_for_new_user(client) -> dict[str, str]:
+def _session_cookie_for_new_user(client) -> None:
     from datetime import datetime, timedelta, timezone
 
     user_id = find_or_create_user(
         "runner@example.com", "google-sub-123", "Runner Example"
     )
     token = create_session(user_id, datetime.now(timezone.utc) + timedelta(days=7))
-    return {"session": token}
+    client.cookies.set("session", token)
 
 
 def test_post_chat_requires_auth(client):
@@ -79,14 +79,14 @@ def _collect_sse_text(response) -> str:
 
 
 def test_post_chat_streams_sse_and_persists_full_reply(client):
-    cookies = _session_cookie_for_new_user(client)
+    _session_cookie_for_new_user(client)
 
-    response = client.post("/chat", json={"message": "hi"}, cookies=cookies)
+    response = client.post("/chat", json={"message": "hi"})
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
     assert _collect_sse_text(response) == "mocked reply"
 
-    history = client.get("/chat/history", cookies=cookies)
+    history = client.get("/chat/history")
     contents = [m["content"] for m in history.json()["messages"]]
     assert contents == ["mocked reply", "hi"]
 
@@ -102,8 +102,8 @@ def test_post_chat_calls_maybe_fold_with_rows_since_last_summary(client, monkeyp
     fold_mock = AsyncMock(side_effect=lambda user_id, system_prompt, rows, tools: rows)
     monkeypatch.setattr(chat_route, "maybe_fold", fold_mock)
 
-    cookies = _session_cookie_for_new_user(client)
-    response = client.post("/chat", json={"message": "hi"}, cookies=cookies)
+    _session_cookie_for_new_user(client)
+    response = client.post("/chat", json={"message": "hi"})
 
     assert response.status_code == 200
     fold_mock.assert_awaited_once()
@@ -113,31 +113,31 @@ def test_post_chat_calls_maybe_fold_with_rows_since_last_summary(client, monkeyp
 
 
 def test_get_chat_history_paginates(client):
-    cookies = _session_cookie_for_new_user(client)
+    _session_cookie_for_new_user(client)
     for i in range(3):
-        client.post("/chat", json={"message": f"message {i}"}, cookies=cookies)
+        client.post("/chat", json={"message": f"message {i}"})
 
-    first_page = client.get("/chat/history?limit=2", cookies=cookies).json()
+    first_page = client.get("/chat/history?limit=2").json()
     assert len(first_page["messages"]) == 2
     assert first_page["has_more"] is True
 
     oldest_id_on_first_page = first_page["messages"][-1]["id"]
     second_page = client.get(
-        f"/chat/history?before_id={oldest_id_on_first_page}&limit=2", cookies=cookies
+        f"/chat/history?before_id={oldest_id_on_first_page}&limit=2"
     ).json()
     assert second_page["has_more"] is True
 
 
 def test_post_chat_rejects_message_over_500_chars(client):
-    cookies = _session_cookie_for_new_user(client)
-    response = client.post("/chat", json={"message": "x" * 501}, cookies=cookies)
+    _session_cookie_for_new_user(client)
+    response = client.post("/chat", json={"message": "x" * 501})
     assert response.status_code == 400
     assert response.json()["detail"]["error"] == "message_too_long"
 
 
 def test_post_chat_rejects_when_budget_exceeded(client, monkeypatch):
     monkeypatch.setenv("TOKEN_BUDGET_LIMIT", "1000")
-    cookies = _session_cookie_for_new_user(client)
+    _session_cookie_for_new_user(client)
 
     from data.db import get_connection
 
@@ -148,7 +148,7 @@ def test_post_chat_rejects_when_budget_exceeded(client, monkeypatch):
         )
         conn.commit()
 
-    response = client.post("/chat", json={"message": "hi"}, cookies=cookies)
+    response = client.post("/chat", json={"message": "hi"})
     assert response.status_code == 403
     assert response.json()["detail"]["error"] == "budget_exceeded"
 
@@ -156,7 +156,7 @@ def test_post_chat_rejects_when_budget_exceeded(client, monkeypatch):
 def test_post_chat_allowlisted_email_bypasses_budget_and_length(client, monkeypatch):
     monkeypatch.setenv("TOKEN_BUDGET_LIMIT", "1000")
     monkeypatch.setenv("UNRESTRICTED_EMAILS", "runner@example.com")
-    cookies = _session_cookie_for_new_user(client)
+    _session_cookie_for_new_user(client)
 
     from data.db import get_connection
 
@@ -167,7 +167,7 @@ def test_post_chat_allowlisted_email_bypasses_budget_and_length(client, monkeypa
         )
         conn.commit()
 
-    response = client.post("/chat", json={"message": "x" * 501}, cookies=cookies)
+    response = client.post("/chat", json={"message": "x" * 501})
     assert response.status_code == 200
 
 
@@ -182,9 +182,9 @@ def test_post_chat_increments_tokens_used_after_reply(client, monkeypatch):
             yield chunk
 
     monkeypatch.setattr(chat_route, "process_query", fake_process_query)
-    cookies = _session_cookie_for_new_user(client)
+    _session_cookie_for_new_user(client)
 
-    response = client.post("/chat", json={"message": "hi"}, cookies=cookies)
+    response = client.post("/chat", json={"message": "hi"})
     assert response.status_code == 200
 
     from data.db import get_connection

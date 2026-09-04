@@ -31,10 +31,11 @@ def client():
     return TestClient(app)
 
 
-def _session_cookie_for_new_user(client) -> dict[str, str]:
+def _session_cookie_for_new_user(client) -> str:
     user_id = find_or_create_user("[EMAIL]", "google-sub-123", "Runner Example")
     token = create_session(user_id, datetime.now(timezone.utc) + timedelta(days=7))
-    return {"session": token}, user_id
+    client.cookies.set("session", token)
+    return user_id
 
 
 def test_get_notifications_requires_auth(client):
@@ -43,10 +44,10 @@ def test_get_notifications_requires_auth(client):
 
 
 def test_get_notifications_returns_unresolved_notifications(client):
-    cookies, user_id = _session_cookie_for_new_user(client)
+    user_id = _session_cookie_for_new_user(client)
     create_notification(user_id, "health_reauth_required", "/connectors")
 
-    response = client.get("/notifications", cookies=cookies)
+    response = client.get("/notifications")
 
     assert response.status_code == 200
     body = response.json()
@@ -56,11 +57,11 @@ def test_get_notifications_returns_unresolved_notifications(client):
 
 
 def test_read_all_marks_notifications_read(client):
-    cookies, user_id = _session_cookie_for_new_user(client)
+    user_id = _session_cookie_for_new_user(client)
     create_notification(user_id, "health_reauth_required", "/connectors")
 
-    response = client.patch("/notifications/read-all", cookies=cookies)
+    response = client.patch("/notifications/read-all")
     assert response.status_code == 200
 
-    listed = client.get("/notifications", cookies=cookies).json()
+    listed = client.get("/notifications").json()
     assert listed[0]["status"] == "read"

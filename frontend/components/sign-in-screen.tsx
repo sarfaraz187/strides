@@ -24,13 +24,7 @@ export function SignInScreen() {
           </div>
         </div>
         <div className="flex w-full flex-col gap-3">
-          <a
-            href={loginUrl}
-            className={cn(
-              buttonVariants(),
-              "h-14 gap-2.5 rounded-2xl bg-primary text-base text-primary-foreground"
-            )}
-          >
+          <a href={loginUrl} className={cn(buttonVariants(), "h-14 gap-2.5 rounded-2xl bg-primary text-base text-primary-foreground")}>
             <svg width="18" height="18" viewBox="0 0 24 24">
               <path
                 fill="#EA4335"
@@ -39,9 +33,7 @@ export function SignInScreen() {
             </svg>
             {t("cta")}
           </a>
-          <div className="text-center text-xs leading-relaxed text-disclaimer whitespace-pre-line">
-            {t("disclaimer")}
-          </div>
+          <div className="text-center text-xs leading-relaxed text-disclaimer whitespace-pre-line">{t("disclaimer")}</div>
         </div>
       </div>
     </div>

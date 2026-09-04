@@ -7,8 +7,8 @@ from backend.storage import create_signed_url, delete_avatar, upload_avatar
 
 @pytest.fixture(autouse=True)
 def env(monkeypatch):
-    monkeypatch.setenv("SUPABASE_URL", "https://project-ref.supabase.co")
-    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "service-role-key")
+    monkeypatch.setenv("SUPABASE_STORAGE_URL", "https://project-ref.supabase.co")
+    monkeypatch.setenv("SUPABASE_STORAGE_SERVICE_ROLE_KEY", "service-role-key")
 
 
 def test_upload_avatar_puts_object_and_returns_bucket_relative_path():

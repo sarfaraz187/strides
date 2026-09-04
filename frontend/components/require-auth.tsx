@@ -5,13 +5,7 @@ import { useEffect } from "react";
 
 import { useAuth } from "@/lib/auth-context";
 
-export function RequireAuth({
-  children,
-  locale,
-}: {
-  children: React.ReactNode;
-  locale: string;
-}) {
+export function RequireAuth({ children, locale }: { children: React.ReactNode; locale: string }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 

@@ -139,9 +139,10 @@ async def process_query(user_id: str, messages: list[dict], usage: dict | None =
             system_prompt = _build_system_prompt(SYSTEM_PROMPT, user_id)
 
             async with (
-                open_mcp_session_with_client(
-                    user_id, server_url=HEALTH_SERVER_URL
-                ) as (health_session, health_http_client),
+                open_mcp_session_with_client(user_id, server_url=HEALTH_SERVER_URL) as (
+                    health_session,
+                    health_http_client,
+                ),
                 open_mcp_session_with_client(
                     user_id, server_url=CALENDAR_SERVER_URL
                 ) as (calendar_session, calendar_http_client),
@@ -150,9 +151,7 @@ async def process_query(user_id: str, messages: list[dict], usage: dict | None =
                 calendar_tools = await get_tool_schemas(calendar_session)
                 tools = health_tools + calendar_tools + LOCAL_TOOL_SCHEMAS
                 tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
-                sessions_by_tool = {
-                    t["name"]: calendar_session for t in calendar_tools
-                }
+                sessions_by_tool = {t["name"]: calendar_session for t in calendar_tools}
                 http_clients_by_tool = {
                     t["name"]: calendar_http_client for t in calendar_tools
                 }

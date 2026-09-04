@@ -45,12 +45,12 @@ def client():
     return TestClient(app)
 
 
-def _session_cookie(client) -> dict[str, str]:
+def _session_cookie(client) -> None:
     user_id = find_or_create_user(
         "dashboard-route@example.com", "dashboard-route-sub", "Dashboard Route"
     )
     token = create_session(user_id, datetime.now(timezone.utc) + timedelta(days=7))
-    return {"session": token}
+    client.cookies.set("session", token)
 
 
 def _mock_session(weekly_stats: dict, recent_runs: list[dict]):
@@ -99,7 +99,7 @@ def test_dashboard_requires_auth(client):
 
 
 def test_dashboard_health_not_connected_skips_mcp_and_returns_flag(client):
-    cookies = _session_cookie(client)
+    _session_cookie(client)
 
     def open_mcp_session_should_not_be_called(user_id):
         raise AssertionError("MCP session should not be opened when Health is not connected")
@@ -108,7 +108,7 @@ def test_dashboard_health_not_connected_skips_mcp_and_returns_flag(client):
         "backend.routes.dashboard.open_mcp_session",
         open_mcp_session_should_not_be_called,
     ):
-        response = client.get("/dashboard", cookies=cookies)
+        response = client.get("/dashboard")
 
     assert response.status_code == 200
     body = response.json()
@@ -118,7 +118,7 @@ def test_dashboard_health_not_connected_skips_mcp_and_returns_flag(client):
 
 
 def test_dashboard_connected_but_account_not_linked_returns_health_error(client):
-    cookies = _session_cookie(client)
+    _session_cookie(client)
     user_id = find_or_create_user(
         "dashboard-route@example.com", "dashboard-route-sub", "Dashboard Route"
     )
@@ -134,7 +134,7 @@ def test_dashboard_connected_but_account_not_linked_returns_health_error(client)
         "backend.routes.dashboard.open_mcp_session",
         _mock_session_with_error(health_error),
     ):
-        response = client.get("/dashboard", cookies=cookies)
+        response = client.get("/dashboard")
 
     assert response.status_code == 200
     body = response.json()
@@ -148,7 +148,7 @@ def test_dashboard_returns_weekly_stats_and_recent_runs(client):
     """weekly_stats is now derived from recent_runs client-side (not a separate
     MCP call) — a run from last week must be excluded from the weekly totals
     even though it's still returned in recent_runs."""
-    cookies = _session_cookie(client)
+    _session_cookie(client)
     user_id = find_or_create_user(
         "dashboard-route@example.com", "dashboard-route-sub", "Dashboard Route"
     )
@@ -174,7 +174,7 @@ def test_dashboard_returns_weekly_stats_and_recent_runs(client):
         "backend.routes.dashboard.open_mcp_session",
         _mock_session({}, recent_runs),
     ):
-        response = client.get("/dashboard", cookies=cookies)
+        response = client.get("/dashboard")
 
     assert response.status_code == 200
     body = response.json()
@@ -189,7 +189,7 @@ def test_dashboard_returns_weekly_stats_and_recent_runs(client):
 
 
 def test_dashboard_connected_but_mcp_call_fails_returns_flag(client):
-    cookies = _session_cookie(client)
+    _session_cookie(client)
     user_id = find_or_create_user(
         "dashboard-route@example.com", "dashboard-route-sub", "Dashboard Route"
     )
@@ -204,7 +204,7 @@ def test_dashboard_connected_but_mcp_call_fails_returns_flag(client):
         "backend.routes.dashboard.open_mcp_session",
         broken_mcp_session,
     ):
-        response = client.get("/dashboard", cookies=cookies)
+        response = client.get("/dashboard")
 
     assert response.status_code == 200
     body = response.json()
@@ -244,7 +244,7 @@ def test_dashboard_fetches_health_calendar_and_weather_concurrently(client):
     plus 0.3s+0.3s sequential weather calls, plus the calendar session — comfortably
     over 1s if nothing runs in parallel. A concurrent implementation should finish
     in roughly one branch's worth of latency (~0.6s)."""
-    cookies = _session_cookie(client)
+    _session_cookie(client)
     user_id = find_or_create_user(
         "dashboard-route@example.com", "dashboard-route-sub", "Dashboard Route"
     )
@@ -272,7 +272,7 @@ def test_dashboard_fetches_health_calendar_and_weather_concurrently(client):
         patch("backend.services.weather_service.get_air_quality", delayed_air_quality),
     ):
         start = time.monotonic()
-        response = client.get("/dashboard", cookies=cookies)
+        response = client.get("/dashboard")
         elapsed = time.monotonic() - start
 
     assert response.status_code == 200
