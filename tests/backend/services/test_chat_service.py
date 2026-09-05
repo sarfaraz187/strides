@@ -216,7 +216,7 @@ def test_process_query_merges_local_tool_schemas_with_mcp_tools():
         async def drain():
             chunks = []
             async for chunk in process_query(
-                "user-123", [{"role": "user", "content": "hi"}]
+                "user-123", "conv-123", [{"role": "user", "content": "hi"}]
             ):
                 chunks.append(chunk)
             return chunks
@@ -284,7 +284,7 @@ def test_process_query_injects_memories_into_system_prompt():
 
         async def drain():
             async for _ in process_query(
-                "user-123", [{"role": "user", "content": "hi"}]
+                "user-123", "conv-123", [{"role": "user", "content": "hi"}]
             ):
                 pass
 
@@ -321,7 +321,7 @@ def test_process_query_sets_cache_control_on_system_and_tools():
 
         async def drain():
             async for _ in process_query(
-                "user-123", [{"role": "user", "content": "hi"}]
+                "user-123", "conv-123", [{"role": "user", "content": "hi"}]
             ):
                 pass
 
@@ -387,7 +387,7 @@ def test_process_query_reports_cache_usage_to_langfuse():
 
         async def drain():
             async for _ in process_query(
-                "user-123", [{"role": "user", "content": "hi"}]
+                "user-123", "conv-123", [{"role": "user", "content": "hi"}]
             ):
                 pass
 
@@ -469,7 +469,7 @@ def test_process_query_persists_intermediate_tool_turns():
         async def drain():
             chunks = []
             async for chunk in process_query(
-                "user-123", [{"role": "user", "content": "hi"}]
+                "user-123", "conv-123", [{"role": "user", "content": "hi"}]
             ):
                 chunks.append(chunk)
             return "".join(chunks)
@@ -479,12 +479,12 @@ def test_process_query_persists_intermediate_tool_turns():
     assert reply == "done"
     assert mock_save_message.call_count == 2
     mock_save_message.assert_any_call(
-        "user-123",
+        "conv-123",
         "assistant",
         [{"type": "tool_use", "id": "call-1", "name": "get_weekly_stats", "input": {}}],
     )
     mock_save_message.assert_any_call(
-        "user-123",
+        "conv-123",
         "user",
         [{"type": "tool_result", "tool_use_id": "call-1", "content": "42km this week"}],
     )
@@ -521,7 +521,7 @@ def test_process_query_injects_conversation_summary_into_system_prompt():
 
         async def drain():
             async for _ in process_query(
-                "user-123", [{"role": "user", "content": "hi"}]
+                "user-123", "conv-123", [{"role": "user", "content": "hi"}]
             ):
                 pass
 
@@ -577,7 +577,7 @@ def test_process_query_accumulates_usage_across_tool_loop():
 
         async def drain():
             async for _ in process_query(
-                "user-123", [{"role": "user", "content": "hi"}], usage=usage
+                "user-123", "conv-123", [{"role": "user", "content": "hi"}], usage=usage
             ):
                 pass
 
@@ -613,7 +613,7 @@ def test_process_query_omits_summary_section_when_none_exists():
 
         async def drain():
             async for _ in process_query(
-                "user-123", [{"role": "user", "content": "hi"}]
+                "user-123", "conv-123", [{"role": "user", "content": "hi"}]
             ):
                 pass
 

@@ -1,4 +1,6 @@
 import logging
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from langfuse import get_client, propagate_attributes
@@ -88,7 +90,9 @@ def _to_input_block(block) -> dict:
     return block.model_dump()
 
 
-def _build_system_prompt(base_prompt: str, user_id: str) -> list[dict]:
+def _build_system_prompt(
+    base_prompt: str, user_id: str, conversation_id: str
+) -> list[dict]:
     """Build the system prompt as cache-friendly blocks: the static base_prompt
     (identical for every user/request, so it's marked cacheable) followed by a
     dynamic suffix (date/memories/summary, which changes per request and is
@@ -101,7 +105,7 @@ def _build_system_prompt(base_prompt: str, user_id: str) -> list[dict]:
         facts = "\n".join(f"- {m['fact']}" for m in memories)
         suffix = f"{suffix}\n\nKnown facts about this user:\n{facts}"
 
-    summary = db.get_conversation_summary(user_id)
+    summary = db.get_conversation_summary(conversation_id)
     if summary:
         suffix = (
             f"{suffix}\n\nSummary of earlier conversation:\n{summary['summary_text']}"
@@ -117,7 +121,104 @@ def _build_system_prompt(base_prompt: str, user_id: str) -> list[dict]:
     ]
 
 
-async def process_query(user_id: str, messages: list[dict], usage: dict | None = None):
+@dataclass
+class ToolSessions:
+    tools: list[dict]
+    health_session: object
+    health_http_client: object
+    sessions_by_tool: dict
+    http_clients_by_tool: dict
+
+
+@asynccontextmanager
+async def _open_tool_sessions(user_id: str):
+    """Open the Health + Calendar MCP sessions and assemble the combined tool list."""
+    async with (
+        open_mcp_session_with_client(user_id, server_url=HEALTH_SERVER_URL) as (
+            health_session,
+            health_http_client,
+        ),
+        open_mcp_session_with_client(user_id, server_url=CALENDAR_SERVER_URL) as (
+            calendar_session,
+            calendar_http_client,
+        ),
+    ):
+        health_tools = await get_tool_schemas(health_session)
+        calendar_tools = await get_tool_schemas(calendar_session)
+        tools = health_tools + calendar_tools + LOCAL_TOOL_SCHEMAS
+        tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
+
+        yield ToolSessions(
+            tools=tools,
+            health_session=health_session,
+            health_http_client=health_http_client,
+            sessions_by_tool={t["name"]: calendar_session for t in calendar_tools},
+            http_clients_by_tool={
+                t["name"]: calendar_http_client for t in calendar_tools
+            },
+        )
+
+
+async def _call_model(
+    client,
+    model: str,
+    system_prompt: list[dict],
+    tools: list[dict],
+    messages: list[dict],
+    usage: dict | None,
+    response_holder: dict,
+):
+    """Stream one Claude turn, recorded as a Langfuse generation observation.
+
+    Yields text chunks as they arrive. On completion, stores the final
+    Message in `response_holder["response"]` and accumulates token usage
+    into `usage` (if provided) — both mutated in place since an async
+    generator can't also return a value to its caller.
+    """
+    with langfuse_client.start_as_current_observation(
+        as_type="generation",
+        name="claude-messages-create",
+        model=model,
+        input=messages,
+    ) as generation:  # <---- One observation from langfuse
+        async with client.messages.stream(
+            model=model,
+            max_tokens=1024,
+            system=system_prompt,
+            tools=tools,
+            tool_choice={"type": "auto", "disable_parallel_tool_use": True},
+            messages=messages,
+        ) as stream:
+            async for text in stream.text_stream:
+                yield text
+            response = await stream.get_final_message()
+
+        generation.update(
+            output=[block.model_dump() for block in response.content],
+            usage_details={
+                "input": response.usage.input_tokens,
+                "output": response.usage.output_tokens,
+                "cache_creation_input_tokens": (
+                    response.usage.cache_creation_input_tokens
+                ),
+                "cache_read_input_tokens": response.usage.cache_read_input_tokens,
+            },
+        )
+
+    if usage is not None:
+        usage["input_tokens"] = (
+            usage.get("input_tokens", 0) + response.usage.input_tokens
+        )
+        usage["output_tokens"] = (
+            usage.get("output_tokens", 0) + response.usage.output_tokens
+        )
+
+    response_holder["response"] = response
+
+
+async def process_query(
+    user_id: str, conversation_id: str, messages: list[dict], usage: dict | None = None
+):
     """Call Claude, executing any requested tools, until it gives a final answer.
 
     Yields text chunks as they stream in. The final assistant text is the
@@ -131,31 +232,17 @@ async def process_query(user_id: str, messages: list[dict], usage: dict | None =
 
     with tracer.start_as_current_span("chat.process_query") as otel_span:
         otel_span.set_attribute("user_id", user_id)
+        otel_span.set_attribute("conversation_id", conversation_id)
 
-        with propagate_attributes(user_id=user_id):
+        with propagate_attributes(user_id=user_id, session_id=conversation_id):
             logger.info(
                 "------------- Starting new query for user %s -------------", user_id
             )
-            system_prompt = _build_system_prompt(SYSTEM_PROMPT, user_id)
+            system_prompt = _build_system_prompt(
+                SYSTEM_PROMPT, user_id, conversation_id
+            )
 
-            async with (
-                open_mcp_session_with_client(user_id, server_url=HEALTH_SERVER_URL) as (
-                    health_session,
-                    health_http_client,
-                ),
-                open_mcp_session_with_client(
-                    user_id, server_url=CALENDAR_SERVER_URL
-                ) as (calendar_session, calendar_http_client),
-            ):
-                health_tools = await get_tool_schemas(health_session)
-                calendar_tools = await get_tool_schemas(calendar_session)
-                tools = health_tools + calendar_tools + LOCAL_TOOL_SCHEMAS
-                tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
-                sessions_by_tool = {t["name"]: calendar_session for t in calendar_tools}
-                http_clients_by_tool = {
-                    t["name"]: calendar_http_client for t in calendar_tools
-                }
-
+            async with _open_tool_sessions(user_id) as sessions:
                 with (
                     langfuse_client.start_as_current_observation(
                         as_type="span",
@@ -166,52 +253,18 @@ async def process_query(user_id: str, messages: list[dict], usage: dict | None =
                     ) as process_span
                 ):  # <--- One Trace from langfuse
                     while True:
-                        with langfuse_client.start_as_current_observation(
-                            as_type="generation",
-                            name="claude-messages-create",
-                            model=model,
-                            input=messages,
-                        ) as generation:  # <---- One observation from langfuse
-                            async with client.messages.stream(
-                                model=model,
-                                max_tokens=1024,
-                                system=system_prompt,
-                                tools=tools,
-                                tool_choice={
-                                    "type": "auto",
-                                    "disable_parallel_tool_use": True,
-                                },
-                                messages=messages,
-                            ) as stream:
-                                async for text in stream.text_stream:
-                                    yield text
-                                response = await stream.get_final_message()
-
-                            generation.update(
-                                output=[
-                                    block.model_dump() for block in response.content
-                                ],
-                                usage_details={
-                                    "input": response.usage.input_tokens,
-                                    "output": response.usage.output_tokens,
-                                    "cache_creation_input_tokens": (
-                                        response.usage.cache_creation_input_tokens
-                                    ),
-                                    "cache_read_input_tokens": (
-                                        response.usage.cache_read_input_tokens
-                                    ),
-                                },
-                            )
-
-                        if usage is not None:
-                            usage["input_tokens"] = (
-                                usage.get("input_tokens", 0)
-                                + response.usage.input_tokens
-                            )
-                            usage["output_tokens"] = (
-                                usage.get("output_tokens", 0)
-                                + response.usage.output_tokens
-                            )
+                        response_holder: dict = {}
+                        async for text in _call_model(
+                            client,
+                            model,
+                            system_prompt,
+                            sessions.tools,
+                            messages,
+                            usage,
+                            response_holder,
+                        ):
+                            yield text
+                        response = response_holder["response"]
 
                         content_dicts = [
                             _to_input_block(block) for block in response.content
@@ -230,16 +283,16 @@ async def process_query(user_id: str, messages: list[dict], usage: dict | None =
 
                         tool_results = await call_tools(
                             user_id,
-                            health_session,
+                            sessions.health_session,
                             response.content,
-                            sessions_by_tool=sessions_by_tool,
-                            http_client=health_http_client,
-                            http_clients_by_tool=http_clients_by_tool,
+                            sessions_by_tool=sessions.sessions_by_tool,
+                            http_client=sessions.health_http_client,
+                            http_clients_by_tool=sessions.http_clients_by_tool,
                         )
                         messages.append({"role": "user", "content": tool_results})
 
-                        db.save_message(user_id, "assistant", content_dicts)
-                        db.save_message(user_id, "user", tool_results)
+                        db.save_message(conversation_id, "assistant", content_dicts)
+                        db.save_message(conversation_id, "user", tool_results)
 
 
 async def call_tools(

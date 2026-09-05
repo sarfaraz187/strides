@@ -57,20 +57,48 @@ def init_db() -> None:
             )
         """)
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS conversations (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                title TEXT NOT NULL DEFAULT 'New chat',
+                pinned BOOLEAN NOT NULL DEFAULT false,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_conversations_user_id_updated_at "
+            "ON conversations (user_id, pinned DESC, updated_at DESC)"
+        )
+
+        # One-time destructive migration: `messages`/`conversation_summaries` predate
+        # the `conversations` table and have no `conversation_id` to backfill against.
+        # Per the multi-chat-threads design doc, existing chat history is discarded
+        # rather than migrated, so drop-and-recreate only if the old shape is present.
+        old_shape = conn.execute("""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'messages' AND column_name = 'user_id'
+        """).fetchone()
+        if old_shape is not None:
+            conn.execute("DROP TABLE IF EXISTS conversation_summaries CASCADE")
+            conn.execute("DROP TABLE IF EXISTS messages CASCADE")
+
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS messages (
                 id SERIAL PRIMARY KEY,
-                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
                 role TEXT NOT NULL,
                 content JSONB NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now()
             )
         """)
         conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_messages_user_id_id ON messages (user_id, id DESC)"
+            "CREATE INDEX IF NOT EXISTS idx_messages_conversation_id_id "
+            "ON messages (conversation_id, id DESC)"
         )
         conn.execute("""
             CREATE TABLE IF NOT EXISTS conversation_summaries (
-                user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                conversation_id UUID PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
                 summary_text TEXT NOT NULL,
                 through_message_id INTEGER NOT NULL,
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -243,32 +271,36 @@ def save_oauth_token(
         conn.commit()
 
 
-def save_message(user_id: str, role: str, content: str | list) -> int:
+def save_message(conversation_id: str, role: str, content: str | list) -> int:
     with get_connection() as conn:
         row = conn.execute(
             """
-            INSERT INTO messages (user_id, role, content)
+            INSERT INTO messages (conversation_id, role, content)
             VALUES (%s, %s, %s) RETURNING id
             """,
-            (user_id, role, Json(content)),
+            (conversation_id, role, Json(content)),
         ).fetchone()
+        conn.execute(
+            "UPDATE conversations SET updated_at = now() WHERE id = %s",
+            (conversation_id,),
+        )
         conn.commit()
     return row[0]
 
 
 def get_messages(
-    user_id: str, before_id: int | None, limit: int
+    conversation_id: str, before_id: int | None, limit: int
 ) -> tuple[list[dict], bool]:
     with get_connection() as conn:
         rows = conn.execute(
             """
             SELECT id, role, content, created_at FROM messages
-            WHERE user_id = %s AND (%s::int IS NULL OR id < %s)
+            WHERE conversation_id = %s AND (%s::int IS NULL OR id < %s)
                 AND jsonb_typeof(content) = 'string'
             ORDER BY id DESC
             LIMIT %s
             """,
-            (user_id, before_id, before_id, limit + 1),
+            (conversation_id, before_id, before_id, limit + 1),
         ).fetchall()
     has_more = len(rows) > limit
     rows = rows[:limit]
@@ -279,27 +311,27 @@ def get_messages(
     return messages, has_more
 
 
-def get_messages_since(user_id: str, after_id: int) -> list[dict]:
+def get_messages_since(conversation_id: str, after_id: int) -> list[dict]:
     with get_connection() as conn:
         rows = conn.execute(
             """
             SELECT id, role, content FROM messages
-            WHERE user_id = %s AND id > %s
+            WHERE conversation_id = %s AND id > %s
             ORDER BY id
             """,
-            (user_id, after_id),
+            (conversation_id, after_id),
         ).fetchall()
     return [{"id": row[0], "role": row[1], "content": row[2]} for row in rows]
 
 
-def get_conversation_summary(user_id: str) -> dict | None:
+def get_conversation_summary(conversation_id: str) -> dict | None:
     with get_connection() as conn:
         row = conn.execute(
             """
             SELECT summary_text, through_message_id
-            FROM conversation_summaries WHERE user_id = %s
+            FROM conversation_summaries WHERE conversation_id = %s
             """,
-            (user_id,),
+            (conversation_id,),
         ).fetchone()
     if row is None:
         return None
@@ -307,20 +339,106 @@ def get_conversation_summary(user_id: str) -> dict | None:
 
 
 def upsert_conversation_summary(
-    user_id: str, summary_text: str, through_message_id: int
+    conversation_id: str, summary_text: str, through_message_id: int
 ) -> None:
     with get_connection() as conn:
         conn.execute(
             """
             INSERT INTO conversation_summaries
-                (user_id, summary_text, through_message_id, updated_at)
+                (conversation_id, summary_text, through_message_id, updated_at)
             VALUES (%s, %s, %s, now())
-            ON CONFLICT (user_id) DO UPDATE SET
+            ON CONFLICT (conversation_id) DO UPDATE SET
                 summary_text = excluded.summary_text,
                 through_message_id = excluded.through_message_id,
                 updated_at = excluded.updated_at
             """,
-            (user_id, summary_text, through_message_id),
+            (conversation_id, summary_text, through_message_id),
+        )
+        conn.commit()
+
+
+class EmptyTitleError(ValueError):
+    pass
+
+
+def create_conversation(user_id: str, title: str) -> str:
+    with get_connection() as conn:
+        row = conn.execute(
+            "INSERT INTO conversations (user_id, title) VALUES (%s, %s) RETURNING id",
+            (user_id, title),
+        ).fetchone()
+        conn.commit()
+    return str(row[0])
+
+
+def get_conversation(conversation_id: str, user_id: str) -> dict | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id, title, pinned, created_at, updated_at
+            FROM conversations WHERE id = %s AND user_id = %s
+            """,
+            (conversation_id, user_id),
+        ).fetchone()
+    if row is None:
+        return None
+    return {
+        "id": str(row[0]),
+        "title": row[1],
+        "pinned": row[2],
+        "created_at": row[3],
+        "updated_at": row[4],
+    }
+
+
+def list_conversations(user_id: str, search: str | None = None) -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, title, pinned, created_at, updated_at
+            FROM conversations
+            WHERE user_id = %s AND (%s::text IS NULL OR title ILIKE '%%' || %s || '%%')
+            ORDER BY pinned DESC, updated_at DESC
+            """,
+            (user_id, search, search),
+        ).fetchall()
+    return [
+        {
+            "id": str(row[0]),
+            "title": row[1],
+            "pinned": row[2],
+            "created_at": row[3],
+            "updated_at": row[4],
+        }
+        for row in rows
+    ]
+
+
+def rename_conversation(conversation_id: str, user_id: str, title: str) -> None:
+    if not title.strip():
+        raise EmptyTitleError("title cannot be empty")
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE conversations SET title = %s WHERE id = %s AND user_id = %s",
+            (title, conversation_id, user_id),
+        )
+        conn.commit()
+
+
+def set_pinned(conversation_id: str, user_id: str, pinned: bool) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE conversations SET pinned = %s WHERE id = %s AND user_id = %s",
+            (pinned, conversation_id, user_id),
+        )
+        conn.commit()
+
+
+def delete_conversation(conversation_id: str, user_id: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "DELETE FROM conversations WHERE id = %s AND user_id = %s",
+            (conversation_id, user_id),
         )
         conn.commit()
 

@@ -8,15 +8,19 @@ import pytest
 
 import data.db as db
 from data.db import (
+    EmptyTitleError,
     Notification,
     Preferences,
+    create_conversation,
     create_notification,
     create_session,
+    delete_conversation,
     delete_oauth_token,
     delete_session,
     find_or_create_user,
     get_calendar_id,
     get_connection,
+    get_conversation,
     get_memories,
     get_messages,
     get_messages_since,
@@ -27,13 +31,16 @@ from data.db import (
     get_user,
     increment_tokens_used,
     init_db,
+    list_conversations,
     list_notifications,
     mark_all_read,
+    rename_conversation,
     resolve_notification,
     save_memory,
     save_message,
     save_oauth_token,
     save_calendar_id,
+    set_pinned,
     update_avatar_path,
     upsert_preferences,
 )
@@ -51,8 +58,9 @@ def clean_schema():
     yield
     with get_connection() as conn:
         conn.execute("DROP TABLE IF EXISTS conversation_summaries CASCADE")
-        conn.execute("DROP TABLE IF EXISTS memories CASCADE")
         conn.execute("DROP TABLE IF EXISTS messages CASCADE")
+        conn.execute("DROP TABLE IF EXISTS conversations CASCADE")
+        conn.execute("DROP TABLE IF EXISTS memories CASCADE")
         conn.execute("DROP TABLE IF EXISTS preferences CASCADE")
         conn.execute("DROP TABLE IF EXISTS notifications CASCADE")
         conn.execute("DROP TABLE IF EXISTS oauth_tokens CASCADE")
@@ -77,6 +85,38 @@ def test_init_db_creates_users_table():
         "avatar_path",
         "tokens_used",
     }
+
+
+def test_init_db_creates_conversations_table():
+    with get_connection() as conn:
+        result = conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'conversations' AND table_schema = 'public'"
+        ).fetchall()
+    columns = {row[0] for row in result}
+    assert columns == {"id", "user_id", "title", "pinned", "created_at", "updated_at"}
+
+
+def test_init_db_scopes_messages_to_conversation_id():
+    with get_connection() as conn:
+        result = conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'messages' AND table_schema = 'public'"
+        ).fetchall()
+    columns = {row[0] for row in result}
+    assert "conversation_id" in columns
+    assert "user_id" not in columns
+
+
+def test_init_db_scopes_conversation_summaries_to_conversation_id():
+    with get_connection() as conn:
+        result = conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'conversation_summaries' AND table_schema = 'public'"
+        ).fetchall()
+    columns = {row[0] for row in result}
+    assert "conversation_id" in columns
+    assert "user_id" not in columns
 
 
 def test_init_db_creates_preferences_table():
@@ -405,18 +445,17 @@ def test_init_db_creates_messages_table():
             "WHERE table_name = 'messages' AND table_schema = 'public'"
         ).fetchall()
     columns = {row[0] for row in result}
-    assert columns == {"id", "user_id", "role", "content", "created_at"}
+    assert columns == {"id", "conversation_id", "role", "content", "created_at"}
 
 
 def test_save_message_then_get_messages_round_trips():
-    user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
-    )
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
 
-    save_message(user_id, "user", "How far did I run this week?")
-    save_message(user_id, "assistant", "You ran 12km this week.")
+    save_message(conversation_id, "user", "How far did I run this week?")
+    save_message(conversation_id, "assistant", "You ran 12km this week.")
 
-    messages, has_more = get_messages(user_id, before_id=None, limit=20)
+    messages, has_more = get_messages(conversation_id, before_id=None, limit=20)
 
     assert has_more is False
     assert [m["role"] for m in messages] == ["assistant", "user"]
@@ -426,31 +465,29 @@ def test_save_message_then_get_messages_round_trips():
     ]
 
 
-def test_get_messages_only_returns_requesting_users_messages():
-    user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
-    )
-    other_user_id = find_or_create_user(
-        "other@example.com", "google-sub-456", "Other Runner"
-    )
-    save_message(user_id, "user", "mine")
-    save_message(other_user_id, "user", "not mine")
+def test_get_messages_only_returns_this_conversations_messages():
+    user_id = _create_user()
+    conversation_a = create_conversation(user_id, "Chat A")
+    conversation_b = create_conversation(user_id, "Chat B")
+    save_message(conversation_a, "user", "mine")
+    save_message(conversation_b, "user", "not mine")
 
-    messages, _ = get_messages(user_id, before_id=None, limit=20)
+    messages, _ = get_messages(conversation_a, before_id=None, limit=20)
 
     assert [m["content"] for m in messages] == ["mine"]
 
 
 def test_get_messages_paginates_with_before_id_cursor():
-    user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
-    )
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
     for i in range(5):
-        save_message(user_id, "user", f"message {i}")
+        save_message(conversation_id, "user", f"message {i}")
 
-    first_page, first_has_more = get_messages(user_id, before_id=None, limit=2)
+    first_page, first_has_more = get_messages(
+        conversation_id, before_id=None, limit=2
+    )
     second_page, second_has_more = get_messages(
-        user_id, before_id=first_page[-1]["id"], limit=2
+        conversation_id, before_id=first_page[-1]["id"], limit=2
     )
 
     assert [m["content"] for m in first_page] == ["message 4", "message 3"]
@@ -460,12 +497,11 @@ def test_get_messages_paginates_with_before_id_cursor():
 
 
 def test_get_messages_has_more_false_on_last_page():
-    user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
-    )
-    save_message(user_id, "user", "only message")
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
+    save_message(conversation_id, "user", "only message")
 
-    messages, has_more = get_messages(user_id, before_id=None, limit=20)
+    messages, has_more = get_messages(conversation_id, before_id=None, limit=20)
 
     assert has_more is False
     assert len(messages) == 1
@@ -513,12 +549,11 @@ def test_get_memories_only_returns_requesting_users_memories():
 
 
 def test_save_message_returns_new_message_id():
-    user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
-    )
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
 
-    first_id = save_message(user_id, "user", "first")
-    second_id = save_message(user_id, "user", "second")
+    first_id = save_message(conversation_id, "user", "first")
+    second_id = save_message(conversation_id, "user", "second")
 
     assert isinstance(first_id, int)
     assert second_id == first_id + 1
@@ -534,67 +569,62 @@ def test_messages_content_column_is_jsonb():
 
 
 def test_save_message_stores_list_content_and_round_trips_via_get_messages_since():
-    user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
-    )
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
     block_content = [
         {"type": "tool_use", "id": "call-1", "name": "get_weekly_stats", "input": {}}
     ]
 
-    save_message(user_id, "assistant", block_content)
+    save_message(conversation_id, "assistant", block_content)
 
-    rows = get_messages_since(user_id, after_id=0)
+    rows = get_messages_since(conversation_id, after_id=0)
     assert rows[0]["content"] == block_content
 
 
 def test_get_messages_since_returns_rows_after_cursor_ascending():
-    user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
-    )
-    ids = [save_message(user_id, "user", f"m{i}") for i in range(5)]
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
+    ids = [save_message(conversation_id, "user", f"m{i}") for i in range(5)]
 
-    rows = get_messages_since(user_id, after_id=ids[1])
+    rows = get_messages_since(conversation_id, after_id=ids[1])
 
     assert [r["content"] for r in rows] == ["m2", "m3", "m4"]
     assert [r["id"] for r in rows] == ids[2:]
 
 
 def test_get_messages_since_zero_returns_everything():
-    user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
-    )
-    ids = [save_message(user_id, "user", f"m{i}") for i in range(3)]
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
+    ids = [save_message(conversation_id, "user", f"m{i}") for i in range(3)]
 
-    rows = get_messages_since(user_id, after_id=0)
+    rows = get_messages_since(conversation_id, after_id=0)
 
     assert [r["id"] for r in rows] == ids
 
 
 def test_get_messages_since_includes_block_content_rows():
-    user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
-    )
-    save_message(user_id, "user", "text turn")
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
+    save_message(conversation_id, "user", "text turn")
     tool_block = [{"type": "tool_use", "id": "call-1", "name": "x", "input": {}}]
-    save_message(user_id, "assistant", tool_block)
+    save_message(conversation_id, "assistant", tool_block)
 
-    rows = get_messages_since(user_id, after_id=0)
+    rows = get_messages_since(conversation_id, after_id=0)
 
     assert [r["content"] for r in rows] == ["text turn", tool_block]
 
 
 def test_get_messages_excludes_block_content_rows_from_display():
-    user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
-    )
-    save_message(user_id, "user", "text turn")
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
+    save_message(conversation_id, "user", "text turn")
     save_message(
-        user_id,
+        conversation_id,
         "assistant",
         [{"type": "tool_use", "id": "call-1", "name": "x", "input": {}}],
     )
 
-    messages, _ = get_messages(user_id, before_id=None, limit=20)
+    messages, _ = get_messages(conversation_id, before_id=None, limit=20)
 
     assert [m["content"] for m in messages] == ["text turn"]
 
@@ -606,24 +636,22 @@ def test_init_db_creates_conversation_summaries_table():
             "WHERE table_name = 'conversation_summaries' AND table_schema = 'public'"
         ).fetchall()
     columns = {row[0] for row in result}
-    assert columns == {"user_id", "summary_text", "through_message_id", "updated_at"}
+    assert columns == {"conversation_id", "summary_text", "through_message_id", "updated_at"}
 
 
 def test_get_conversation_summary_returns_none_when_absent():
-    user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
-    )
-    assert db.get_conversation_summary(user_id) is None
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
+    assert db.get_conversation_summary(conversation_id) is None
 
 
 def test_upsert_then_get_conversation_summary_round_trips():
-    user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
-    )
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
 
-    db.upsert_conversation_summary(user_id, "Training for a fall marathon.", 42)
+    db.upsert_conversation_summary(conversation_id, "Training for a fall marathon.", 42)
 
-    summary = db.get_conversation_summary(user_id)
+    summary = db.get_conversation_summary(conversation_id)
     assert summary == {
         "summary_text": "Training for a fall marathon.",
         "through_message_id": 42,
@@ -631,14 +659,14 @@ def test_upsert_then_get_conversation_summary_round_trips():
 
 
 def test_upsert_conversation_summary_overwrites_existing():
-    user_id = find_or_create_user(
-        "runner@example.com", "google-sub-123", "Runner Example"
-    )
-    db.upsert_conversation_summary(user_id, "First summary.", 10)
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
 
-    db.upsert_conversation_summary(user_id, "Second summary.", 25)
+    db.upsert_conversation_summary(conversation_id, "First summary.", 10)
 
-    summary = db.get_conversation_summary(user_id)
+    db.upsert_conversation_summary(conversation_id, "Second summary.", 25)
+
+    summary = db.get_conversation_summary(conversation_id)
     assert summary == {"summary_text": "Second summary.", "through_message_id": 25}
 
 
@@ -707,3 +735,94 @@ def test_mark_all_read_flips_unread_to_read_but_not_resolved():
     notifications = list_notifications(user_id)
     assert len(notifications) == 1
     assert notifications[0].status == "read"
+
+
+def _create_user() -> str:
+    return find_or_create_user("runner@example.com", "google-sub-123", "Runner Example")
+
+
+def test_create_conversation_returns_id_and_defaults():
+    user_id = _create_user()
+
+    conversation_id = create_conversation(user_id, "Marathon taper plan")
+
+    conversation = get_conversation(conversation_id, user_id)
+    assert conversation["title"] == "Marathon taper plan"
+    assert conversation["pinned"] is False
+
+
+def test_get_conversation_returns_none_for_other_users_conversation():
+    user_id = _create_user()
+    other_user_id = find_or_create_user(
+        "other@example.com", "google-sub-456", "Other"
+    )
+    conversation_id = create_conversation(user_id, "Mine")
+
+    assert get_conversation(conversation_id, other_user_id) is None
+
+
+def test_list_conversations_orders_pinned_first_then_by_recency():
+    user_id = _create_user()
+    older = create_conversation(user_id, "Older chat")
+    newer = create_conversation(user_id, "Newer chat")
+    save_message(older, "user", "hi")
+    save_message(newer, "user", "hi")
+    set_pinned(older, user_id, True)
+
+    conversations = list_conversations(user_id)
+
+    assert [c["id"] for c in conversations] == [older, newer]
+    assert conversations[0]["pinned"] is True
+
+
+def test_list_conversations_filters_by_title_search():
+    user_id = _create_user()
+    create_conversation(user_id, "Marathon taper plan")
+    create_conversation(user_id, "Shin pain advice")
+
+    results = list_conversations(user_id, search="marathon")
+
+    assert len(results) == 1
+    assert results[0]["title"] == "Marathon taper plan"
+
+
+def test_rename_conversation_updates_title():
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
+
+    rename_conversation(conversation_id, user_id, "Renamed chat")
+
+    assert get_conversation(conversation_id, user_id)["title"] == "Renamed chat"
+
+
+def test_rename_conversation_rejects_empty_title():
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
+
+    with pytest.raises(EmptyTitleError):
+        rename_conversation(conversation_id, user_id, "   ")
+
+    assert get_conversation(conversation_id, user_id)["title"] == "New chat"
+
+
+def test_set_pinned_toggles_pinned_flag():
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
+
+    set_pinned(conversation_id, user_id, True)
+    assert get_conversation(conversation_id, user_id)["pinned"] is True
+
+    set_pinned(conversation_id, user_id, False)
+    assert get_conversation(conversation_id, user_id)["pinned"] is False
+
+
+def test_delete_conversation_removes_it_and_cascades_to_messages():
+    user_id = _create_user()
+    conversation_id = create_conversation(user_id, "New chat")
+    save_message(conversation_id, "user", "hi")
+
+    delete_conversation(conversation_id, user_id)
+
+    assert get_conversation(conversation_id, user_id) is None
+    messages, _ = get_messages(conversation_id, before_id=None, limit=20)
+    assert messages == []

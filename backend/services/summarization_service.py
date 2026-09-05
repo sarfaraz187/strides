@@ -54,7 +54,7 @@ def _is_orphaned_tool_result(row: dict) -> bool:
 
 
 async def maybe_fold(
-    user_id: str, system_prompt: str, rows: list[dict], tools: list[dict]
+    conversation_id: str, system_prompt: str, rows: list[dict], tools: list[dict]
 ) -> list[dict]:
     from backend.agent import client, model
 
@@ -73,7 +73,7 @@ async def maybe_fold(
         cutoff -= 1
     chunk = rows[:cutoff]
 
-    existing = db.get_conversation_summary(user_id)
+    existing = db.get_conversation_summary(conversation_id)
     existing_summary = existing["summary_text"] if existing else "(none yet)"
 
     response = await client.messages.create(
@@ -92,6 +92,6 @@ async def maybe_fold(
     )
     new_summary = next(block.text for block in response.content if block.type == "text")
 
-    db.upsert_conversation_summary(user_id, new_summary, chunk[-1]["id"])
+    db.upsert_conversation_summary(conversation_id, new_summary, chunk[-1]["id"])
 
     return rows[cutoff:]

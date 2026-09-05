@@ -84,6 +84,7 @@ app.add_middleware(
 from backend.routes.auth import router as auth_router
 from backend.routes.calendar import router as calendar_router
 from backend.routes.chat import router
+from backend.routes.conversations import router as conversations_router
 from backend.routes.dashboard import router as dashboard_router
 from backend.routes.notifications import router as notifications_router
 from backend.routes.preferences import router as preferences_router
@@ -91,6 +92,7 @@ from backend.routes.profile import router as profile_router
 from backend.routes.well_known import router as well_known_router
 
 app.include_router(router)
+app.include_router(conversations_router)
 app.include_router(auth_router)
 app.include_router(calendar_router)
 app.include_router(dashboard_router)

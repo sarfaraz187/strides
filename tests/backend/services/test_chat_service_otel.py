@@ -93,7 +93,7 @@ def test_process_query_emits_a_span():
 
         async def drain():
             async for _ in chat_service.process_query(
-                "test-user", [{"role": "user", "content": "hello"}]
+                "test-user", "conv-1", [{"role": "user", "content": "hello"}]
             ):
                 pass
 
