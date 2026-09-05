@@ -34,7 +34,20 @@
     "syncedStatus": "Mit Google Health synchronisiert",
     "placeholder": "Frag etwas zu deinem Training...",
     "sendFailed": "Nachricht konnte nicht gesendet werden. Versuch es erneut.",
-    "budgetExceeded": "Du hast dein Nutzungslimit für diese App erreicht."
+    "budgetExceeded": "Du hast dein Nutzungslimit für diese App erreicht.",
+    "emptyTitle": "Neuer Chat mit Coach",
+    "emptySubtitle": "Frag nach Trainingsplänen, Erholung oder deinen letzten Läufen, um loszulegen.",
+    "suggestions": [
+      "Wie ist das Wetter gerade",
+      "Wie war mein letzter Lauf",
+      "Plane das heutige Training",
+      "Wie läuft mein Training"
+    ],
+    "chatsTitle": "Chats",
+    "newChat": "Neuer Chat",
+    "searchPlaceholder": "Chats durchsuchen",
+    "pinnedSection": "Angeheftet",
+    "recentSection": "Kürzlich"
   },
   "nav": {
     "dashboard": "Übersicht",

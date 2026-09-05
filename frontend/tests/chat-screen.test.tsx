@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import en from "../messages/en.json";
 import { ChatScreen } from "../components/chat-screen";
 
+const CONVERSATION_ID = "conv-1";
+
 function renderWithProviders(ui: React.ReactNode) {
   const queryClient = new QueryClient();
   return render(
@@ -25,10 +27,11 @@ function errorResponse(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status });
 }
 
-function sseResponse(chunks: string[]) {
+function sseResponse(chunks: string[], conversationId: string = CONVERSATION_ID) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ conversation_id: conversationId })}\n\n`));
       for (const chunk of chunks) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`));
       }
@@ -41,17 +44,19 @@ function sseResponse(chunks: string[]) {
 describe("ChatScreen", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("sends the typed message with the current locale and shows the reply", async () => {
+  it("sends the typed message with the current locale and conversation id, and shows the reply", async () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.example.com";
     const mockFetch = vi.spyOn(global, "fetch").mockImplementation((input) => {
       const url = input.toString();
-      if (url.includes("/chat/history")) {
+      if (url.includes(`/conversations/${CONVERSATION_ID}/messages`)) {
         return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
       }
       return Promise.resolve(sseResponse(["8km easy ", "Saturday."]));
     });
 
-    renderWithProviders(<ChatScreen locale="en" />);
+    renderWithProviders(
+      <ChatScreen locale="en" conversationId={CONVERSATION_ID} onConversationCreated={vi.fn()} />
+    );
 
     const input = screen.getByPlaceholderText(en.chat.placeholder);
     fireEvent.change(input, { target: { value: "what should I do saturday?" } });
@@ -63,16 +68,20 @@ describe("ChatScreen", () => {
       "https://api.example.com/chat",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ message: "what should I do saturday?", locale: "en" }),
+        body: JSON.stringify({
+          message: "what should I do saturday?",
+          locale: "en",
+          conversation_id: CONVERSATION_ID,
+        }),
       })
     );
   });
 
-  it("loads history on mount and renders it oldest-to-newest", async () => {
+  it("loads history for the given conversation on mount and renders it oldest-to-newest", async () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.example.com";
     vi.spyOn(global, "fetch").mockImplementation((input) => {
       const url = input.toString();
-      if (url.includes("/chat/history")) {
+      if (url.includes(`/conversations/${CONVERSATION_ID}/messages`)) {
         return Promise.resolve(
           jsonResponse({
             messages: [
@@ -86,7 +95,9 @@ describe("ChatScreen", () => {
       return Promise.resolve(sseResponse(["unused"]));
     });
 
-    renderWithProviders(<ChatScreen locale="en" />);
+    renderWithProviders(
+      <ChatScreen locale="en" conversationId={CONVERSATION_ID} onConversationCreated={vi.fn()} />
+    );
 
     await waitFor(() => expect(screen.getByText("Second reply")).toBeInTheDocument());
 
@@ -106,7 +117,7 @@ describe("ChatScreen", () => {
           })
         );
       }
-      if (url.includes("/chat/history")) {
+      if (url.includes(`/conversations/${CONVERSATION_ID}/messages`)) {
         return Promise.resolve(
           jsonResponse({
             messages: [{ id: 5, role: "user", content: "Newest message", created_at: "2026-08-14T12:11:00Z" }],
@@ -117,36 +128,33 @@ describe("ChatScreen", () => {
       return Promise.resolve(sseResponse(["unused"]));
     });
 
-    renderWithProviders(<ChatScreen locale="en" />);
+    renderWithProviders(
+      <ChatScreen locale="en" conversationId={CONVERSATION_ID} onConversationCreated={vi.fn()} />
+    );
 
     await waitFor(() => expect(screen.getByText("Newest message")).toBeInTheDocument());
 
     const scrollContainer = screen.getByTestId("chat-scroll-container");
-    Object.defineProperty(scrollContainer, "scrollTop", {
-      value: 0,
-      configurable: true,
-      writable: true,
-    });
+    Object.defineProperty(scrollContainer, "scrollTop", { value: 0, configurable: true, writable: true });
     fireEvent.scroll(scrollContainer);
 
     await waitFor(() => expect(screen.getByText("Older message")).toBeInTheDocument());
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining("before_id=5"),
-      expect.anything()
-    );
+    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("before_id=5"), expect.anything());
   });
 
   it("does not duplicate a sent message while it streams in", async () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.example.com";
     vi.spyOn(global, "fetch").mockImplementation((input) => {
       const url = input.toString();
-      if (url.includes("/chat/history")) {
+      if (url.includes(`/conversations/${CONVERSATION_ID}/messages`)) {
         return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
       }
       return Promise.resolve(sseResponse(["8km easy Saturday."]));
     });
 
-    renderWithProviders(<ChatScreen locale="en" />);
+    renderWithProviders(
+      <ChatScreen locale="en" conversationId={CONVERSATION_ID} onConversationCreated={vi.fn()} />
+    );
 
     const input = screen.getByPlaceholderText(en.chat.placeholder);
     fireEvent.change(input, { target: { value: "what should I do saturday?" } });
@@ -166,6 +174,7 @@ describe("ChatScreen", () => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ conversation_id: CONVERSATION_ID })}\n\n`));
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: "Checking" })}\n\n`));
         releaseSecondChunk = () => {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: " your runs" })}\n\n`));
@@ -176,15 +185,15 @@ describe("ChatScreen", () => {
 
     vi.spyOn(global, "fetch").mockImplementation((input) => {
       const url = input.toString();
-      if (url.includes("/chat/history")) {
+      if (url.includes(`/conversations/${CONVERSATION_ID}/messages`)) {
         return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
       }
-      return Promise.resolve(
-        new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } })
-      );
+      return Promise.resolve(new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } }));
     });
 
-    renderWithProviders(<ChatScreen locale="en" />);
+    renderWithProviders(
+      <ChatScreen locale="en" conversationId={CONVERSATION_ID} onConversationCreated={vi.fn()} />
+    );
 
     const input = screen.getByPlaceholderText(en.chat.placeholder);
     fireEvent.change(input, { target: { value: "how was my week?" } });
@@ -210,13 +219,15 @@ describe("ChatScreen", () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.example.com";
     vi.spyOn(global, "fetch").mockImplementation((input) => {
       const url = input.toString();
-      if (url.includes("/chat/history")) {
+      if (url.includes(`/conversations/${CONVERSATION_ID}/messages`)) {
         return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
       }
       return Promise.resolve(errorResponse(403, { detail: { error: "budget_exceeded" } }));
     });
 
-    renderWithProviders(<ChatScreen locale="en" />);
+    renderWithProviders(
+      <ChatScreen locale="en" conversationId={CONVERSATION_ID} onConversationCreated={vi.fn()} />
+    );
 
     const input = screen.getByPlaceholderText(en.chat.placeholder);
     fireEvent.change(input, { target: { value: "another training plan please" } });
@@ -232,13 +243,15 @@ describe("ChatScreen", () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.example.com";
     vi.spyOn(global, "fetch").mockImplementation((input) => {
       const url = input.toString();
-      if (url.includes("/chat/history")) {
+      if (url.includes(`/conversations/${CONVERSATION_ID}/messages`)) {
         return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
       }
       return Promise.resolve(errorResponse(400, { detail: { error: "message_too_long" } }));
     });
 
-    renderWithProviders(<ChatScreen locale="en" />);
+    renderWithProviders(
+      <ChatScreen locale="en" conversationId={CONVERSATION_ID} onConversationCreated={vi.fn()} />
+    );
 
     const input = screen.getByPlaceholderText(en.chat.placeholder);
     fireEvent.change(input, { target: { value: "x".repeat(501) } });
@@ -254,15 +267,38 @@ describe("ChatScreen", () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.example.com";
     vi.spyOn(global, "fetch").mockImplementation((input) => {
       const url = input.toString();
-      if (url.includes("/chat/history")) {
+      if (url.includes(`/conversations/${CONVERSATION_ID}/messages`)) {
         return Promise.resolve(jsonResponse({ messages: [], has_more: false }));
       }
       return Promise.resolve(sseResponse(["unused"]));
     });
 
-    renderWithProviders(<ChatScreen locale="en" />);
+    renderWithProviders(
+      <ChatScreen locale="en" conversationId={CONVERSATION_ID} onConversationCreated={vi.fn()} />
+    );
 
     const input = screen.getByPlaceholderText(en.chat.placeholder) as HTMLInputElement;
     expect(input.maxLength).toBe(500);
+  });
+
+  it("shows suggestion chips in the empty new-chat state and creates a conversation on click", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.example.com";
+    const onConversationCreated = vi.fn();
+    const mockFetch = vi
+      .spyOn(global, "fetch")
+      .mockImplementation(() => Promise.resolve(sseResponse(["Sounds good."], "conv-new")));
+
+    renderWithProviders(<ChatScreen locale="en" onConversationCreated={onConversationCreated} />);
+
+    expect(screen.getByText(en.chat.emptyTitle)).toBeInTheDocument();
+    fireEvent.click(screen.getByText(en.chat.suggestions[0]));
+
+    await waitFor(() => expect(onConversationCreated).toHaveBeenCalledWith("conv-new"));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.example.com/chat",
+      expect.objectContaining({
+        body: JSON.stringify({ message: en.chat.suggestions[0], locale: "en", conversation_id: null }),
+      })
+    );
   });
 });

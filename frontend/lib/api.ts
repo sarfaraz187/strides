@@ -35,10 +35,12 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   return response.json() as Promise<T>;
 }
 
+export type ChatStreamEvent = { text?: string; conversation_id?: string };
+
 export async function apiStream(
   path: string,
   options: RequestInit,
-  onChunk: (text: string) => void
+  onEvent: (event: ChatStreamEvent) => void
 ): Promise<void> {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
   const response = await fetch(`${baseUrl}${path}`, {
@@ -69,8 +71,7 @@ export async function apiStream(
     for (const frame of frames) {
       const line = frame.split("\n").find((l) => l.startsWith("data: "));
       if (!line) continue;
-      const { text } = JSON.parse(line.slice("data: ".length));
-      onChunk(text);
+      onEvent(JSON.parse(line.slice("data: ".length)));
     }
   }
 }

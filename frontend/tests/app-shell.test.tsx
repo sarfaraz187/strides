@@ -1,9 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/en/notifications" }));
+let mockPathname = "/en/notifications";
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => mockPathname,
+  useRouter: () => ({ replace: vi.fn() }),
+}));
 vi.mock("@/lib/auth-context", () => ({
   useAuth: () => ({ user: { name: "Runner Example", email: "runner@example.com", avatar_url: null } }),
 }));
@@ -25,6 +30,11 @@ function wrapper({ children }: { children: React.ReactNode }) {
 describe("AppShell", () => {
   beforeEach(() => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+    mockPathname = "/en/notifications";
+  });
+
+  afterEach(() => {
+    mockPathname = "/en/notifications";
   });
 
   it("marks notifications as the active nav item when on /notifications", () => {
@@ -38,5 +48,18 @@ describe("AppShell", () => {
     for (const link of links) {
       expect(link).toHaveAttribute("href", "/en/notifications");
     }
+  });
+
+  it("marks Coach as active on a conversation page (/chat/{id}), not just the bare /chat route", () => {
+    mockPathname = "/en/chat/conv-1";
+
+    render(<AppShell locale="en">{<div>content</div>}</AppShell>, { wrapper });
+
+    // The desktop Sidebar link exposes an explicit data-active attribute;
+    // BottomNav (mobile) only varies its className, so it's checked separately.
+    const links = screen.getAllByRole("link", { name: messages.nav.coach });
+    expect(links.length).toBeGreaterThan(0);
+    expect(links.some((link) => link.hasAttribute("data-active"))).toBe(true);
+    expect(links.some((link) => link.className.includes("text-primary"))).toBe(true);
   });
 });

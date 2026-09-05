@@ -34,7 +34,20 @@
     "syncedStatus": "Synced with Google Health",
     "placeholder": "Ask about your training...",
     "sendFailed": "Couldn't send your message. Try again.",
-    "budgetExceeded": "You've reached your usage limit for this app."
+    "budgetExceeded": "You've reached your usage limit for this app.",
+    "emptyTitle": "New chat with Coach",
+    "emptySubtitle": "Ask about training plans, recovery, or your recent runs to get started.",
+    "suggestions": [
+      "What's the weather like now",
+      "What was my last run",
+      "Plan today's run",
+      "How's my training going"
+    ],
+    "chatsTitle": "Chats",
+    "newChat": "New chat",
+    "searchPlaceholder": "Search chats",
+    "pinnedSection": "Pinned",
+    "recentSection": "Recent"
   },
   "nav": {
     "dashboard": "Dashboard",
