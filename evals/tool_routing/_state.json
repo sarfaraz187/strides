@@ -1,0 +1,55 @@
+{
+  "metrics": [
+    {
+      "id": "pass",
+      "label": "Pass",
+      "kind": "binary"
+    },
+    {
+      "id": "routing_ok",
+      "label": "Right tools",
+      "kind": "binary"
+    },
+    {
+      "id": "safety_ok",
+      "label": "No forbidden",
+      "kind": "binary"
+    },
+    {
+      "id": "args_ok",
+      "label": "Right args",
+      "kind": "binary"
+    },
+    {
+      "id": "efficiency_ok",
+      "label": "No refetch",
+      "kind": "binary"
+    },
+    {
+      "id": "proposal_ok",
+      "label": "Proposes plan",
+      "kind": "binary"
+    }
+  ],
+  "perf_fields": [
+    {
+      "id": "tool_calls",
+      "label": "Tool calls"
+    },
+    {
+      "id": "cost_usd",
+      "label": "Cost",
+      "unit": "$"
+    }
+  ],
+  "prices": {
+    "claude-haiku-4-5-20251001": {
+      "in": 1.0,
+      "out": 5.0
+    },
+    "claude-haiku-5-5": {
+      "in": 0.1,
+      "out": 0.5
+    }
+  }
+}

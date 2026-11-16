@@ -27,3 +27,10 @@ CLAUDE.md
 .claude/
 
 .superpowers/.DS_Store
+
+# eval outputs that are derived or bulky
+evals/**/traces/
+evals/**/report.html
+evals/**/trajectory/
+evals/**/.harness_sha
+evals/**/__pycache__/
