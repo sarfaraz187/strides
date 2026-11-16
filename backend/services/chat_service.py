@@ -47,8 +47,10 @@ LOCAL_TOOL_SCHEMAS: list = [
         "name": "get_weather",
         "description": (
             "Get the current weather conditions (temperature, condition, "
-            "humidity, wind) at the user's stored location. Use this when "
-            "reasoning about whether/how to plan an upcoming run."
+            "humidity, wind) at the user's stored location. Takes no "
+            "arguments. Returns a one-line summary, or a message saying no "
+            "location is set. Current conditions only, not a forecast, so "
+            "don't use it for future dates or when only reviewing past runs."
         ),
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
